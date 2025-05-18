@@ -715,4 +715,3 @@ with tab3: # Trends & Distributions Tab
 
 st.sidebar.markdown("---")
 st.sidebar.info("Dashboard v2.1 | Enhanced DateTime")
-```

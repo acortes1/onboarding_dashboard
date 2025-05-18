@@ -1,0 +1,10 @@
+[theme]
+primaryColor="#FFD700"  # Gold - for widgets and interactive elements
+backgroundColor="#000000"  # Pure Black
+secondaryBackgroundColor="#1E1E1E"  # Very dark grey for elements like sidebar, cards
+textColor="#FFFFFF"  # White
+font="sans serif"
+
+[server]
+# Enables a better development experience with live updates
+runOnSave = true

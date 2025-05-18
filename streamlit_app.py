@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, date
+from datetime import datetime, date, timedelta # Added timedelta
 import gspread # For Google Sheets
 from google.oauth2.service_account import Credentials # For Google Sheets auth
 import time # For a small delay after clearing cache
@@ -9,51 +9,45 @@ import time # For a small delay after clearing cache
 # --- Page Configuration ---
 st.set_page_config(
     page_title="Onboarding Performance Dashboard",
-    page_icon="🌟", # Gold star!
+    page_icon="🌟",
     layout="wide"
 )
 
 # --- Custom Styling (Gold Accents) ---
-GOLD_ACCENT_COLOR = "#FFD700" # Standard gold
+GOLD_ACCENT_COLOR = "#FFD700"
 
 st.markdown(f"""
 <style>
-    /* Main title */
     .stApp > header {{
         background-color: transparent;
     }}
-    h1 {{ /* Main dashboard title */
+    h1 {{
         color: {GOLD_ACCENT_COLOR};
         text-align: center;
         padding-top: 0.5em;
         padding-bottom: 0.5em;
     }}
-    /* Section headers */
     h2, h3 {{
         color: {GOLD_ACCENT_COLOR};
         border-bottom: 1px solid {GOLD_ACCENT_COLOR} !important;
         padding-bottom: 0.3em;
     }}
-    /* Metric labels and values - ensure text is white if not overridden by theme */
     div[data-testid="stMetricLabel"] > div, 
     div[data-testid="stMetricValue"] > div,
     div[data-testid="stMetricDelta"] > div {{
         color: #FFFFFF !important;
     }}
     div[data-testid="stMetricValue"] > div {{
-        font-size: 1.85rem; /* Slightly larger metric value */
+        font-size: 1.85rem;
     }}
-    /* Expander header color */
     .streamlit-expanderHeader {{
         color: {GOLD_ACCENT_COLOR} !important;
         font-weight: bold;
     }}
-    /* Dataframe styling to fit dark theme better */
     .stDataFrame {{
-        border: 1px solid #333; /* Subtle border for dataframe */
+        border: 1px solid #333;
     }}
-    /* Ensure sidebar text is white */
-    .css-1d391kg p {{ /* Adjust if Streamlit changes its classes */
+    .css-1d391kg p {{
         color: #FFFFFF !important;
     }}
 </style>
@@ -83,34 +77,34 @@ def authenticate_gspread(secrets_dict=None):
         st.info("Check service account setup, JSON key validity, API enablement (Sheets & Drive), and sheet sharing permissions.")
         return None
 
-@st.cache_data(ttl=600) # Cache data for 10 minutes
+@st.cache_data(ttl=600)
 def load_data_from_google_sheet(sheet_url_or_name, worksheet_name):
     gc = None
-    try: # Try loading from Streamlit secrets first (for cloud deployment)
+    try:
         secrets = st.secrets["gcp_service_account"]
         gc = authenticate_gspread(secrets_dict=secrets)
-    except (FileNotFoundError, KeyError): # Fallback to local file if secrets fail or not found
-        gc = authenticate_gspread() # Will look for 'google_credentials.json'
+    except (FileNotFoundError, KeyError):
+        gc = authenticate_gspread()
 
     if gc is None:
         return pd.DataFrame()
 
     try:
-        st.write(f"Attempting to open Google Sheet: '{sheet_url_or_name}', Worksheet: '{worksheet_name}'...")
+        # *** MODIFICATION: Removed the "Attempting to open..." st.write message ***
         try:
             spreadsheet = gc.open_by_url(sheet_url_or_name)
         except (gspread.exceptions.APIError, gspread.exceptions.SpreadsheetNotFound) as e_url:
             try:
-                spreadsheet = gc.open(sheet_url_or_name) # Try opening by name if URL fails
+                spreadsheet = gc.open(sheet_url_or_name)
             except gspread.exceptions.SpreadsheetNotFound:
                 st.error(f"Spreadsheet '{sheet_url_or_name}' not found by URL or Name. Check input and sharing permissions with the service account email.")
                 return pd.DataFrame()
         
         worksheet = spreadsheet.worksheet(worksheet_name)
-        data = worksheet.get_all_records(head=1)
+        data = worksheet.get_all_records(head=1) # Removed value_render_option and datetime_render_option for wider gspread compatibility
         df = pd.DataFrame(data)
         
-        # Debug: Print number of rows loaded
+        # *** MODIFICATION: Kept this helpful message ***
         st.write(f"Successfully loaded {len(df)} records (rows of data, excluding header) from Google Sheet.")
 
         if df.empty:
@@ -121,22 +115,16 @@ def load_data_from_google_sheet(sheet_url_or_name, worksheet_name):
         st.error(f"Error: Worksheet '{worksheet_name}' not found in the spreadsheet '{sheet_url_or_name}'.")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error loading data from Google Sheet: {e}")
+        st.error(f"Error loading data from Google Sheet: {e}") # This will now be the primary error message for loading issues
         return pd.DataFrame()
 
-    # --- Data Preprocessing ---
     df.columns = df.columns.str.strip()
-
     if 'onboardingDate' in df.columns:
         df['onboardingDate_str'] = df['onboardingDate'].astype(str)
         df['onboardingDate_cleaned'] = df['onboardingDate_str'].str.replace('Z', '', regex=False).str.replace('\n', '', regex=False).str.strip()
-        
-        # Attempt to parse various datetime formats, including those with timezone info
         parsed_dates = pd.to_datetime(df['onboardingDate_cleaned'], errors='coerce', infer_datetime_format=True)
-        
         df['onboardingDate_dt'] = parsed_dates
-        df['onboarding_date_only'] = df['onboardingDate_dt'].dt.date # Store as Python date objects
-
+        df['onboarding_date_only'] = df['onboardingDate_dt'].dt.date
         if df['onboarding_date_only'].isnull().all():
              st.warning("Could not parse 'onboardingDate' for any rows. MTD calculations and date filters might not work. Please check the date format in your Google Sheet (e.g., YYYY-MM-DD or YYYY-MM-DD HH:MM:SS).")
     else:
@@ -144,8 +132,7 @@ def load_data_from_google_sheet(sheet_url_or_name, worksheet_name):
         df['onboarding_date_only'] = pd.NaT
         df['onboardingDate_dt'] = pd.NaT
 
-    if 'status' not in df.columns:
-        st.warning("Column 'status' not found.")
+    if 'status' not in df.columns: st.warning("Column 'status' not found.")
     if 'score' in df.columns:
         df['score'] = pd.to_numeric(df['score'], errors='coerce')
     else:
@@ -158,7 +145,8 @@ def load_data_from_google_sheet(sheet_url_or_name, worksheet_name):
 st.title("🌟 Onboarding Performance Dashboard 🌟")
 st.markdown("---")
 
-# --- Initialize Session State ---
+# --- Initialize Session State & Define Hardcoded Data Source ---
+# *** MODIFICATION: Data source is now effectively hardcoded by these defaults ***
 default_sheet_url = "https://docs.google.com/spreadsheets/d/1hRtY8fXsVdgbn2midF0-y2HleEruasxldCtL3WVjWl0/edit?usp=sharing"
 default_worksheet_name = "Sheet1"
 
@@ -166,43 +154,24 @@ if "sheet_url" not in st.session_state:
     st.session_state.sheet_url = default_sheet_url
 if "worksheet_name" not in st.session_state:
     st.session_state.worksheet_name = default_worksheet_name
-if 'data_loaded_successfully' not in st.session_state: # True if df is loaded AND not empty
+if 'data_loaded_successfully' not in st.session_state:
     st.session_state.data_loaded_successfully = False
 if 'df_original' not in st.session_state:
     st.session_state.df_original = pd.DataFrame()
 
-# --- Sidebar Inputs for Google Sheet Info ---
-st.sidebar.header("⚙️ Data Source")
-user_sheet_url = st.sidebar.text_input(
-    "Google Sheet URL or Name:",
-    value=st.session_state.sheet_url,
-    key="sheet_url_input_key"
-)
-user_worksheet_name = st.sidebar.text_input(
-    "Worksheet Name:",
-    value=st.session_state.worksheet_name,
-    key="worksheet_name_input_key"
-)
-
-url_changed = user_sheet_url != st.session_state.sheet_url
-ws_changed = user_worksheet_name != st.session_state.worksheet_name
-
-if url_changed:
-    st.session_state.sheet_url = user_sheet_url
-    st.session_state.data_loaded_successfully = False
-if ws_changed:
-    st.session_state.worksheet_name = user_worksheet_name
-    st.session_state.data_loaded_successfully = False
-
-if st.sidebar.button("🔄 Load/Refresh Data from Google Sheet"):
+# --- Sidebar: Data Refresh Control ---
+# *** MODIFICATION: Removed Data Source text inputs from sidebar. Header changed. ***
+st.sidebar.header("⚙️ Data Controls")
+if st.sidebar.button("🔄 Refresh Data from Google Sheet"):
     st.cache_data.clear()
     st.session_state.data_loaded_successfully = False
     time.sleep(0.1) 
     st.rerun()
 
 # --- Data Loading Logic ---
-if not st.session_state.data_loaded_successfully and st.session_state.sheet_url:
-    with st.spinner(f"Loading data from worksheet '{st.session_state.worksheet_name}' in '{st.session_state.sheet_url}'..."):
+if not st.session_state.data_loaded_successfully:
+    with st.spinner(f"Loading data from Google Sheet..."): # Simplified spinner message
+        # Uses the sheet_url and worksheet_name from session state (which are the defaults now)
         df = load_data_from_google_sheet(st.session_state.sheet_url, st.session_state.worksheet_name)
         if not df.empty:
             st.session_state.df_original = df
@@ -210,26 +179,23 @@ if not st.session_state.data_loaded_successfully and st.session_state.sheet_url:
         else:
             st.session_state.df_original = pd.DataFrame()
             st.session_state.data_loaded_successfully = False
-            # Error/warning is handled within load_data_from_google_sheet
 
 df_original = st.session_state.df_original
 
 if not st.session_state.data_loaded_successfully:
-    st.info("Welcome! Please ensure the Google Sheet URL and Worksheet Name in the sidebar are correct. "
-            "If they are, click 'Load/Refresh Data from Google Sheet'. Also, check Google Sheet sharing permissions and API setup.")
+    st.error("Failed to load data. Please ensure Google Sheet permissions are correct and the sheet is available, then try refreshing. "
+             "The application is configured to use a specific Google Sheet.")
     st.stop()
 elif df_original.empty and st.session_state.data_loaded_successfully:
     st.warning("Data source connected, but the Google Sheet appears to be empty or only contains headers. Please check the sheet content.")
-    # Allow UI to render so user can try again or see the message.
 
-# --- MTD Metrics Calculation ---
+# --- MTD Metrics Calculation (No changes here from last version) ---
 st.header("📈 Month-to-Date (MTD) Overview")
 today = date.today()
 current_month_start = today.replace(day=1)
-df_mtd = pd.DataFrame(columns=df_original.columns) # Default to empty
+df_mtd = pd.DataFrame(columns=df_original.columns)
 
 if not df_original.empty and 'onboarding_date_only' in df_original.columns:
-    # Ensure 'onboarding_date_only' contains valid date objects for comparison
     valid_dates_mask = pd.Series(isinstance(x, date) for x in df_original['onboarding_date_only']) & df_original['onboarding_date_only'].notna()
     if valid_dates_mask.any():
         df_temp_dates = df_original[valid_dates_mask]
@@ -257,24 +223,38 @@ st.markdown("---")
 
 # --- Sidebar Filters ---
 st.sidebar.header("🔍 Filters")
-df_filtered = df_original.copy() # Start with a copy of the original loaded data
+df_filtered = df_original.copy()
 
-# Date filter
+# Date filter - *** MODIFICATION: Default value changed to MTD ***
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
     valid_dates_for_filter = df_original['onboarding_date_only'][pd.Series(isinstance(x, date) for x in df_original['onboarding_date_only']) & df_original['onboarding_date_only'].notna()]
     if not valid_dates_for_filter.empty:
         min_date_data = valid_dates_for_filter.min()
         max_date_data = valid_dates_for_filter.max()
         
+        # Calculate MTD for default filter range
+        filter_default_start_date = date.today().replace(day=1)
+        filter_default_end_date = date.today()
+
+        # Ensure default MTD range is within available data, otherwise use data bounds
+        if filter_default_start_date < min_date_data:
+            filter_default_start_date = min_date_data
+        if filter_default_end_date > max_date_data:
+            filter_default_end_date = max_date_data
+        if filter_default_start_date > filter_default_end_date : # Handle edge case if current MTD is outside all data
+            filter_default_start_date = min_date_data 
+            filter_default_end_date = max_date_data
+
+
         date_range = st.sidebar.date_input(
             "Onboarding Date Range:",
-            value=(min_date_data, max_date_data),
+            value=(filter_default_start_date, filter_default_end_date), # Default to MTD
             min_value=min_date_data,
             max_value=max_date_data,
             key="date_range_filter"
         )
         start_date_filter, end_date_filter = date_range
-        # Apply date filter
+        
         df_filtered = df_filtered[
             df_filtered['onboarding_date_only'].apply(lambda x: isinstance(x, date) and start_date_filter <= x <= end_date_filter if pd.notna(x) else False)
         ]
@@ -283,7 +263,7 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 else:
     st.sidebar.warning("Onboarding date data not available for filtering.")
 
-# Categorical Filters
+# Categorical Filters (no change in logic from last version)
 for col_name in ['repName', 'status', 'clientSentiment']:
     if not df_original.empty and col_name in df_original.columns and df_original[col_name].notna().any():
         unique_values = ["All"] + sorted(df_original[col_name].astype(str).dropna().unique())
@@ -293,19 +273,17 @@ for col_name in ['repName', 'status', 'clientSentiment']:
     else:
         st.sidebar.text(f"{col_name.replace('repName', 'Rep')} data not available for filtering.")
 
-# --- Display Filtered Data Table ---
+# --- Display Filtered Data Table (no change from last version) ---
 st.header("📋 Filtered Onboarding Data")
 if not df_filtered.empty:
     st.dataframe(df_filtered.reset_index(drop=True))
-elif not df_original.empty: # If original had data but filters removed all
+elif not df_original.empty:
     st.info("No data matches the current filter criteria.")
-# If df_original itself was empty, the main stop/warning messages above handle it.
 
 st.markdown("---")
 
-# --- Visualizations based on Filtered Data ---
+# --- Visualizations based on Filtered Data (no functional change from last version, styling remains) ---
 st.header("📊 Visualizations")
-
 if not df_filtered.empty:
     plotly_layout_updates = {
         "plot_bgcolor": "rgba(0,0,0,0)",
@@ -314,11 +292,9 @@ if not df_filtered.empty:
         "title_font_color": GOLD_ACCENT_COLOR,
         "legend_font_color": "#FFFFFF",
     }
-    
-    chart_colors = px.colors.qualitative.Vivid # A color set that generally looks good on dark themes
-    gold_color_sequence = [GOLD_ACCENT_COLOR, "#DAA520", "#B8860B", "#C9B037"] # Shades of gold
-
-    viz_cols = st.columns(2) # Create two columns for visualizations
+    chart_colors = px.colors.qualitative.Vivid
+    gold_color_sequence = [GOLD_ACCENT_COLOR, "#DAA520", "#B8860B", "#C9B037"]
+    viz_cols = st.columns(2)
 
     with viz_cols[0]:
         if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
@@ -343,22 +319,19 @@ if not df_filtered.empty:
             st.subheader("Client Sentiment")
             sentiment_counts = df_filtered['clientSentiment'].value_counts().reset_index()
             sentiment_counts.columns = ['sentiment', 'count']
-            sentiment_color_map = {
-                sent: GOLD_ACCENT_COLOR if sent == "Neutral" else chart_colors[i % len(chart_colors)]
-                for i, sent in enumerate(sentiment_counts['sentiment'].unique())
-            }
-             # Ensure 'Neutral' is gold, others cycle through chart_colors
-            if 'Neutral' in sentiment_color_map: # Prioritize Neutral as gold
-                 for sent in sentiment_counts['sentiment'].unique():
-                     if sent == 'Positive': sentiment_color_map[sent] = '#2ca02c' # Green
-                     elif sent == 'Negative': sentiment_color_map[sent] = '#d62728' # Red
-                     elif sent == 'Neutral': sentiment_color_map[sent] = GOLD_ACCENT_COLOR
-
+            sentiment_color_map = {}
+            unique_sentiments = sentiment_counts['sentiment'].unique()
+            for i, sent in enumerate(unique_sentiments):
+                if sent == 'Positive': sentiment_color_map[sent] = '#2ca02c' # Green
+                elif sent == 'Negative': sentiment_color_map[sent] = '#d62728' # Red
+                elif sent == 'Neutral': sentiment_color_map[sent] = GOLD_ACCENT_COLOR
+                else: sentiment_color_map[sent] = chart_colors[i % len(chart_colors)]
+            
             fig_sentiment = px.pie(sentiment_counts, names='sentiment', values='count',
                                    hole=0.4, template="plotly_dark",
                                    color='sentiment', color_discrete_map=sentiment_color_map)
             fig_sentiment.update_layout(plotly_layout_updates)
-            fig_sentiment.update_traces(marker_line_color='black', marker_line_width=1.5) # Thicker line for pie segments
+            fig_sentiment.update_traces(marker_line_color='black', marker_line_width=1.5)
             st.plotly_chart(fig_sentiment, use_container_width=True)
         
         if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
@@ -366,16 +339,15 @@ if not df_filtered.empty:
             rep_counts = df_filtered['repName'].value_counts().reset_index()
             rep_counts.columns = ['Representative', 'Count']
             fig_rep = px.bar(rep_counts, x='Representative', y='Count', color='Representative',
-                             template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Bold) # Another distinct color set
+                             template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Bold)
             fig_rep.update_layout(plotly_layout_updates)
             fig_rep.update_traces(marker_line_color=GOLD_ACCENT_COLOR, marker_line_width=1)
             st.plotly_chart(fig_rep, use_container_width=True)
 
-elif st.session_state.data_loaded_successfully and df_original.empty: # Data loaded but sheet was empty
-    pass # Warning already shown
-elif st.session_state.data_loaded_successfully: # Data loaded but filters made df_filtered empty
+elif st.session_state.data_loaded_successfully and df_original.empty:
+    pass 
+elif st.session_state.data_loaded_successfully: 
     st.info("No data to visualize based on the current filter selection.")
 
-
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v1.2 | Black & Gold | GSheets Edition")
+st.sidebar.info("Dashboard v1.3 | Black & Gold | GSheets Edition")

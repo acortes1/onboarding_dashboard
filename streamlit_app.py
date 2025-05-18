@@ -107,7 +107,7 @@ def load_data_from_google_sheet(sheet_url_or_name, worksheet_name):
                 return pd.DataFrame()
         
         worksheet = spreadsheet.worksheet(worksheet_name)
-        data = worksheet.get_all_records(head=1, value_render_option='UNFORMATTED_VALUE', datetime_render_option='SERIAL_NUMBER')
+        data = worksheet.get_all_records(head=1)
         df = pd.DataFrame(data)
         
         # Debug: Print number of rows loaded

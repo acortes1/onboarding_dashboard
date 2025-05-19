@@ -6,6 +6,7 @@ from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import gspread
 from google.oauth2.service_account import Credentials
+from collections.abc import Mapping # Keep this import for good practice
 import time
 import numpy as np
 import matplotlib # Required for pandas styler background_gradient
@@ -73,7 +74,7 @@ st.markdown(f"""
 
 # --- BEGIN SECRETS DEBUGGING CODE ---
 # This section can be removed once everything is working.
-st.sidebar.subheader("Secrets Debug Output:") # Moved to sidebar
+st.sidebar.subheader("Secrets Debug Output:") 
 try:
     secret_keys = list(st.secrets.keys())
     st.sidebar.write(f"Available secret keys: {secret_keys}")
@@ -89,15 +90,16 @@ try:
         if secret_value is not None:
             st.sidebar.success(f"Secret '{key}' IS available.")
             if key == "gcp_service_account":
-                is_structured_correctly = isinstance(secret_value, dict) and \
-                                          secret_value.get("type") and \
-                                          secret_value.get("private_key") and \
-                                          secret_value.get("client_email")
-                if is_structured_correctly:
+                is_mapping = isinstance(secret_value, Mapping) 
+                has_type = hasattr(secret_value, 'get') and secret_value.get("type")
+                has_pkey = hasattr(secret_value, 'get') and secret_value.get("private_key")
+                has_cemail = hasattr(secret_value, 'get') and secret_value.get("client_email")
+
+                if is_mapping and has_type and has_pkey and has_cemail:
                     st.sidebar.info(f"   '{key}' seems structured (has type, private_key, client_email).")
                 else:
                     gcp_keys_present = list(secret_value.keys()) if hasattr(secret_value, 'keys') else "N/A (not dict-like)"
-                    st.sidebar.warning(f"   '{key}' (type: {type(secret_value)}) may lack essential fields. Keys found: {gcp_keys_present}.")
+                    st.sidebar.warning(f"   '{key}' (type: {type(secret_value)}) may lack essential fields or not be fully dict-like for checks. Keys found: {gcp_keys_present}.")
         else:
             st.sidebar.error(f"Secret '{key}' is NOT available.")
 except Exception as e:
@@ -137,8 +139,7 @@ if not check_password():
     st.stop() 
 
 # --- Enhanced Debugging for Google Sheets ---
-# We will add st.write messages directly to the main app area for visibility during loading
-st.subheader("Google Sheets Loading Debug:")
+st.subheader("Google Sheets Loading Debug:") # This will appear on the main page
 
 # --- Google Sheets Authentication and Data Loading ---
 SCOPES = [
@@ -153,23 +154,37 @@ def authenticate_gspread():
     if gcp_secrets is None:
         st.error("❌ GCP service account secrets ('gcp_service_account') NOT FOUND in st.secrets.")
         return None
-    st.write("✅ 'gcp_service_account' secret retrieved from st.secrets.")
+    st.write(f"✅ 'gcp_service_account' secret retrieved. Type: {type(gcp_secrets)}")
 
-    if not isinstance(gcp_secrets, dict): # AttrDict is a dict subclass
-        st.error(f"❌ 'gcp_service_account' is not a dictionary. Type found: {type(gcp_secrets)}. Check TOML structure.")
+    # NEW DEBUG LINE: Print all available attributes and methods of gcp_secrets
+    try:
+        st.write(f"🕵️ Attributes/methods of gcp_secrets object: {dir(gcp_secrets)}")
+    except Exception as dir_e:
+        st.write(f"⚠️ Could not get dir() of gcp_secrets: {dir_e}")
+
+    # TYPE CHECK (using hasattr, dir() output will help us understand if this is wrong)
+    if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')):
+        st.error(f"❌ 'gcp_service_account' does not appear to have '.get()' or '.keys()' methods. Type: {type(gcp_secrets)}. Critical error.")
         return None
-    st.write(f"✅ 'gcp_service_account' is a dictionary type (type: {type(gcp_secrets)}).")
+    st.write(f"✅ 'gcp_service_account' appears to have '.get()' and '.keys()' methods (type: {type(gcp_secrets)}).")
 
     required_gcp_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri"]
-    missing_keys = [key for key in required_gcp_keys if key not in gcp_secrets]
+    missing_keys = [key for key in required_gcp_keys if gcp_secrets.get(key) is None] 
+    
     if missing_keys:
-        st.error(f"❌ 'gcp_service_account' is MISSING essential sub-keys: {', '.join(missing_keys)}. Check TOML structure.")
+        st.error(f"❌ 'gcp_service_account' is MISSING values for essential sub-keys: {', '.join(missing_keys)}. Check TOML values.")
+        present_keys = list(gcp_secrets.keys()) if hasattr(gcp_secrets, 'keys') else "N/A"
+        st.info(f"   Keys actually found in 'gcp_service_account' with values: {[k for k, v in gcp_secrets.items() if v is not None]}")
+        st.info(f"   All keys found by .keys(): {present_keys}")
         return None
-    st.write(f"✅ All required sub-keys found in 'gcp_service_account'. Client email: {gcp_secrets.get('client_email')}")
+    st.write(f"✅ All required sub-keys appear to have values in 'gcp_service_account'. Client email: {gcp_secrets.get('client_email')}")
 
     try:
-        st.write("Attempting Credentials.from_service_account_info(...)...")
-        creds = Credentials.from_service_account_info(gcp_secrets, scopes=SCOPES)
+        st.write("Attempting Credentials.from_service_account_info(dict(gcp_secrets), ...)...")
+        # Explicitly cast to dict for safety for the google-auth library.
+        creds_dict = dict(gcp_secrets)
+        st.write(f"   Service account email being used for credentials: {creds_dict.get('client_email')}") 
+        creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES) 
         st.write("✅ Credentials.from_service_account_info() SUCCEEDED.")
         st.write("Attempting gspread.authorize(creds)...")
         gc = gspread.authorize(creds)
@@ -177,11 +192,11 @@ def authenticate_gspread():
         return gc
     except Exception as e:
         st.error(f"❌ Google Sheets Auth Error during credential creation or authorization: {e}")
-        st.error("   Ensure the private_key is correctly formatted (including newlines) and all gcp_service_account fields are accurate.")
+        st.error(f"   Type of gcp_secrets passed to Credentials (after casting): {type(creds_dict if 'creds_dict' in locals() else None)}")
+        st.error("   Ensure the private_key is correctly formatted (including newlines \\n) and all gcp_service_account fields are accurate and have correct values.")
         return None
 
 def robust_to_datetime(series):
-    # ... (robust_to_datetime function remains the same)
     dates = pd.to_datetime(series, errors='coerce', infer_datetime_format=True)
     common_formats = [
         '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y %H:%M:%S',
@@ -248,7 +263,7 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
         st.write(f"✅ Retrieved {len(data)} records (rows) from worksheet.")
 
         df = pd.DataFrame(data)
-        st.sidebar.success(f"Loaded {len(df)} records from '{current_worksheet_name}'.") # Keep in sidebar for final status
+        st.sidebar.success(f"Loaded {len(df)} records from '{current_worksheet_name}'.") 
         if df.empty:
             st.warning("⚠️ DataFrame is empty after pd.DataFrame(data). This is unexpected if records were retrieved.")
             return pd.DataFrame()
@@ -265,7 +280,6 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
         st.error("   This could be due to various issues like API permissions in GCP, network problems, or unexpected sheet structure.")
         return pd.DataFrame()
 
-    # ... (rest of your data processing in load_data_from_google_sheet remains the same) ...
     df.columns = df.columns.str.strip()
     date_columns_to_parse = {
         'onboardingDate': 'onboardingDate_dt',
@@ -289,7 +303,6 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
                  if df['onboarding_date_only'].isnull().all() and not is_mostly_empty_placeholders:
                     st.warning(f"Could not extract date part for any rows from '{original_col}'.")
         else:
-            # st.warning(f"Expected date column '{original_col}' not found.") # Reduced verbosity
             df[new_dt_col] = pd.NaT 
             if original_col == 'onboardingDate':
                 df['onboarding_date_only'] = pd.NaT
@@ -326,25 +339,21 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
         if df['days_to_confirmation'].isnull().all() and valid_dates_mask.any():
             st.warning("Failed to calculate 'Days to Confirmation' for valid rows.")
     else:
-        # st.warning("'deliveryDate' or 'confirmationTimestamp' missing for 'Days to Confirmation'.")
         df['days_to_confirmation'] = pd.NA
 
     if 'status' not in df.columns: st.warning("Column 'status' not found.")
     if 'score' in df.columns:
         df['score'] = pd.to_numeric(df['score'], errors='coerce')
     else:
-        # st.warning("Column 'score' not found.")
         df['score'] = pd.NA 
             
     return df
 
-# --- Helper Functions ---
 @st.cache_data
 def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
 def calculate_metrics(df_input, period_name=""):
-    # ... (calculate_metrics function remains the same) ...
     if df_input.empty:
         return 0, 0.0, pd.NA, pd.NA 
     total_onboardings = len(df_input)
@@ -365,7 +374,6 @@ def calculate_metrics(df_input, period_name=""):
     return total_onboardings, success_rate, avg_score, avg_days_to_confirm
 
 def get_default_date_range(df_date_column_series):
-    # ... (get_default_date_range function remains the same) ...
     today = date.today()
     default_start_date = today.replace(day=1) 
     default_end_date = today
@@ -385,26 +393,22 @@ def get_default_date_range(df_date_column_series):
                 default_start_date = min_data_date
     return default_start_date, default_end_date, min_data_date, max_data_date
 
-# --- Initialize Session State ---
 default_date_val_start, default_date_val_end, _, _ = get_default_date_range(None)
 if 'data_loaded_successfully' not in st.session_state: st.session_state.data_loaded_successfully = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 if 'date_range_filter' not in st.session_state: st.session_state.date_range_filter = (default_date_val_start, default_date_val_end)
-# ... (other session state initializations remain the same) ...
 if 'repName_filter' not in st.session_state: st.session_state.repName_filter = []
 if 'status_filter' not in st.session_state: st.session_state.status_filter = []
 if 'clientSentiment_filter' not in st.session_state: st.session_state.clientSentiment_filter = []
 if 'licenseNumber_search' not in st.session_state: st.session_state.licenseNumber_search = ""
 if 'storeName_search' not in st.session_state: st.session_state.storeName_search = ""
 
-# --- Data Loading Trigger ---
 gs_url_secret = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME")
 gs_worksheet_secret = st.secrets.get("GOOGLE_WORKSHEET_NAME")
 
 if not st.session_state.data_loaded_successfully:
     if not gs_url_secret or not gs_worksheet_secret:
         st.error("Config Error: GOOGLE_SHEET_URL_OR_NAME or GOOGLE_WORKSHEET_NAME not in secrets. Cannot load data.")
-        # No st.stop() here to allow debug messages to show
     else:
         st.write(f"--- Attempting initial data load (gs_url_secret: {bool(gs_url_secret)}, gs_worksheet_secret: {bool(gs_worksheet_secret)}) ---")
         with st.spinner("Connecting to Google Sheet and processing data... This may take a moment."):
@@ -422,15 +426,13 @@ if not st.session_state.data_loaded_successfully:
 
 df_original = st.session_state.df_original 
 
-# --- Main Application UI Starts Here ---
 st.title("🚀 Onboarding Performance Dashboard v2.2 🚀")
-st.markdown("---") # Separator after Google Sheets Loading Debug
+st.markdown("---")
 
 if not st.session_state.data_loaded_successfully or df_original.empty:
     if not gs_url_secret or not gs_worksheet_secret:
-         pass # Error already shown by initial check or debug block
+         pass 
     else:
-        # This is the generic message the user is seeing. More specific errors should appear above.
         st.error("Failed to load data, or the data source is empty or unreadable. Please check the Google Sheet content and permissions. Ensure the sheet and worksheet names in secrets are correct. You can try refreshing. Review messages under 'Google Sheets Loading Debug' above for details.")
     
     if st.sidebar.button("🔄 Force Refresh Data & Reload App", key="force_refresh_sidebar_initial_fail"):
@@ -442,13 +444,6 @@ if not st.session_state.data_loaded_successfully or df_original.empty:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
-    # Do not st.stop() here if we want the rest of the UI for filter interaction etc.
-    # However, most of the app won't function without data.
-
-# --- Sidebar (Filters, etc.) ---
-# ... (rest of your UI code, including sidebar filters and tabs, remains the same) ...
-# For brevity, I'll skip repeating the entire UI part here.
-# Ensure this debugging integration is merged correctly with your full UI code.
 
 st.sidebar.header("⚙️ Data Controls")
 if st.sidebar.button("🔄 Refresh Data from Google Sheet", key="refresh_button_sidebar"):

@@ -1,5 +1,6 @@
 streamlit
 pandas
+numpy
 plotly
 gspread==5.12.4
 google-auth

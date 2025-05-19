@@ -6,24 +6,24 @@ from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import gspread
 from google.oauth2.service_account import Credentials
-from collections.abc import Mapping # For robust dictionary-like type checking
+from collections.abc import Mapping 
 import time
 import numpy as np
 import matplotlib # Required for pandas styler background_gradient
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.2",
-    page_icon="🚀",
+    page_title="Onboarding Performance Dashboard v2.3", # Version increment
+    page_icon="🎯",
     layout="wide"
 )
 
 # --- Custom Styling (Gold Accents) ---
-GOLD_ACCENT_COLOR = "#FFD700" # Gold
-PRIMARY_TEXT_COLOR = "#FFFFFF" # White
-SECONDARY_TEXT_COLOR = "#B0B0B0" # Light Gray
-BACKGROUND_COLOR = "#0E1117" # Streamlit Dark Default
-PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent for plots
+GOLD_ACCENT_COLOR = "#FFD700" 
+PRIMARY_TEXT_COLOR = "#FFFFFF" 
+SECONDARY_TEXT_COLOR = "#B0B0B0" 
+BACKGROUND_COLOR = "#0E1117" 
+PLOT_BG_COLOR = "rgba(0,0,0,0)" 
 
 st.markdown(f"""
 <style>
@@ -56,7 +56,7 @@ st.markdown(f"""
     .stDataFrame {{
         border: 1px solid #333;
     }}
-    .css-1d391kg p, .css- F_1U7P p {{ /* Note: These CSS selectors might be unstable across Streamlit versions */
+    .css-1d391kg p, .css- F_1U7P p {{ 
         color: {PRIMARY_TEXT_COLOR} !important;
     }}
     button[data-baseweb="tab"] {{
@@ -111,32 +111,25 @@ SCOPES = [
 
 def authenticate_gspread():
     gcp_secrets = st.secrets.get("gcp_service_account")
-    
     if gcp_secrets is None:
         st.error("GCP service account secrets ('gcp_service_account') NOT FOUND in st.secrets. App cannot authenticate.")
         return None
-
-    # Check for dictionary-like behavior
     if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')):
         st.error(f"GCP service account secrets ('gcp_service_account') is not structured correctly (type: {type(gcp_secrets)}). App cannot authenticate.")
         return None
-
     required_gcp_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri"]
     missing_keys = [key for key in required_gcp_keys if gcp_secrets.get(key) is None] 
-    
     if missing_keys:
         st.error(f"GCP service account secrets ('gcp_service_account') is MISSING values for essential sub-keys: {', '.join(missing_keys)}. App cannot authenticate.")
         return None
-
     try:
-        # Explicitly cast to dict for safety, as google-auth library expects a plain dict.
         creds_dict = dict(gcp_secrets)
         creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES) 
         gc = gspread.authorize(creds)
         return gc
     except Exception as e:
         st.error(f"Google Sheets Authentication Error: {e}")
-        st.error("   This could be due to incorrect service account key values (e.g., private_key formatting) or GCP API permission issues.")
+        st.error("   This could be due to incorrect service account key values or GCP API permission issues.")
         return None
 
 def robust_to_datetime(series):
@@ -159,7 +152,7 @@ def robust_to_datetime(series):
             except ValueError: 
                 continue 
         if dates.notnull().sum() <= original_success_rate and original_success_rate < len(series):
-             pass # Could add a warning for less successful parsing if desired
+             pass
     return dates
 
 @st.cache_data(ttl=600)
@@ -176,7 +169,6 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
 
     gc = authenticate_gspread() 
     if gc is None:
-        # authenticate_gspread function would have already shown an st.error()
         return pd.DataFrame()
 
     try:
@@ -184,39 +176,33 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
             spreadsheet = gc.open_by_url(current_sheet_url_or_name)
         else:
             spreadsheet = gc.open(current_sheet_url_or_name) 
-        
         worksheet = spreadsheet.worksheet(current_worksheet_name)
         data = worksheet.get_all_records(head=1, expected_headers=None)
         
         if not data:
-            st.warning("No data records found in the Google Sheet. The sheet or tab might be empty or only contain a header.")
+            st.warning("No data records found in the Google Sheet.")
             return pd.DataFrame()
-
         df = pd.DataFrame(data)
         st.sidebar.success(f"Loaded {len(df)} records from '{current_worksheet_name}'.") 
-        if df.empty: # Should be caught by `if not data` but as a safeguard
-            st.warning("Data was retrieved but resulted in an empty DataFrame.")
+        if df.empty: 
+            st.warning("Data retrieved but resulted in an empty DataFrame.")
             return pd.DataFrame()
-
     except gspread.exceptions.SpreadsheetNotFound:
-        st.error(f"Spreadsheet Not Found: '{current_sheet_url_or_name}'. Ensure the URL/Name is correct and the service account has 'Viewer' access to this specific sheet.")
+        st.error(f"Spreadsheet Not Found: '{current_sheet_url_or_name}'. Ensure URL/Name is correct and service account has 'Viewer' access.")
         return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound:
-        st.error(f"Worksheet Not Found: '{current_worksheet_name}' in spreadsheet '{spreadsheet.title if 'spreadsheet' in locals() else 'unknown'}'. Check spelling (case-sensitive).")
+        st.error(f"Worksheet Not Found: '{current_worksheet_name}' in spreadsheet '{spreadsheet.title if 'spreadsheet' in locals() else 'unknown'}'.")
         return pd.DataFrame()
     except Exception as e:
         st.error(f"Error Loading Data from Google Sheet: {e}")
-        st.error("   This could be due to API permissions in GCP (Drive & Sheets APIs must be enabled), network issues, or unexpected sheet structure.")
         return pd.DataFrame()
 
-    # Data processing
     df.columns = df.columns.str.strip()
     date_columns_to_parse = {
         'onboardingDate': 'onboardingDate_dt',
         'deliveryDate': 'deliveryDate_dt',
         'confirmationTimestamp': 'confirmationTimestamp_dt'
     }
-
     for original_col, new_dt_col in date_columns_to_parse.items():
         if original_col in df.columns:
             cleaned_series = df[original_col].astype(str).str.replace('\n', '', regex=False).str.strip()
@@ -224,14 +210,14 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
             df[new_dt_col] = parsed_dates
             is_mostly_empty_placeholders = cleaned_series.str.lower().isin(['', 'none', 'nan', 'nat', 'null']).all()
             if parsed_dates.isnull().all() and not is_mostly_empty_placeholders:
-                 st.warning(f"Could not parse any dates in column '{original_col}'. All values resulted in NaT.")
+                 st.warning(f"Could not parse any dates in column '{original_col}'.")
             elif parsed_dates.isnull().any() and not is_mostly_empty_placeholders:
                  num_failed = parsed_dates.isnull().sum()
-                 st.warning(f"{num_failed} out of {len(cleaned_series)} date(s) in '{original_col}' could not be parsed and are NaT.")
+                 st.warning(f"{num_failed}/{len(cleaned_series)} dates in '{original_col}' unparsed.")
             if original_col == 'onboardingDate':
                  df['onboarding_date_only'] = df[new_dt_col].dt.date
                  if df['onboarding_date_only'].isnull().all() and not is_mostly_empty_placeholders:
-                    st.warning(f"Could not extract date part for any rows from '{original_col}' (all resulted in NaT).")
+                    st.warning(f"Could not extract date part from '{original_col}'.")
         else:
             df[new_dt_col] = pd.NaT 
             if original_col == 'onboardingDate':
@@ -240,7 +226,6 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
     if 'deliveryDate_dt' in df.columns and 'confirmationTimestamp_dt' in df.columns:
         df['deliveryDate_dt'] = pd.to_datetime(df['deliveryDate_dt'], errors='coerce')
         df['confirmationTimestamp_dt'] = pd.to_datetime(df['confirmationTimestamp_dt'], errors='coerce')
-
         def convert_series_to_utc(dt_series):
             if pd.api.types.is_datetime64_any_dtype(dt_series) and dt_series.notna().any():
                 try:
@@ -248,35 +233,34 @@ def load_data_from_google_sheet(_sheet_url_or_name_param, _worksheet_name_param)
                         return dt_series.dt.tz_localize('UTC', ambiguous='NaT', nonexistent='NaT')
                     else:
                         return dt_series.dt.tz_convert('UTC')
-                except Exception as e: # Broad exception for TZ issues
-                    return dt_series 
+                except Exception: return dt_series 
             return dt_series
-
         df['deliveryDate_dt_utc'] = convert_series_to_utc(df['deliveryDate_dt'])
         df['confirmationTimestamp_dt_utc'] = convert_series_to_utc(df['confirmationTimestamp_dt'])
-        
         valid_dates_mask = df['deliveryDate_dt_utc'].notna() & df['confirmationTimestamp_dt_utc'].notna()
         df['days_to_confirmation'] = pd.NA 
-        
         if valid_dates_mask.any():
             time_difference = (df.loc[valid_dates_mask, 'confirmationTimestamp_dt_utc'] - 
                                df.loc[valid_dates_mask, 'deliveryDate_dt_utc'])
             if pd.api.types.is_timedelta64_dtype(time_difference):
                 df.loc[valid_dates_mask, 'days_to_confirmation'] = time_difference.dt.days
-            else:
-                st.warning("Time difference for 'days_to_confirmation' calculation did not result in timedelta. Check date types.")
-        
+            else: st.warning("Time diff for 'days_to_confirmation' not timedelta.")
         if df['days_to_confirmation'].isnull().all() and valid_dates_mask.any():
-            st.warning("Failed to calculate 'Days to Confirmation' for all valid rows. Check for extreme date values or calculation logic.")
-    else:
-        df['days_to_confirmation'] = pd.NA
+            st.warning("Failed to calculate 'Days to Confirmation'.")
+    else: df['days_to_confirmation'] = pd.NA
 
-    if 'status' not in df.columns: st.warning("Column 'status' not found in data. Success rate metrics will be affected.")
+    if 'status' not in df.columns: st.warning("Column 'status' not found.")
     if 'score' in df.columns:
         df['score'] = pd.to_numeric(df['score'], errors='coerce')
     else:
-        st.warning("Column 'score' not found in data. Score metrics will be affected.")
+        st.warning("Column 'score' not found.")
         df['score'] = pd.NA 
+    # Ensure fullTranscript is string
+    if 'fullTranscript' in df.columns:
+        df['fullTranscript'] = df['fullTranscript'].astype(str).fillna("")
+    else:
+        st.warning("Column 'fullTranscript' not found.")
+        df['fullTranscript'] = ""
             
     return df
 
@@ -285,8 +269,7 @@ def convert_df_to_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
 def calculate_metrics(df_input, period_name=""):
-    if df_input.empty:
-        return 0, 0.0, pd.NA, pd.NA 
+    if df_input.empty: return 0, 0.0, pd.NA, pd.NA 
     total_onboardings = len(df_input)
     successful_onboardings = 0
     success_rate = 0.0
@@ -294,14 +277,12 @@ def calculate_metrics(df_input, period_name=""):
     avg_days_to_confirm = pd.NA
     if 'status' in df_input.columns:
         successful_onboardings = df_input[df_input['status'].astype(str).str.lower() == 'confirmed'].shape[0]
-        if total_onboardings > 0:
-            success_rate = (successful_onboardings / total_onboardings) * 100
+        if total_onboardings > 0: success_rate = (successful_onboardings / total_onboardings) * 100
     if 'score' in df_input.columns and df_input['score'].notna().any(): 
         avg_score = pd.to_numeric(df_input['score'], errors='coerce').mean()
     if 'days_to_confirmation' in df_input.columns and df_input['days_to_confirmation'].notna().any():
         numeric_days = pd.to_numeric(df_input['days_to_confirmation'], errors='coerce')
-        if numeric_days.notna().any(): 
-             avg_days_to_confirm = numeric_days.mean()
+        if numeric_days.notna().any(): avg_days_to_confirm = numeric_days.mean()
     return total_onboardings, success_rate, avg_score, avg_days_to_confirm
 
 def get_default_date_range(df_date_column_series):
@@ -320,8 +301,7 @@ def get_default_date_range(df_date_column_series):
             if default_start_date > default_end_date : 
                 default_start_date = min_data_date 
                 default_end_date = max_data_date
-            if default_start_date > default_end_date:
-                default_start_date = min_data_date # Final fallback
+            if default_start_date > default_end_date: default_start_date = min_data_date
     return default_start_date, default_end_date, min_data_date, max_data_date
 
 default_date_val_start, default_date_val_end, _, _ = get_default_date_range(None)
@@ -339,14 +319,9 @@ gs_worksheet_secret = st.secrets.get("GOOGLE_WORKSHEET_NAME")
 
 if not st.session_state.data_loaded_successfully:
     if not gs_url_secret or not gs_worksheet_secret:
-        # This specific error is now more accurately caught within load_data_from_google_sheet
-        # if secrets are missing during its execution.
-        # The initial password check would also catch missing APP_ACCESS_KEY.
-        # This top-level error for sheet config can be less prominent or removed
-        # if load_data handles it robustly.
-        pass 
+        st.error("Config Error: GOOGLE_SHEET_URL_OR_NAME or GOOGLE_WORKSHEET_NAME not in secrets.")
     else:
-        with st.spinner("Connecting to Google Sheet and processing data... This may take a moment."):
+        with st.spinner("Connecting to Google Sheet and processing data..."):
             df = load_data_from_google_sheet(gs_url_secret, gs_worksheet_secret) 
             if not df.empty:
                 st.session_state.df_original = df
@@ -356,29 +331,45 @@ if not st.session_state.data_loaded_successfully:
             else:
                 st.session_state.df_original = pd.DataFrame() 
                 st.session_state.data_loaded_successfully = False
-                # Specific warnings/errors would have been shown by load_data_from_google_sheet
 
 df_original = st.session_state.df_original 
 
-st.title("🚀 Onboarding Performance Dashboard v2.2 🚀")
-# Removed the main panel "Google Sheets Loading Debug:" subheader and the st.markdown("---") after it
+st.title("🚀 Onboarding Performance Dashboard v2.3 🚀")
 
 if not st.session_state.data_loaded_successfully or df_original.empty:
-    # The generic error message will show if data loading failed for any reason.
-    # Specific errors from authenticate_gspread or load_data_from_google_sheet should appear above this.
-    st.error("Failed to load data, or the data source is empty or unreadable. Please check Google Sheet permissions, content, and that secret configurations (Sheet URL, Worksheet Name, Service Account details) are correct. You can try refreshing.")
-    
+    st.error("Failed to load data, or data source is empty/unreadable. Check Google Sheet, permissions, and secrets. Try refreshing.")
     if st.sidebar.button("🔄 Force Refresh Data & Reload App", key="force_refresh_sidebar_initial_fail"):
         st.cache_data.clear() 
         keys_to_clear = ['data_loaded_successfully', 'df_original', 'date_range_filter', 
                          'repName_filter', 'status_filter', 'clientSentiment_filter',
                          'licenseNumber_search', 'storeName_search']
         for key in keys_to_clear:
-            if key in st.session_state:
-                del st.session_state[key]
+            if key in st.session_state: del st.session_state[key]
         st.rerun()
 
-# --- Sidebar (Filters, etc.) ---
+# --- SCORING SYSTEM EXPLANATION ---
+with st.sidebar.expander("ℹ️ Understanding The Score (0-10 points)", expanded=False):
+    st.markdown("""
+    The onboarding score is calculated based on several factors:
+
+    * **Primary Requirements (Max 4 points):**
+        * Confirm Kit Received (2 points)
+        * Schedule Training & Promo (2 points)
+    * **Secondary Requirements (Max 3 points):**
+        * Introduce Self and DIME (1 point)
+        * Offer Display Help (1 point)
+        * Provide Promo Credit Link (1 point)
+    * **Bonuses (Max 3 points):**
+        * `+1 point` if Client Sentiment is "Positive".
+        * `+1 point` if "Expectations Set" checklist item is true.
+        * `+1 point` if all 6 key checklist items* are true (Completeness Bonus).
+    
+    The final score is rounded to the nearest whole number.
+    
+    *\*Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
+    """)
+
+# --- Sidebar ---
 st.sidebar.header("⚙️ Data Controls")
 if st.sidebar.button("🔄 Refresh Data from Google Sheet", key="refresh_button_sidebar"):
     st.cache_data.clear()
@@ -387,8 +378,7 @@ if st.sidebar.button("🔄 Refresh Data from Google Sheet", key="refresh_button_
                                 'repName_filter', 'status_filter', 'clientSentiment_filter',
                                 'licenseNumber_search', 'storeName_search']
     for key in keys_to_clear_on_refresh:
-        if key in st.session_state:
-            del st.session_state[key]
+        if key in st.session_state: del st.session_state[key]
     st.rerun()
 
 st.sidebar.header("🔍 Filters")
@@ -528,7 +518,7 @@ with tab1:
         filtered_cols_display[2].metric(label="Filtered Average Score", value=f"{score_filtered_val:.2f}" if pd.notna(score_filtered_val) else "N/A")
         filtered_cols_display[3].metric(label="Filtered Avg Days to Confirm", value=f"{days_filtered_val:.1f}" if pd.notna(days_filtered_val) else "N/A")
     else:
-        st.info("No data matches the current filter criteria to display in Overview. Adjust filters or check data source.")
+        st.info("No data matches the current filter criteria to display in Overview.")
 with tab2:
     st.header("📋 Filtered Onboarding Data Table")
     if not df_filtered.empty:
@@ -543,43 +533,65 @@ with tab2:
                 if days_numeric.notna().any():
                      styled_df = styled_df.background_gradient(subset=['days_to_confirmation'], cmap='RdYlGn_r', gmap=days_numeric)
             return styled_df
+        
         df_display_table = df_filtered.copy()
         if 'deliveryDate_dt' in df_display_table.columns and df_display_table['deliveryDate_dt'].notna().any():
             df_display_table_sorted = df_display_table.sort_values(by='deliveryDate_dt', ascending=True, na_position='last')
         else:
             df_display_table_sorted = df_display_table 
-        cols_for_display = [
-            col for col in df_display_table_sorted.columns 
-            if not col.endswith('_utc') and \
-               not col.endswith('_str_original') and \
-               col not in ['onboardingDate_dt', 'deliveryDate_dt', 'confirmationTimestamp_dt'] 
+        
+        # Define columns to show, including fullTranscript
+        # Explicitly list columns to control order and inclusion, especially for fullTranscript
+        cols_to_try = [
+            'onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
+            'clientSentiment', 'days_to_confirmation',
+            'expectationsSet', 'introSelfAndDIME', 'confirmKitReceived', 
+            'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink',
+            'fullTranscript' # Added fullTranscript
         ]
-        if 'onboardingDate' in df_display_table_sorted.columns and 'onboarding_date_only' not in cols_for_display:
-            cols_for_display.insert(0, 'onboardingDate')
+        cols_for_display = [col for col in cols_to_try if col in df_display_table_sorted.columns]
+        # Add any remaining columns not in cols_to_try but not explicitly excluded before
+        other_cols = [col for col in df_display_table_sorted.columns 
+                      if col not in cols_for_display and 
+                         not col.endswith('_utc') and 
+                         not col.endswith('_str_original') and 
+                         col not in ['onboardingDate_dt', 'deliveryDate_dt', 'confirmationTimestamp_dt']]
+        cols_for_display.extend(other_cols)
+
+
         st.dataframe(style_dataframe_conditionally(df_display_table_sorted[cols_for_display].reset_index(drop=True)), use_container_width=True, height=500) 
+        
+        st.markdown("""
+        **Note on `fullTranscript` column:** Long transcripts might be truncated in the table view above. 
+        For a more detailed view or interactive display (e.g., click to expand), further customization would be needed.
+        """)
+
         csv_download_data = convert_df_to_csv(df_filtered) 
         st.download_button(label="📥 Download Filtered Data as CSV", data=csv_download_data, file_name='filtered_onboarding_data.csv', mime='text/csv', use_container_width=True, key="download_csv_button")
     elif not df_original.empty: 
-        st.info("No data matches current filter criteria for table display. Try adjusting filters.")
+        st.info("No data matches current filter criteria for table display.")
+    
     st.header("📊 Key Visuals (Based on Filtered Data)")
     if not df_filtered.empty:
         viz_cols_in_detail_tab = st.columns(2)
         with viz_cols_in_detail_tab[0]:
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
-                st.subheader("Onboarding Status")
+                st.subheader("Onboarding Status Distribution")
                 status_counts_chart = df_filtered['status'].value_counts().reset_index()
                 fig_status_chart = px.bar(status_counts_chart, x='status', y='count', color='status', template="plotly_dark")
                 fig_status_chart.update_layout(plotly_layout_updates)
                 st.plotly_chart(fig_status_chart, use_container_width=True)
+            
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
-                st.subheader("Onboardings by Rep")
+                st.subheader("Onboardings by Representative")
                 rep_counts_chart = df_filtered['repName'].value_counts().reset_index()
                 fig_rep_chart = px.bar(rep_counts_chart, x='repName', y='count', color='repName', template="plotly_dark")
                 fig_rep_chart.update_layout(plotly_layout_updates)
                 st.plotly_chart(fig_rep_chart, use_container_width=True)
+
         with viz_cols_in_detail_tab[1]:
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
-                st.subheader("Client Sentiment")
+                st.subheader("Client Sentiment Breakdown")
                 sentiment_counts_chart = df_filtered['clientSentiment'].value_counts().reset_index()
                 sentiment_color_map = {}
                 if 'clientSentiment' in sentiment_counts_chart.columns: 
@@ -593,37 +605,51 @@ with tab2:
                                              color='clientSentiment', color_discrete_map=sentiment_color_map)
                 fig_sentiment_chart.update_layout(plotly_layout_updates)
                 st.plotly_chart(fig_sentiment_chart, use_container_width=True)
-            checklist_item_cols = ['onboardingWelcome', 'expectationsSet', 'introSelfAndDIME', 
-                                   'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 
-                                   'providePromoCreditLink']
-            actual_checklist_cols = [col for col in checklist_item_cols if col in df_filtered.columns]
+
+            # REVISED Checklist Item Completion for CONFIRMED statuses
+            st.subheader("Key Requirement Completion (for Confirmed Onboardings)")
+            df_confirmed_for_checklist = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
+            
+            # Define the 6 key checklist items
+            key_checklist_items = [
+                'expectationsSet', 'introSelfAndDIME', 'confirmKitReceived', 
+                'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink'
+            ]
+            actual_key_checklist_cols = [col for col in key_checklist_items if col in df_confirmed_for_checklist.columns]
             processed_checklist_data = []
-            if actual_checklist_cols:
-                for b_col in actual_checklist_cols:
+
+            if not df_confirmed_for_checklist.empty and actual_key_checklist_cols:
+                for b_col in actual_key_checklist_cols:
                     map_to_bool_val = {'true': True, 'yes': True, '1': True, 1: True,
                                     'false': False, 'no': False, '0': False, 0: False}
-                    bool_series = df_filtered[b_col].astype(str).str.lower().map(map_to_bool_val)
+                    bool_series = df_confirmed_for_checklist[b_col].astype(str).str.lower().map(map_to_bool_val)
                     bool_series = pd.to_numeric(bool_series, errors='coerce') 
+                    
                     if bool_series.notna().any(): 
                         true_count = bool_series.sum() 
                         total_valid_responses = bool_series.notna().sum() 
                         if total_valid_responses > 0:
                             item_display_name = ''.join([' ' + char if char.isupper() else char for char in b_col]).replace("onboarding ", "").strip().title()
                             processed_checklist_data.append({
-                                "Checklist Item": item_display_name, 
+                                "Key Requirement": item_display_name, 
                                 "Completion (%)": (true_count / total_valid_responses) * 100
                             })
+                
                 if processed_checklist_data:
-                    st.subheader("Checklist Item Completion")
                     completion_df_chart = pd.DataFrame(processed_checklist_data)
                     if not completion_df_chart.empty:
                         fig_checklist_chart = px.bar(completion_df_chart.sort_values("Completion (%)", ascending=True), 
-                                                     x="Completion (%)", y="Checklist Item", orientation='h', 
+                                                     x="Completion (%)", y="Key Requirement", orientation='h', 
                                                      template="plotly_dark", color_discrete_sequence=[GOLD_ACCENT_COLOR])
                         fig_checklist_chart.update_layout(plotly_layout_updates, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_checklist_chart, use_container_width=True)
+                else:
+                    st.info("No data for key requirement completion chart based on confirmed onboardings.")
+            else:
+                st.info("No 'confirmed' onboardings in the filtered data to show key requirement completion, or relevant checklist columns are missing.")
     else: 
         st.info("No data matches current filters to display detailed visuals.")
+
 with tab3:
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
@@ -648,6 +674,7 @@ with tab3:
                     st.info("Not enough data points to plot onboarding trend.")
             else: 
                 st.info("No valid date data for onboarding trend chart.")
+        
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             st.subheader("Distribution of Days to Confirmation")
             days_data_for_hist = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna()
@@ -666,4 +693,4 @@ with tab3:
         st.info("No data matches current filter criteria to display Trends & Distributions.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v2.2 | Secured Access")
+st.sidebar.info("Dashboard v2.3 | Secured Access")

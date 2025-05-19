@@ -74,15 +74,12 @@ st.markdown(f"""
 # --- BEGIN SECRETS DEBUGGING CODE ---
 st.subheader("Secrets Debugging Information:")
 try:
-    # Attempt to list all keys available in st.secrets
-    # This is safe as it only lists keys, not values.
     secret_keys = list(st.secrets.keys())
     st.write(f"Available secret keys: {secret_keys}")
 
     if not secret_keys:
         st.warning("No secrets appear to be loaded directly via st.secrets.keys(). This might indicate a broader issue with secrets configuration or access.")
 
-    # Check for specific keys you expect, using .get() to avoid errors if a key is missing
     expected_top_level_keys = ["APP_ACCESS_KEY", "APP_ACCESS_HINT", "GOOGLE_SHEET_URL_OR_NAME", "GOOGLE_WORKSHEET_NAME", "gcp_service_account"]
     
     st.write("Checking individual expected secrets:")
@@ -91,10 +88,19 @@ try:
         if secret_value is not None:
             st.success(f"Secret '{key}' IS available.")
             if key == "gcp_service_account":
-                if isinstance(secret_value, dict) and "type" in secret_value and "private_key" in secret_value:
-                    st.success(f"   '{key}' seems to be a correctly structured dictionary (contains 'type' and 'private_key').")
+                # AttrDict is a subclass of dict, so 'in' operator and .get() should work as expected.
+                is_structured_correctly = isinstance(secret_value, dict) and \
+                                          secret_value.get("type") and \
+                                          secret_value.get("private_key") and \
+                                          secret_value.get("client_email") # Add more essential fields if needed
+
+                if is_structured_correctly:
+                    st.success(f"   '{key}' seems to be a correctly structured dictionary and contains 'type', 'private_key', and 'client_email'.")
                 else:
-                    st.error(f"   '{key}' is available BUT might NOT be a correctly structured dictionary or is missing essential fields like 'type' or 'private_key'. Type found: {type(secret_value)}")
+                    gcp_keys_present = []
+                    if hasattr(secret_value, 'keys'): # Check if it has a keys() method
+                        gcp_keys_present = list(secret_value.keys())
+                    st.error(f"   '{key}' is available (type: {type(secret_value)}) BUT might NOT be correctly structured or is missing essential fields. Keys found within: {gcp_keys_present}. Expected at least 'type', 'private_key', 'client_email'.")
         else:
             st.error(f"Secret '{key}' is NOT available (st.secrets.get('{key}') returned None).")
 
@@ -103,6 +109,12 @@ except Exception as e:
     st.error("This could mean st.secrets itself is not available or there's a problem with its internal structure.")
 st.markdown("---") # Separator
 # --- END OF SECRETS DEBUGGING CODE ---
+
+# ... (rest of your streamlit_app.py code remains the same as the version I provided in the previous step) ...
+# For brevity, I'm not repeating the entire rest of the file, but you should use the complete file
+# I sent previously, just ensuring this debug block is updated if you choose to update the app code.
+# The primary fix will be the TOML reordering.
+
 
 # --- Application Access Control ---
 def check_password():
@@ -150,16 +162,23 @@ def authenticate_gspread(): # Removed secrets_dict argument
         if gcp_secrets is None: # Explicitly check for None
             st.error("GCP service account secrets (gcp_service_account) not found or is None. Please configure them in Streamlit secrets.")
             return None
-        if not isinstance(gcp_secrets, dict):
+        if not isinstance(gcp_secrets, dict): # AttrDict is a dict subclass
             st.error(f"GCP service account secrets ('gcp_service_account') is not a dictionary. Type found: {type(gcp_secrets)}. Check Streamlit secrets configuration.")
             return None
         
+        # Check for essential keys before trying to use them
+        required_gcp_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id", "auth_uri", "token_uri"]
+        missing_keys = [key for key in required_gcp_keys if key not in gcp_secrets]
+        if missing_keys:
+            st.error(f"GCP service account secrets ('gcp_service_account') is missing essential keys: {', '.join(missing_keys)}. Please check the TOML structure in Streamlit secrets.")
+            return None
+            
         creds = Credentials.from_service_account_info(gcp_secrets, scopes=SCOPES)
         gc = gspread.authorize(creds)
         return gc
     except Exception as e:
         st.error(f"Google Sheets Auth Error: {e}")
-        st.error("This could be due to malformed 'gcp_service_account' secrets or issues with Google API permissions.")
+        st.error("This could be due to malformed 'gcp_service_account' secrets (even if keys are present) or issues with Google API permissions.")
         return None
 
 def robust_to_datetime(series):
@@ -790,7 +809,7 @@ with tab2:
                             item_display_name = ' '.join(b_col.replace("onboarding", "")
                                                          .replace("provide", "Provided ")
                                                          .replace("confirm", "Confirmed ")
-                                                         .split_camel_case_if_needed_or_just_title(b_col)).title() # (Pseudo-code for camel case splitting)
+                                                         .split('_')).title() # Example split_camel_case_if_needed_or_just_title
                             # Simpler way to generate display name from camelCase:
                             item_display_name = ''.join([' ' + char if char.isupper() else char for char in b_col]).replace("onboarding ", "").strip().title()
 

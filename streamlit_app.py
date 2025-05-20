@@ -327,12 +327,17 @@ def load_data_from_google_sheet():
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); return pd.DataFrame()
 
-    # Standardize column names from sheet
-    df_loaded_internal.columns = [col.strip().lower().replace(" ", "") for col in df_loaded_internal.columns]
+    # Standardize column names from sheet: strip, lower, remove all internal spaces
+    standardized_column_names = []
+    for col in df_loaded_internal.columns:
+        col_str = str(col).strip().lower() # Ensure col is string, strip, lower
+        col_str = "".join(col_str.split()) # Remove all internal spaces
+        standardized_column_names.append(col_str)
+    df_loaded_internal.columns = standardized_column_names
 
     # Map standardized sheet names to internal code names
-    # Keys in this map should be the lowercased, space-removed version from the sheet
-    column_name_map = {
+    # Keys in this map should be the fully standardized (lowercase, no spaces) version
+    column_name_map_to_code = {
         "licensenumber": "licenseNumber",
         "storename": "storeName",
         "repname": "repName",
@@ -341,53 +346,59 @@ def load_data_from_google_sheet():
         "confirmationtimestamp": "confirmationTimestamp",
         "clientsentiment": "clientSentiment",
         "fulltranscript": "fullTranscript",
-        "score": "score", # Ensure score is also mapped if it comes with different casing/spacing
+        "score": "score",
         "status": "status",
         "summary": "summary"
-        # Add other potential variations if needed, ensure keys are lowercased and no spaces
     }
-    # Add checklist items to the map, assuming they might also have variations
-    for req_key in KEY_REQUIREMENT_DETAILS.keys():
-        column_name_map[req_key.lower()] = req_key # e.g. "introselfanddime" -> "introSelfAndDIME"
+    for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): # e.g. introSelfAndDIME
+        std_req_key = req_key_internal.lower() # e.g. introselfanddime
+        column_name_map_to_code[std_req_key] = req_key_internal
 
-    cols_to_rename_standardized = {
-        std_sheet_col: code_col_name
-        for std_sheet_col, code_col_name in column_name_map.items()
-        if std_sheet_col in df_loaded_internal.columns and code_col_name not in df_loaded_internal.columns # Avoid renaming if target already exists
-    }
-    if cols_to_rename_standardized:
-        df_loaded_internal.rename(columns=cols_to_rename_standardized, inplace=True)
+    # Perform renaming: iterate through current columns and rename if a mapping exists
+    new_columns_for_rename = {}
+    for current_col_std in df_loaded_internal.columns: # These are already standardized
+        if current_col_std in column_name_map_to_code:
+            # Only rename if the target code_name is different and not already present
+            target_code_name = column_name_map_to_code[current_col_std]
+            if current_col_std != target_code_name and target_code_name not in df_loaded_internal.columns:
+                 new_columns_for_rename[current_col_std] = target_code_name
+            elif current_col_std != target_code_name and target_code_name in df_loaded_internal.columns and current_col_std not in df_loaded_internal.columns:
+                 # This case is tricky, if target exists but original standardized doesn't, means it was already named as target.
+                 # This should ideally not happen if standardization is consistent.
+                 pass
+
+
+    if new_columns_for_rename:
+        df_loaded_internal.rename(columns=new_columns_for_rename, inplace=True)
 
 
     date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
     for col, new_col in date_cols.items():
         if col in df_loaded_internal: df_loaded_internal[new_col] = robust_to_datetime(df_loaded_internal[col].astype(str).str.replace('\n','',regex=False).str.strip())
         else: df_loaded_internal[new_col] = pd.NaT
-        if col == 'onboardingDate' and new_col in df_loaded_internal: # Check if new_col was created
+        if col == 'onboardingDate' and new_col in df_loaded_internal and df_loaded_internal[new_col].notna().any():
              df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
-        elif col == 'onboardingDate' and new_col not in df_loaded_internal: # If original date col didn't exist
+        elif col == 'onboardingDate': # If new_col not created or all NaT
              df_loaded_internal['onboarding_date_only'] = pd.NaT
 
 
     if 'deliveryDate_dt' in df_loaded_internal and 'confirmationTimestamp_dt' in df_loaded_internal:
-        # Ensure these columns are datetime before subtraction
         df_loaded_internal['deliveryDate_dt'] = pd.to_datetime(df_loaded_internal['deliveryDate_dt'], errors='coerce')
         df_loaded_internal['confirmationTimestamp_dt'] = pd.to_datetime(df_loaded_internal['confirmationTimestamp_dt'], errors='coerce')
-        def to_utc(s): # Ensure this function handles NaT gracefully
+        def to_utc(s):
             if pd.api.types.is_datetime64_any_dtype(s) and s.notna().any():
                 try: return s.dt.tz_localize('UTC') if s.dt.tz is None else s.dt.tz_convert('UTC')
-                except Exception: return s # Return original if tz conversion fails (e.g. already localized)
-            return s # Return as is if not datetime or all NaT
-        # Apply only where both dates are valid
+                except Exception: return s
+            return s
         valid_dates_mask = df_loaded_internal['confirmationTimestamp_dt'].notna() & df_loaded_internal['deliveryDate_dt'].notna()
-        df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = \
-            (to_utc(df_loaded_internal.loc[valid_dates_mask, 'confirmationTimestamp_dt']) - \
-             to_utc(df_loaded_internal.loc[valid_dates_mask, 'deliveryDate_dt'])).dt.days
-        if 'days_to_confirmation' not in df_loaded_internal.columns: # Ensure column exists if no valid dates
-            df_loaded_internal['days_to_confirmation'] = pd.NA
+        # Initialize column first to avoid KeyError if no valid_dates_mask is true
+        df_loaded_internal['days_to_confirmation'] = pd.NA
+        if valid_dates_mask.any():
+            df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = \
+                (to_utc(df_loaded_internal.loc[valid_dates_mask, 'confirmationTimestamp_dt']) - \
+                 to_utc(df_loaded_internal.loc[valid_dates_mask, 'deliveryDate_dt'])).dt.days
 
 
-    # Ensure core columns (using standardized names) exist, filling with empty strings or NA
     str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary']
     for col in str_cols_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
@@ -425,7 +436,7 @@ def get_default_date_range(series):
             max_d_data = dates.max()
             s_final = max(s_default, min_d_data)
             e_final = min(e_default, max_d_data)
-            if s_final > e_final: # If calculated s is after e (e.g. MTD for future data), use data range
+            if s_final > e_final:
                 s_final = min_d_data
                 e_final = max_d_data
             return s_final, e_final, min_d_data, max_d_data
@@ -433,11 +444,10 @@ def get_default_date_range(series):
 
 
 # --- Initialize Session State ---
-default_s_init, default_e_init, _, _ = get_default_date_range(None) # These are guaranteed date objects
+default_s_init, default_e_init, _, _ = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 
-# Ensure 'date_range' is always a 2-tuple of date objects
 if 'date_range' not in st.session_state or \
    not (isinstance(st.session_state.date_range, tuple) and \
         len(st.session_state.date_range) == 2 and \
@@ -463,9 +473,9 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = df_from_load_func
         st.session_state.data_loaded = True
         ds,de,min_data_date,max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
-        st.session_state.date_range = (ds,de) # ds, de are guaranteed dates by get_default_date_range
-        st.session_state.min_data_date_for_filter = min_data_date # Can be None
-        st.session_state.max_data_date_for_filter = max_data_date # Can be None
+        st.session_state.date_range = (ds,de)
+        st.session_state.min_data_date_for_filter = min_data_date
+        st.session_state.max_data_date_for_filter = max_data_date
         st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
     else:
         st.session_state.df_original = pd.DataFrame()
@@ -498,43 +508,41 @@ else:
 
 st.sidebar.header("🔍 Filters")
 
-# Retrieve current date range from session state (guaranteed to be 2-tuple of dates)
+# Ensure date_range in session_state is always a valid 2-tuple of date objects
+if not (isinstance(st.session_state.get('date_range'), tuple) and \
+        len(st.session_state.date_range) == 2 and \
+        isinstance(st.session_state.date_range[0], date) and \
+        isinstance(st.session_state.date_range[1], date)):
+    ds_init_filter, de_init_filter, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
+    st.session_state.date_range = (ds_init_filter, de_init_filter)
+
 current_session_start_dt, current_session_end_dt = st.session_state.date_range
 
-# Min/max for the widget from data, or None if no data
 min_dt_widget = st.session_state.get('min_data_date_for_filter')
 max_dt_widget = st.session_state.get('max_data_date_for_filter')
 
-# Prepare value for st.date_input. It must be concrete dates.
 value_for_widget_start = current_session_start_dt
 value_for_widget_end = current_session_end_dt
 
-# Clip widget value to min/max from data if they exist
-if min_dt_widget and value_for_widget_start < min_dt_widget:
-    value_for_widget_start = min_dt_widget
-if max_dt_widget and value_for_widget_end > max_dt_widget:
-    value_for_widget_end = max_dt_widget
-# Ensure start is not after end after potential clipping
-if value_for_widget_start > value_for_widget_end:
-    value_for_widget_start = value_for_widget_end # Or some other logic like resetting to min_dt_widget
+if min_dt_widget and value_for_widget_start < min_dt_widget: value_for_widget_start = min_dt_widget
+if max_dt_widget and value_for_widget_end > max_dt_widget: value_for_widget_end = max_dt_widget
+if value_for_widget_start > value_for_widget_end: value_for_widget_start = value_for_widget_end
 
 sel_range = st.sidebar.date_input(
     "Date Range:",
     value=(value_for_widget_start, value_for_widget_end),
-    min_value=min_dt_widget, # Ok if None
-    max_value=max_dt_widget, # Ok if None
-    key="date_sel_v3_9_final"
+    min_value=min_dt_widget,
+    max_value=max_dt_widget,
+    key="date_sel_v3_9_final" # Unique key
 )
 
-# st.date_input (range mode) returns a 2-tuple of date objects.
 if isinstance(sel_range, tuple) and len(sel_range) == 2 and \
    isinstance(sel_range[0], date) and isinstance(sel_range[1], date):
     if sel_range != st.session_state.date_range:
         st.session_state.date_range = sel_range
         st.rerun()
-# No 'else' needed here, as st.date_input should always return valid tuple or handle internally.
 
-start_dt, end_dt = st.session_state.date_range # These are now the definitive start/end dates for filtering
+start_dt, end_dt = st.session_state.date_range
 
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
@@ -550,7 +558,7 @@ for k,lbl in cat_filters_definition.items():
 
 def clear_filters_cb():
     ds_clear, de_clear, min_d_clear, max_d_clear = get_default_date_range(st.session_state.df_original.get('onboarding_date_only'))
-    st.session_state.date_range = (ds_clear, de_clear) # ds_clear, de_clear are guaranteed dates
+    st.session_state.date_range = (ds_clear, de_clear)
     st.session_state.min_data_date_for_filter = min_d_clear
     st.session_state.max_data_date_for_filter = max_d_clear
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
@@ -565,7 +573,7 @@ max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter',
 
 if start_dt and end_dt:
     is_default_date_range = (start_dt == min_possible_date_for_summary and end_dt == max_possible_date_for_summary)
-    if min_possible_date_for_summary is None and max_possible_date_for_summary is None: # No data loaded yet
+    if min_possible_date_for_summary is None and max_possible_date_for_summary is None:
         is_default_date_range = (start_dt == default_s_init and end_dt == default_e_init)
 
     if not is_default_date_range:

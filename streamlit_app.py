@@ -12,247 +12,214 @@ import re
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.6", # Incremented version
+    page_title="Onboarding Performance Dashboard v3.7", # Incremented version
     page_icon="💎",
     layout="wide"
 )
 
-# --- Color Palette Definitions ---
+# --- Accent Color & Plotly Palette Definitions ---
 
-# Dark Theme (Original Basis)
-DARK_BACKGROUND_MAIN = "#0E1117"
-DARK_BACKGROUND_SECONDARY = "#262730"
-DARK_TEXT_PRIMARY = "#FAFAFA"
-DARK_TEXT_SECONDARY = "#B0B8C4" # Softer than previous light blue
-DARK_BORDER_COLOR = "#3a3f4b"
+# Dark Theme Accents & Plotly Colors
+DARK_APP_ACCENT_PRIMARY = "#8458B3"    # Primary Purple
+DARK_APP_ACCENT_SECONDARY = "#d0bdf4"  # Light Lavender
+DARK_APP_ACCENT_MUTED = "#a28089"     # Muted Mauve
+DARK_APP_ACCENT_HIGHLIGHT = "#a0d2eb"  # Light Blue (e.g., for sidebar headers)
+DARK_APP_ACCENT_LIGHTEST = "#e5eaf5"   # Very Light Purple/Blue (e.g., for active tab bg)
+DARK_APP_TEXT_ON_ACCENT = DARK_APP_ACCENT_LIGHTEST # Text on primary purple
+DARK_APP_TEXT_ON_HIGHLIGHT = "#0E1117" # Dark text on light blue highlight
 
-DARK_ACCENT_PRIMARY = "#8458B3"
-DARK_ACCENT_SECONDARY = "#d0bdf4"
-DARK_ACCENT_MUTED = "#a28089"
-DARK_ACCENT_HIGHLIGHT = "#a0d2eb" # Light Blue for sidebar headers etc.
-DARK_ACCENT_LIGHTEST = "#e5eaf5"
+DARK_APP_DL_BUTTON_BG = DARK_APP_ACCENT_HIGHLIGHT
+DARK_APP_DL_BUTTON_TEXT = DARK_APP_TEXT_ON_HIGHLIGHT
+DARK_APP_DL_BUTTON_HOVER_BG = DARK_APP_ACCENT_LIGHTEST
 
-DARK_TEXT_ON_ACCENT_PRIMARY = DARK_ACCENT_LIGHTEST
-DARK_TEXT_ON_ACCENT_HIGHLIGHT = DARK_BACKGROUND_MAIN # Dark text on light blue
+DARK_PLOTLY_PRIMARY_SEQ = [DARK_APP_ACCENT_PRIMARY, DARK_APP_ACCENT_SECONDARY, DARK_APP_ACCENT_HIGHLIGHT, '#C39BD3', '#76D7C4']
+DARK_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel1
+DARK_PLOTLY_SENTIMENT_MAP = { 'positive': DARK_APP_ACCENT_HIGHLIGHT, 'negative': '#E74C3C', 'neutral': DARK_APP_ACCENT_MUTED }
 
-DARK_DL_BUTTON_BG = DARK_ACCENT_HIGHLIGHT
-DARK_DL_BUTTON_TEXT = DARK_TEXT_ON_ACCENT_HIGHLIGHT
-DARK_DL_BUTTON_HOVER_BG = DARK_ACCENT_LIGHTEST
-DARK_DL_BUTTON_HOVER_TEXT = DARK_TEXT_ON_ACCENT_HIGHLIGHT
+# Light Theme Accents & Plotly Colors (Blue-centric, high contrast)
+LIGHT_APP_ACCENT_PRIMARY = "#1A73E8"  # Google Blue
+LIGHT_APP_ACCENT_SECONDARY = "#4285F4" # Lighter Google Blue
+LIGHT_APP_ACCENT_MUTED = "#89B1F3"   # Softer Blue
+LIGHT_APP_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_PRIMARY # Primary blue also for sidebar headers
+LIGHT_APP_ACCENT_LIGHTEST = "#E8F0FE" # Very Light Blue (e.g., for active tab bg)
+LIGHT_APP_TEXT_ON_ACCENT = "#FFFFFF"  # White text on blue accents
 
-# Plotly Dark Theme Colors
-DARK_PLOTLY_PRIMARY_SEQ = [DARK_ACCENT_PRIMARY, DARK_ACCENT_SECONDARY, DARK_ACCENT_HIGHLIGHT, '#C39BD3', '#76D7C4']
-DARK_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel1 # Existing choice, generally okay
-DARK_PLOTLY_SENTIMENT_MAP = {
-    'positive': DARK_ACCENT_HIGHLIGHT, # Light Blue
-    'negative': '#E74C3C', # A clear red
-    'neutral': DARK_ACCENT_MUTED
-}
+LIGHT_APP_DL_BUTTON_BG = LIGHT_APP_ACCENT_PRIMARY
+LIGHT_APP_DL_BUTTON_TEXT = LIGHT_APP_TEXT_ON_ACCENT
+LIGHT_APP_DL_BUTTON_HOVER_BG = "#1765CC" # Darker blue
 
+LIGHT_PLOTLY_PRIMARY_SEQ = ['#1A73E8', '#4285F4', '#89B1F3', '#ADC6F7', '#D2E3FC']
+LIGHT_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set2
+LIGHT_PLOTLY_SENTIMENT_MAP = { 'positive': '#1A73E8', 'negative': '#D93025', 'neutral': '#78909C' }
 
-# New Light Theme Palette (Rebuilt from scratch)
-LIGHT_BACKGROUND_MAIN = "#FFFFFF"
-LIGHT_BACKGROUND_SECONDARY = "#F7F9FC" # Very light cool grey for cards/sidebar
-LIGHT_TEXT_PRIMARY = "#202124" # Standard dark grey text (Google style)
-LIGHT_TEXT_SECONDARY = "#5F6368" # Standard medium grey text
-LIGHT_BORDER_COLOR = "#DADCE0" # Standard light grey border
-
-LIGHT_ACCENT_PRIMARY = "#1A73E8" # Google Blue - for primary actions, headers
-LIGHT_ACCENT_SECONDARY = "#4285F4" # Lighter, vibrant blue
-LIGHT_ACCENT_MUTED = "#89B1F3" # Softer blue for less critical accents
-LIGHT_ACCENT_HIGHLIGHT = "#1A73E8" # Primary blue for sidebar headers
-LIGHT_ACCENT_LIGHTEST = "#E8F0FE" # Very light blue for hovers, subtle backgrounds
-
-LIGHT_TEXT_ON_ACCENT_PRIMARY = "#FFFFFF"
-LIGHT_TEXT_ON_ACCENT_HIGHLIGHT = "#FFFFFF"
-
-LIGHT_DL_BUTTON_BG = LIGHT_ACCENT_PRIMARY # Primary blue for download
-LIGHT_DL_BUTTON_TEXT = LIGHT_TEXT_ON_ACCENT_PRIMARY
-LIGHT_DL_BUTTON_HOVER_BG = "#1765CC" # Darker blue for hover
-LIGHT_DL_BUTTON_HOVER_TEXT = LIGHT_TEXT_ON_ACCENT_PRIMARY
-
-# Plotly Light Theme Colors
-LIGHT_PLOTLY_PRIMARY_SEQ = ['#1A73E8', '#4285F4', '#89B1F3', '#ADC6F7', '#D2E3FC'] # Shades of Google Blue
-LIGHT_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set2 # Generally good for light backgrounds
-LIGHT_PLOTLY_SENTIMENT_MAP = {
-    'positive': '#1A73E8', # Google Blue
-    'negative': '#D93025', # Google Red
-    'neutral': '#78909C'  # A neutral grey-blue
-}
-
-# --- Determine Active Theme and Set Colors ---
-THEME = st.get_option("theme.base")
+# --- Determine Active Theme and Set ACTIVE Accent & Plotly Colors ---
+THEME = st.get_option("theme.base") # "light" or "dark"
 
 if THEME == "light":
-    ACTIVE_BG_MAIN = LIGHT_BACKGROUND_MAIN
-    ACTIVE_BG_SECONDARY = LIGHT_BACKGROUND_SECONDARY
-    ACTIVE_TEXT_PRIMARY = LIGHT_TEXT_PRIMARY
-    ACTIVE_TEXT_SECONDARY = LIGHT_TEXT_SECONDARY
-    ACTIVE_BORDER_COLOR = LIGHT_BORDER_COLOR
-    ACTIVE_ACCENT_PRIMARY = LIGHT_ACCENT_PRIMARY
-    ACTIVE_ACCENT_SECONDARY = LIGHT_ACCENT_SECONDARY
-    ACTIVE_ACCENT_MUTED = LIGHT_ACCENT_MUTED
-    ACTIVE_ACCENT_HIGHLIGHT = LIGHT_ACCENT_HIGHLIGHT
-    ACTIVE_ACCENT_LIGHTEST = LIGHT_ACCENT_LIGHTEST
-    ACTIVE_TEXT_ON_PRIMARY = LIGHT_TEXT_ON_ACCENT_PRIMARY
-    ACTIVE_TEXT_ON_HIGHLIGHT = LIGHT_TEXT_ON_ACCENT_HIGHLIGHT
-    ACTIVE_DL_BUTTON_BG = LIGHT_DL_BUTTON_BG
-    ACTIVE_DL_BUTTON_TEXT = LIGHT_DL_BUTTON_TEXT
-    ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_DL_BUTTON_HOVER_BG
-    ACTIVE_DL_BUTTON_HOVER_TEXT = LIGHT_DL_BUTTON_HOVER_TEXT
-    # Plotly active colors
+    ACTIVE_ACCENT_PRIMARY = LIGHT_APP_ACCENT_PRIMARY
+    ACTIVE_ACCENT_SECONDARY = LIGHT_APP_ACCENT_SECONDARY
+    ACTIVE_ACCENT_MUTED = LIGHT_APP_ACCENT_MUTED
+    ACTIVE_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_HIGHLIGHT
+    ACTIVE_ACCENT_LIGHTEST = LIGHT_APP_ACCENT_LIGHTEST
+    ACTIVE_TEXT_ON_ACCENT = LIGHT_APP_TEXT_ON_ACCENT
+    ACTIVE_DL_BUTTON_BG = LIGHT_APP_DL_BUTTON_BG
+    ACTIVE_DL_BUTTON_TEXT = LIGHT_APP_DL_BUTTON_TEXT
+    ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_APP_DL_BUTTON_HOVER_BG
+    # Plotly
     ACTIVE_PLOTLY_PRIMARY_SEQ = LIGHT_PLOTLY_PRIMARY_SEQ
     ACTIVE_PLOTLY_QUALITATIVE_SEQ = LIGHT_PLOTLY_QUALITATIVE_SEQ
     ACTIVE_PLOTLY_SENTIMENT_MAP = LIGHT_PLOTLY_SENTIMENT_MAP
-else: # Default to Dark Theme
-    ACTIVE_BG_MAIN = DARK_BACKGROUND_MAIN
-    ACTIVE_BG_SECONDARY = DARK_BACKGROUND_SECONDARY
-    ACTIVE_TEXT_PRIMARY = DARK_TEXT_PRIMARY
-    ACTIVE_TEXT_SECONDARY = DARK_TEXT_SECONDARY
-    ACTIVE_BORDER_COLOR = DARK_BORDER_COLOR
-    ACTIVE_ACCENT_PRIMARY = DARK_ACCENT_PRIMARY
-    ACTIVE_ACCENT_SECONDARY = DARK_ACCENT_SECONDARY
-    ACTIVE_ACCENT_MUTED = DARK_ACCENT_MUTED
-    ACTIVE_ACCENT_HIGHLIGHT = DARK_ACCENT_HIGHLIGHT
-    ACTIVE_ACCENT_LIGHTEST = DARK_ACCENT_LIGHTEST
-    ACTIVE_TEXT_ON_PRIMARY = DARK_TEXT_ON_ACCENT_PRIMARY
-    ACTIVE_TEXT_ON_HIGHLIGHT = DARK_TEXT_ON_ACCENT_HIGHLIGHT
-    ACTIVE_DL_BUTTON_BG = DARK_DL_BUTTON_BG
-    ACTIVE_DL_BUTTON_TEXT = DARK_DL_BUTTON_TEXT
-    ACTIVE_DL_BUTTON_HOVER_BG = DARK_DL_BUTTON_HOVER_BG
-    ACTIVE_DL_BUTTON_HOVER_TEXT = DARK_DL_BUTTON_HOVER_TEXT
-    # Plotly active colors
+else: # Default to Dark Theme Accents
+    ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY
+    ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY
+    ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED
+    ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT
+    ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST
+    ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT
+    ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG
+    ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT
+    ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG
+    # Plotly
     ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ
     ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ
     ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
 
-PLOT_BG_COLOR = "rgba(0,0,0,0)"
+PLOT_BG_COLOR = "rgba(0,0,0,0)" # Common for both, charts transparent
 
 # --- Custom Styling (CSS) ---
+# This CSS primarily uses Streamlit's own theme variables for base styling.
+# Our Python-set ACTIVE_... variables are used for app-specific ACCENTS.
 css_parts = [
     "<style>",
+    # Define our app-specific ACCENT CSS variables using the Python ACTIVE_... variables
     f"""
     :root {{
-        --theme-bg-main: {ACTIVE_BG_MAIN};
-        --theme-bg-secondary: {ACTIVE_BG_SECONDARY};
-        --theme-text-primary: {ACTIVE_TEXT_PRIMARY};
-        --theme-text-secondary: {ACTIVE_TEXT_SECONDARY};
-        --theme-border-color: {ACTIVE_BORDER_COLOR};
+        --app-accent-primary: {ACTIVE_ACCENT_PRIMARY};
+        --app-accent-secondary: {ACTIVE_ACCENT_SECONDARY};
+        --app-accent-muted: {ACTIVE_ACCENT_MUTED};
+        --app-accent-highlight: {ACTIVE_ACCENT_HIGHLIGHT};
+        --app-accent-lightest: {ACTIVE_ACCENT_LIGHTEST};
+        --app-text-on-accent: {ACTIVE_TEXT_ON_ACCENT};
 
-        --theme-accent-primary: {ACTIVE_ACCENT_PRIMARY};
-        --theme-accent-secondary: {ACTIVE_ACCENT_SECONDARY};
-        --theme-accent-muted: {ACTIVE_ACCENT_MUTED};
-        --theme-accent-highlight: {ACTIVE_ACCENT_HIGHLIGHT};
-        --theme-accent-lightest: {ACTIVE_ACCENT_LIGHTEST};
+        --app-dl-button-bg: {ACTIVE_DL_BUTTON_BG};
+        --app-dl-button-text: {ACTIVE_DL_BUTTON_TEXT};
+        --app-dl-button-hover-bg: {ACTIVE_DL_BUTTON_HOVER_BG};
 
-        --theme-text-on-primary: {ACTIVE_TEXT_ON_PRIMARY};
-        --theme-text-on-highlight: {ACTIVE_TEXT_ON_HIGHLIGHT};
-
-        --theme-dl-button-bg: {ACTIVE_DL_BUTTON_BG};
-        --theme-dl-button-text: {ACTIVE_DL_BUTTON_TEXT};
-        --theme-dl-button-hover-bg: {ACTIVE_DL_BUTTON_HOVER_BG};
-        --theme-dl-button-hover-text: {ACTIVE_DL_BUTTON_HOVER_TEXT};
+        /* Fallback for Streamlit's border-color if not defined by theme */
+        --border-color-fallback: {"#DADCE0" if THEME == "light" else "#3a3f4b"};
     }}
     """,
+    # General App Styles - Use Streamlit's variables first, then our app accents
     """
     /* General App Styles */
-    .stApp {
-        background-color: var(--background-color, var(--theme-bg-main));
-    }
+    /* .stApp background is handled by Streamlit theme */
     .stApp > header { background-color: transparent !important; }
-    h1 { color: var(--theme-accent-primary); text-align: center; padding-top: 1em; padding-bottom: 0.8em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
-    h2, h3 { color: var(--theme-accent-primary); border-bottom: 2px solid var(--theme-accent-primary) !important; padding-bottom: 0.4em; margin-top: 2em; margin-bottom: 1.2em; font-weight: 600; }
-    h5 { color: var(--theme-accent-primary); opacity: 0.95; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: 600; letter-spacing: 0.5px; }
+
+    h1 { color: var(--app-accent-primary); text-align: center; padding-top: 1em; padding-bottom: 0.8em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+    h2, h3 { color: var(--app-accent-primary); border-bottom: 2px solid var(--app-accent-primary) !important; padding-bottom: 0.4em; margin-top: 2em; margin-bottom: 1.2em; font-weight: 600; }
+    h5 { color: var(--app-accent-primary); opacity: 0.95; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: 600; letter-spacing: 0.5px; }
 
     /* Metric Widget Styles */
     div[data-testid="stMetric"], .metric-card {
-        background-color: var(--secondary-background-color, var(--theme-bg-secondary));
-        padding: 1.5em; border-radius: 12px; border: 1px solid var(--border-color, var(--theme-border-color));
-        box-shadow: 0 4px 6px rgba(0,0,0,0.04); /* Softer shadow for light theme */
+        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        padding: 1.5em; border-radius: 12px; border: 1px solid var(--border-color, var(--border-color-fallback));
+        box-shadow: 0 4px 6px rgba(0,0,0,0.04);
         transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     }
     div[data-testid="stMetric"]:hover, .metric-card:hover {
          transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0,0,0,0.06);
     }
-    div[data-testid="stMetricLabel"] > div { color: var(--text-color, var(--theme-text-secondary)) !important; opacity: 0.9; font-weight: 500; font-size: 1em; text-transform: uppercase; letter-spacing: 0.5px; }
-    div[data-testid="stMetricValue"] > div { color: var(--text-color, var(--theme-text-primary)) !important; font-size: 2.5rem !important; font-weight: 700; line-height: 1.1; }
-    div[data-testid="stMetricDelta"] > div { color: var(--text-color, var(--theme-text-secondary)) !important; opacity: 0.9; font-weight: 500; font-size: 0.9em; }
+    /* For metric labels and values, Streamlit's --text-color should provide good contrast on --secondary-background-color */
+    div[data-testid="stMetricLabel"] > div { color: var(--text-color) !important; opacity: 0.7; font-weight: 500; font-size: 1em; text-transform: uppercase; letter-spacing: 0.5px; }
+    div[data-testid="stMetricValue"] > div { color: var(--text-color) !important; font-size: 2.5rem !important; font-weight: 700; line-height: 1.1; }
+    div[data-testid="stMetricDelta"] > div { color: var(--text-color) !important; opacity: 0.7; font-weight: 500; font-size: 0.9em; }
 
     /* Expander Styles */
-    .streamlit-expanderHeader { color: var(--theme-accent-primary) !important; font-weight: 600; font-size: 1.1em; }
-    .streamlit-expander { border: 1px solid var(--border-color, var(--theme-border-color)); border-radius: 10px; background-color: var(--secondary-background-color, var(--theme-bg-secondary)); }
-    .streamlit-expander > div > div > p { color: var(--text-color, var(--theme-text-primary)); }
+    .streamlit-expanderHeader { color: var(--app-accent-primary) !important; font-weight: 600; font-size: 1.1em; }
+    .streamlit-expander {
+        border: 1px solid var(--border-color, var(--border-color-fallback));
+        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        border-radius: 10px;
+    }
+    .streamlit-expander > div > div > p { color: var(--text-color); /* Streamlit's variable */ }
 
     /* DataFrame Styles */
-    .stDataFrame { border: 1px solid var(--border-color, var(--theme-border-color)); border-radius: 10px; }
+    /* Streamlit handles DataFrame theming well by default. Only add border if desired. */
+    .stDataFrame { border: 1px solid var(--border-color, var(--border-color-fallback)); border-radius: 10px; }
 
     /* Custom Tab (Radio Button) Styles */
-    div[data-testid="stRadio"] label {
-        padding: 10px 18px; margin: 0 3px; border-radius: 8px 8px 0 0; /* Slightly smaller tabs */
+    div[data-testid="stRadio"] label { /* Non-active tab */
+        padding: 10px 18px; margin: 0 3px; border-radius: 8px 8px 0 0;
         border: 1px solid transparent; border-bottom: none;
-        background-color: var(--secondary-background-color, var(--theme-bg-secondary));
-        color: var(--text-color, var(--theme-text-secondary)); opacity: 0.80;
+        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        color: var(--text-color); opacity: 0.7; /* Use Streamlit's text color, slightly transparent */
         transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
         font-weight: 500;
     }
-    div[data-testid="stRadio"] input:checked + div label {
-        background-color: var(--theme-accent-lightest); /* Use lightest accent for active tab BG */
-        color: var(--theme-accent-primary); font-weight: 600; opacity: 1.0;
-        border-top: 2px solid var(--theme-accent-primary);
-        border-left: 1px solid var(--border-color, var(--theme-border-color));
-        border-right: 1px solid var(--border-color, var(--theme-border-color));
+    div[data-testid="stRadio"] input:checked + div label { /* Active tab */
+        background-color: var(--app-accent-lightest); /* Our lightest accent for BG */
+        color: var(--app-accent-primary); /* Our primary accent for text */
+        font-weight: 600; opacity: 1.0;
+        border-top: 2px solid var(--app-accent-primary);
+        border-left: 1px solid var(--border-color, var(--border-color-fallback));
+        border-right: 1px solid var(--border-color, var(--border-color-fallback));
     }
-    div[data-testid="stRadio"] { padding-bottom: 0px; border-bottom: 2px solid var(--theme-accent-primary); margin-bottom: 30px; }
-    div[data-testid="stRadio"] > label > div:first-child { display: none; }
+    div[data-testid="stRadio"] { padding-bottom: 0px; border-bottom: 2px solid var(--app-accent-primary); margin-bottom: 30px; }
+    div[data-testid="stRadio"] > label > div:first-child { display: none; } /* Hide the actual radio dot */
 
     /* Transcript Viewer Specific Styles */
-    .transcript-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; color: var(--text-color, var(--theme-text-primary));}
-    .transcript-summary-item strong { color: var(--theme-accent-primary); }
+    .transcript-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; color: var(--text-color);}
+    .transcript-summary-item strong { color: var(--app-accent-primary); }
     .requirement-item {
-        margin-bottom: 12px; padding: 10px; border-left: 4px solid var(--theme-accent-muted); /* Muted accent for border */
-        background-color: color-mix(in srgb, var(--secondary-background-color, var(--theme-bg-secondary)) 97%, var(--theme-accent-lightest) 3%); /* Very subtle tint */
-        border-radius: 6px; color: var(--text-color, var(--theme-text-primary));
+        margin-bottom: 12px; padding: 10px; border-left: 4px solid var(--app-accent-muted);
+        background-color: color-mix(in srgb, var(--secondary-background-color) 97%, var(--app-accent-lightest) 3%);
+        border-radius: 6px; color: var(--text-color);
     }
-    .requirement-item .type { font-weight: 500; color: var(--theme-accent-muted); opacity: 0.8; font-size: 0.85em; margin-left: 8px; }
+    .requirement-item .type { font-weight: 500; color: var(--app-accent-muted); opacity: 0.8; font-size: 0.85em; margin-left: 8px; }
     .transcript-container {
-        background-color: var(--secondary-background-color, var(--theme-bg-secondary));
-        color: var(--text-color, var(--theme-text-primary));
-        padding: 20px; border-radius: 10px; border: 1px solid var(--border-color, var(--theme-border-color));
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
+        padding: 20px; border-radius: 10px; border: 1px solid var(--border-color, var(--border-color-fallback));
         max-height: 450px; overflow-y: auto; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
         font-size: 0.95em; line-height: 1.7;
     }
-    .transcript-line strong { color: var(--theme-accent-primary); }
+    .transcript-line strong { color: var(--app-accent-primary); }
 
     /* Button styles */
-    div[data-testid="stButton"] > button {
-        background-color: var(--theme-accent-primary); color: var(--theme-text-on-primary);
-        border: none; padding: 10px 20px; border-radius: 6px; /* Slightly smaller buttons */
+    div[data-testid="stButton"] > button { /* Standard Streamlit buttons, themed with our primary accent */
+        background-color: var(--app-accent-primary);
+        color: var(--app-text-on-accent);
+        border: none; padding: 10px 20px; border-radius: 6px;
         font-weight: 600; transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
         box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     div[data-testid="stButton"] > button:hover {
-        background-color: color-mix(in srgb, var(--theme-accent-primary) 90%, #000000 10%); /* Darken slightly */
-        color: var(--theme-text-on-primary); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        background-color: color-mix(in srgb, var(--app-accent-primary) 90%, #000000 10%); /* Darken slightly */
+        color: var(--app-text-on-accent); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
+    /* Download button uses its specific app accent variables */
     div[data-testid="stDownloadButton"] > button {
-        background-color: var(--theme-dl-button-bg); color: var(--theme-dl-button-text);
+        background-color: var(--app-dl-button-bg);
+        color: var(--app-dl-button-text);
         border: none; padding: 10px 20px; border-radius: 6px;
         font-weight: 600; transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
         box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     div[data-testid="stDownloadButton"] > button:hover {
-        background-color: var(--theme-dl-button-hover-bg); color: var(--theme-dl-button-hover-text);
+        background-color: var(--app-dl-button-hover-bg);
+        color: var(--app-dl-button-text); /* Text color usually same on hover for DL button */
         transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
 
     /* Sidebar styling */
     div[data-testid="stSidebarUserContent"] {
-        background-color: var(--secondary-background-color, var(--theme-bg-secondary));
-        padding: 1.5em 1em; border-right: 1px solid var(--border-color, var(--theme-border-color));
+        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        padding: 1.5em 1em; border-right: 1px solid var(--border-color, var(--border-color-fallback));
     }
     div[data-testid="stSidebarUserContent"] h2,
     div[data-testid="stSidebarUserContent"] h3 {
-        color: var(--theme-accent-highlight); border-bottom-color: var(--theme-accent-secondary);
+        color: var(--app-accent-highlight); /* Our specific highlight for sidebar headers */
+        border-bottom-color: var(--app-accent-secondary);
     }
     """,
     "</style>"
@@ -272,9 +239,9 @@ def check_password():
         st.session_state.password_entered = False
     if st.session_state.password_entered:
         return True
-    with st.form("password_form_main_app_v3_6"): # Unique key
+    with st.form("password_form_main_app_v3_7"): # Unique key
         st.markdown("### 🔐 Access Required")
-        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_6")
+        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_7")
         submitted = st.form_submit_button("Submit")
         if submitted:
             if password_attempt == app_password:
@@ -303,7 +270,7 @@ ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets = st.secrets.get("gcp_service_account")
-    if gcp_secrets is None: print("Error: GCP secrets NOT FOUND."); return None
+    if gcp_secrets is None: print("Error: GCP secrets NOT FOUND."); return None # Log for server
     if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')): print(f"Error: GCP secrets not structured correctly (type: {type(gcp_secrets)})."); return None
     required_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id"]
     missing = [k for k in required_keys if gcp_secrets.get(k) is None]
@@ -327,9 +294,9 @@ def robust_to_datetime(series):
     return dates
 
 @st.cache_data(ttl=600)
-def load_data_from_google_sheet(): # Removed unused param
+def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
-    if gc is None: st.error("Google Sheets authentication failed. Cannot load data."); return pd.DataFrame()
+    if gc is None: st.error("Google Sheets authentication failed. Cannot load data."); return pd.DataFrame() # UI error
     url = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"); ws_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
     if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame()
     if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame()
@@ -399,11 +366,12 @@ if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 if 'date_range' not in st.session_state: st.session_state.date_range = (default_s_init, default_e_init)
 if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
-# Initialize all filter-related session state keys
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
-for s_key in ['licenseNumber_search', 'storeName_search', 'selected_transcript_key']:
-    if s_key not in st.session_state: st.session_state[s_key] = "" if "search" in s_key else None
+for s_key_base in ['licenseNumber', 'storeName']: # Search terms
+    if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
+if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
+
 
 # --- Data Loading Trigger ---
 if not st.session_state.data_loaded:
@@ -417,7 +385,7 @@ if not st.session_state.data_loaded:
         st.session_state.max_data_date_for_filter = max_data_date
         st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
     else:
-        st.session_state.df_original = pd.DataFrame() # Ensure it's an empty DF
+        st.session_state.df_original = pd.DataFrame()
         st.session_state.data_loaded = False
 df_original = st.session_state.df_original
 
@@ -425,7 +393,7 @@ st.title("🌌 Onboarding Performance Dashboard 🌌")
 
 if not st.session_state.data_loaded or df_original.empty:
     st.warning("No data loaded or data is empty. Check configurations or try refreshing.")
-    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_6"):
+    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_7"):
         st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 
 with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True):
@@ -436,39 +404,45 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 st.sidebar.header("⚙️ Data Controls")
-if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_6"):
+if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_7"):
     st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 
 st.sidebar.header("🔍 Filters")
 min_dt_filter = st.session_state.get('min_data_date_for_filter', default_s_init)
 max_dt_filter = st.session_state.get('max_data_date_for_filter', default_e_init)
 current_date_range_start, current_date_range_end = st.session_state.date_range
+
+# Ensure current range is valid against available data min/max, and default if necessary
+current_date_range_start = current_date_range_start or default_s_init
+current_date_range_end = current_date_range_end or default_e_init
 if min_dt_filter and current_date_range_start < min_dt_filter: current_date_range_start = min_dt_filter
 if max_dt_filter and current_date_range_end > max_dt_filter: current_date_range_end = max_dt_filter
-if current_date_range_start > current_date_range_end:
+if current_date_range_start > current_date_range_end: # If correction leads to invalid range
     current_date_range_start = min_dt_filter if min_dt_filter else default_s_init
     current_date_range_end = max_dt_filter if max_dt_filter else default_e_init
 
-if min_dt_filter and max_dt_filter :
+
+if min_dt_filter and max_dt_filter : # Only show if actual data range is known
     sel_range = st.sidebar.date_input("Date Range:", value=(current_date_range_start, current_date_range_end),
-                                      min_value=min_dt_filter, max_value=max_dt_filter, key="date_sel_v3_6")
+                                      min_value=min_dt_filter, max_value=max_dt_filter, key="date_sel_v3_7")
     if sel_range != st.session_state.date_range: st.session_state.date_range = sel_range; st.rerun()
-else:
-    st.sidebar.warning("Date data for filtering is not fully available. Defaulting range.")
-    sel_range_fallback = st.sidebar.date_input("Date Range:", value=(default_s_init, default_e_init), key="date_sel_fallback_v3_6")
+else: # Fallback if data range isn't determined (e.g., no data loaded yet)
+    st.sidebar.warning("Date data for filtering is not fully available. Using default range.")
+    sel_range_fallback = st.sidebar.date_input("Date Range:", value=(default_s_init, default_e_init), key="date_sel_fallback_v3_7")
     if sel_range_fallback != st.session_state.date_range: st.session_state.date_range = sel_range_fallback; st.rerun()
 start_dt,end_dt = st.session_state.date_range
 
+
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
-    val = st.sidebar.text_input(f"Search {lbl} (on all data):",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_6")
+    val = st.sidebar.text_input(f"Search {lbl} (on all data):",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_7")
     if val != st.session_state[k+"_search"]: st.session_state[k+"_search"]=val; st.rerun()
 cat_filters_definition = {'repName':'Rep(s)', 'status':'Status(es)', 'clientSentiment':'Client Sentiment(s)'}
 for k,lbl in cat_filters_definition.items():
     if not df_original.empty and k in df_original.columns and df_original[k].notna().any():
         opts = sorted([v for v in df_original[k].astype(str).dropna().unique() if v.strip()])
-        sel = [v for v in st.session_state[k+"_filter"] if v in opts]
-        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_6")
+        sel = [v for v in st.session_state[k+"_filter"] if v in opts] # Ensure selected are valid
+        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_7")
         if new_sel != st.session_state[k+"_filter"]: st.session_state[k+"_filter"]=new_sel; st.rerun()
 
 def clear_filters_cb():
@@ -478,11 +452,11 @@ def clear_filters_cb():
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
     st.session_state.selected_transcript_key = None
-if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_6"): st.rerun()
+if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_7"): st.rerun()
 
 # --- Data Filtering Logic ---
 df_filtered = pd.DataFrame()
-if not df_original.empty: # Ensure df_original is not empty before trying to filter
+if not df_original.empty:
     df_working = df_original.copy()
     license_search_term = st.session_state.get("licenseNumber_search", "")
     if license_search_term and "licenseNumber" in df_working.columns:
@@ -494,7 +468,7 @@ if not df_original.empty: # Ensure df_original is not empty before trying to fil
         date_objects_for_filtering = pd.to_datetime(df_working['onboarding_date_only'], errors='coerce').dt.date
         valid_dates_mask = date_objects_for_filtering.notna()
         date_filter_mask = pd.Series([False] * len(df_working), index=df_working.index)
-        if valid_dates_mask.any(): # Apply filter only if there are valid dates to compare
+        if valid_dates_mask.any():
              date_filter_mask[valid_dates_mask] = \
                 (date_objects_for_filtering[valid_dates_mask] >= start_dt) & \
                 (date_objects_for_filtering[valid_dates_mask] <= end_dt)
@@ -506,14 +480,19 @@ if not df_original.empty: # Ensure df_original is not empty before trying to fil
     df_filtered = df_working.copy()
 
 # --- Plotly Base Layout ---
+# Use Streamlit's theme variables for Plotly chart text/titles where possible.
+# Our ACTIVE_ACCENT_PRIMARY can be used for specific title colors if Streamlit's primaryColor isn't desired.
 plotly_base_layout_settings = {
     "plot_bgcolor": PLOT_BG_COLOR, "paper_bgcolor": PLOT_BG_COLOR, "title_x":0.5,
     "xaxis_showgrid":False, "yaxis_showgrid":False, "margin": dict(l=40, r=20, t=60, b=40),
-    "font_color": ACTIVE_TEXT_PRIMARY, "title_font_color": ACTIVE_ACCENT_PRIMARY,
-    "xaxis_title_font_color": ACTIVE_TEXT_SECONDARY, "yaxis_title_font_color": ACTIVE_TEXT_SECONDARY,
-    "xaxis_tickfont_color": ACTIVE_TEXT_SECONDARY, "yaxis_tickfont_color": ACTIVE_TEXT_SECONDARY,
-    "legend_font_color": ACTIVE_TEXT_PRIMARY,
+    "font_color": "var(--text-color)", # Use Streamlit's main text color
+    "title_font_color": "var(--app-accent-primary)", # Our app's primary accent for titles
+    # For axes and legend, let Streamlit's theme (via plotly template) handle it or use a more neutral color
+    "xaxis_title_font_color": "var(--text-color)", "yaxis_title_font_color": "var(--text-color)",
+    "xaxis_tickfont_color": "var(--text-color)", "yaxis_tickfont_color": "var(--text-color)",
+    "legend_font_color": "var(--text-color)",
 }
+
 
 # --- MTD Metrics ---
 today_date_mtd = date.today(); mtd_s = today_date_mtd.replace(day=1)
@@ -534,12 +513,11 @@ delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else 
 # --- Tab Navigation ---
 tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
-                        horizontal=True, key="main_tab_selector_v3_6")
+                        horizontal=True, key="main_tab_selector_v3_7") # Unique key
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
 # --- Display Content ---
 if st.session_state.active_tab == "🌌 Overview":
-    # ... (Overview content - unchanged, will use new theme) ...
     with st.container():
         st.header("📈 Month-to-Date (MTD) Overview")
         c1,c2,c3,c4 = st.columns(4)
@@ -570,7 +548,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
 
     if not df_display_table.empty:
         st.dataframe(df_display_table[cols_for_display], use_container_width=True, height=300)
-        # ... (Transcript viewer - unchanged, will use new theme) ...
         st.markdown("---")
         st.subheader("🔍 View Full Onboarding Details & Transcript")
         if not df_display_table.empty and 'fullTranscript' in df_display_table.columns:
@@ -578,17 +555,15 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             if transcript_options:
                 current_selection = st.session_state.selected_transcript_key
                 options_list = [None] + list(transcript_options.keys())
-                try:
-                    current_index = options_list.index(current_selection)
-                except ValueError:
-                    current_index = 0 # Default to "Choose an entry..." if current_selection not found
+                try: current_index = options_list.index(current_selection)
+                except ValueError: current_index = 0
 
                 selected_key_display = st.selectbox("Select onboarding to view details:", options=options_list,
                                                     index=current_index, format_func=lambda x: "Choose an entry..." if x is None else x,
-                                                    key="transcript_selector_v3_6")
+                                                    key="transcript_selector_v3_7") # Unique key
                 if selected_key_display != st.session_state.selected_transcript_key :
                     st.session_state.selected_transcript_key = selected_key_display
-                    st.rerun() # Rerun to reflect selection immediately if needed, or remove if content updates without it
+                    st.rerun()
 
                 if st.session_state.selected_transcript_key :
                     selected_idx = transcript_options[st.session_state.selected_transcript_key]
@@ -613,7 +588,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                     content = selected_row.get('fullTranscript', "")
                     if content:
                         html_transcript = "<div class='transcript-container'>"
-                        for line in content.replace('\\n', '\n').split('\n'):
+                        for line in content.replace('\\n', '\n').split('\n'): # Handle escaped newlines
                             line = line.strip();
                             if not line: continue
                             parts = line.split(":", 1); speaker = f"<strong>{parts[0].strip()}:</strong>" if len(parts) == 2 else ""
@@ -625,7 +600,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
         else: st.info("No data in table for transcript viewer, or 'fullTranscript' column missing.")
         st.markdown("---")
         csv_data = convert_df_to_csv(df_filtered)
-        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_6")
+        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_7") # Unique key
     elif not df_original.empty: st.info("No data matches current filters for table display.")
     else: st.info("No data loaded to display.")
 
@@ -636,23 +611,22 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_counts = df_filtered['status'].value_counts().reset_index()
                 status_fig = px.bar(status_counts, x='status', y='count', color='status', title="Onboarding Status Distribution",
-                                     color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ) # Theme-aware
+                                     color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
                 status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_counts = df_filtered['repName'].value_counts().reset_index()
                 rep_fig = px.bar(rep_counts, x='repName', y='count', color='repName', title="Onboardings by Representative",
-                                     color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ) # Theme-aware
+                                     color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ)
                 rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
         with c2_charts:
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
-                # Map sentiment to colors from the active theme's sentiment map
                 current_sentiment_map = {
-                    s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), ACTIVE_ACCENT_MUTED)
+                    s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), ACTIVE_ACCENT_MUTED) # Fallback to muted accent
                     for s in sent_counts['clientSentiment'].unique()
                 }
                 sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, title="Client Sentiment Breakdown",
-                                  color='clientSentiment', color_discrete_map=current_sentiment_map) # Theme-aware
+                                  color='clientSentiment', color_discrete_map=current_sentiment_map)
                 sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
 
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
@@ -677,7 +651,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                         checklist_bar_fig = px.bar(df_checklist_bar_chart.sort_values("Completion (%)",ascending=True),
                                                      x="Completion (%)", y="Key Requirement", orientation='h',
                                                      title="Key Requirement Completion (Confirmed Onboardings)",
-                                                     color_discrete_sequence=[ACTIVE_ACCENT_PRIMARY]) # Use single active accent
+                                                     color_discrete_sequence=[ACTIVE_ACCENT_PRIMARY]) # Single color bar
                         checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(checklist_bar_fig, use_container_width=True)
                 else: st.info("No data for key requirement chart (confirmed).")
@@ -685,7 +659,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     else: st.info("No data matches current filters for detailed visuals.")
 
 elif st.session_state.active_tab == "📈 Trends & Distributions":
-    # ... (Trends content - apply ACTIVE_PLOTLY color sequences) ...
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
@@ -698,7 +671,7 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
                 data_for_trend_tab3 = df_trend_for_tab3.set_index('onboarding_date_only').resample(freq_for_trend_tab3).size().reset_index(name='count')
                 if not data_for_trend_tab3.empty:
                     fig_for_trend_tab3 = px.line(data_for_trend_tab3, x='onboarding_date_only', y='count', markers=True,
-                                      title="Onboardings Over Filtered Period", color_discrete_sequence=[ACTIVE_ACCENT_HIGHLIGHT]) # Theme-aware
+                                      title="Onboardings Over Filtered Period", color_discrete_sequence=[ACTIVE_ACCENT_HIGHLIGHT])
                     fig_for_trend_tab3.update_layout(plotly_base_layout_settings)
                     st.plotly_chart(fig_for_trend_tab3, use_container_width=True)
                 else: st.info("Not enough data for trend plot after resampling.")
@@ -710,7 +683,7 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
             if not days_data_for_hist_tab3.empty:
                 nbins_for_hist_tab3 = max(10, min(50, int(len(days_data_for_hist_tab3)/5))) if len(days_data_for_hist_tab3) > 20 else (len(days_data_for_hist_tab3.unique()) or 10)
                 fig_days_dist_hist_tab3 = px.histogram(days_data_for_hist_tab3, nbins=nbins_for_hist_tab3,
-                                           title="Days to Confirmation Distribution", color_discrete_sequence=[ACTIVE_ACCENT_SECONDARY]) # Theme-aware
+                                           title="Days to Confirmation Distribution", color_discrete_sequence=[ACTIVE_ACCENT_SECONDARY])
                 fig_days_dist_hist_tab3.update_layout(plotly_base_layout_settings)
                 st.plotly_chart(fig_days_dist_hist_tab3, use_container_width=True)
             else: st.info("No valid 'Days to Confirmation' data for distribution plot.")
@@ -718,4 +691,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches current filters for Trends & Distributions.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v3.6 | Secured Access")
+st.sidebar.info("Dashboard v3.7 | Secured Access") # Corrected closing parenthesis

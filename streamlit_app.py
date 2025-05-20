@@ -1,53 +1,45 @@
 # Import necessary libraries
-import streamlit as st  # For creating the web application interface and UI elements
-import pandas as pd  # For data manipulation and analysis, especially using DataFrames
-import plotly.express as px  # For creating interactive charts and visualizations easily
-import plotly.graph_objects as go  # For more advanced and custom Plotly charts (though not heavily used here)
-from datetime import datetime, date, timedelta  # For working with date and time objects
-from dateutil.relativedelta import relativedelta  # For more complex date calculations (e.g., adding/subtracting months)
-import gspread  # Python client library for Google Sheets API
-from google.oauth2.service_account import Credentials  # For authenticating with Google services using a service account
-from collections.abc import Mapping  # Abstract Base Class for dictionary-like objects, used for robust type checking
-import time  # For time-related functions (not actively used in this version but often useful)
-import numpy as np  # For numerical operations; Pandas is built on NumPy
-import re  # For regular expression operations, used here for parsing text like transcripts
-import matplotlib # Imported because some pandas styling features (e.g., background_gradient) might use it under the hood
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+import gspread
+from google.oauth2.service_account import Credentials
+from collections.abc import Mapping 
+import time
+import numpy as np
+import re 
+import matplotlib
 
 # --- Page Configuration ---
-# This st.set_page_config() function must be the first Streamlit command in your script, except for comments and blank lines.
-# It sets up the basic properties of the web page, such as:
-# - page_title: The title that appears in the browser tab.
-# - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
-# - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.2", # Version for Theme Enhancements
-    page_icon="🎨", # Artist palette emoji
+    page_title="Onboarding Performance Dashboard v3.2", 
+    page_icon="💎", 
     layout="wide"
 )
 
 # --- Color Palette ---
-# Define color constants for easy reuse and theme consistency.
 ICE_COLD = "#a0d2eb"        # Light Blue
 FREEZE_PURPLE = "#e5eaf5"   # Very Light, almost white purple/blue
 MEDIUM_PURPLE = "#d0bdf4"   # Light Lavender
 PURPLE_PAIN = "#8458B3"     # Medium-Dark Purple (Primary Accent)
-HEAVY_PURPLE = "#a28089"    # Muted, desaturated purplish-pink/mauve (Good for secondary text on light bg)
+HEAVY_PURPLE = "#a28089"    # Muted, desaturated purplish-pink/mauve
 
-PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots, ensuring it's defined
+PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots
 
-# Fallback Dark Theme Specifics (used in var() fallbacks in CSS)
-DARK_BACKGROUND_FALLBACK = "#1F2128" 
-DARK_CARD_BACKGROUND_FALLBACK = "#2C2F3A" 
-DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE # Light text for dark backgrounds
-DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE # Lighter purple for secondary text on dark
+# Fallback Theme Specifics (used in var() fallbacks in CSS)
+DARK_BACKGROUND_FALLBACK = "#1A1F2B" # Darker, more bluish charcoal
+DARK_CARD_BACKGROUND_FALLBACK = "#2C3240" # Slightly lighter card background
+DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE 
+DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE 
 
-# Fallback Light Theme Specifics (for elements not directly using Streamlit vars)
-LIGHT_TEXT_PRIMARY_FALLBACK = "#212936" # Dark text for light backgrounds
-LIGHT_TEXT_SECONDARY_FALLBACK = "#4A5568" # Slightly lighter dark text
+LIGHT_TEXT_PRIMARY_FALLBACK = "#1A1F2B" # Very dark blue/charcoal for text on light backgrounds
+LIGHT_TEXT_SECONDARY_FALLBACK = HEAVY_PURPLE # Muted purple for secondary text on light
 
 
 # --- Custom Styling (CSS) ---
-# These are global CSS styles to customize the visual appearance of the Streamlit application.
 st.markdown(f"""
 <style>
     /* General App Styles */
@@ -62,82 +54,92 @@ st.markdown(f"""
         text-align: center; 
         padding-top: 1em; 
         padding-bottom: 0.8em; 
-        font-weight: 600;
-        letter-spacing: 1px;
+        font-weight: 700; /* Bolder */
+        letter-spacing: 1.5px; /* Wider spacing */
+        text-transform: uppercase; /* Uppercase for a more impactful title */
     }} 
     h2, h3 {{ 
-        color: {PURPLE_PAIN}; /* Primary accent for main headers */
+        color: {PURPLE_PAIN}; 
         border-bottom: 2px solid {PURPLE_PAIN} !important; 
         padding-bottom: 0.4em; 
-        margin-top: 1.5em;
-        margin-bottom: 1em;
-        font-weight: 500;
+        margin-top: 2em; /* More space above headers */
+        margin-bottom: 1.2em; /* More space below headers */
+        font-weight: 600; /* Bolder sub-headers */
     }} 
-    h5 {{ /* For sub-sections like "Onboarding Summary" */
+    h5 {{ 
         color: {PURPLE_PAIN}; 
-        opacity: 0.9;
-        margin-top: 1em;
-        margin-bottom: 0.5em;
-        font-weight: 500;
+        opacity: 0.95;
+        margin-top: 1.2em;
+        margin-bottom: 0.6em;
+        font-weight: 600; /* Bolder for these sub-titles too */
+        letter-spacing: 0.5px;
     }}
     
     /* Metric Widget Styles */
     div[data-testid="stMetric"], .metric-card {{
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
-        padding: 1.2em 1.5em;
-        border-radius: 10px;
-        border: 1px solid var(--border-color, #3a3f4b); /* Use Streamlit's border color var */
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Softer shadow for light/dark */
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        padding: 1.5em; /* Increased padding */
+        border-radius: 12px; /* More rounded */
+        border: 1px solid var(--border-color, #3a3f4b); 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
     }}
     div[data-testid="stMetric"]:hover, .metric-card:hover {{
-         transform: translateY(-4px);
-         box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+         transform: translateY(-5px); /* More lift on hover */
+         box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     }}
     div[data-testid="stMetricLabel"] > div {{ 
         color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK}) !important; 
         font-weight: 500;
-        font-size: 0.95em;
-        opacity: 0.85;
+        font-size: 1em; /* Slightly larger label */
+        opacity: 0.9;
+        text-transform: uppercase; /* Uppercase labels for a modern feel */
+        letter-spacing: 0.5px;
     }}
     div[data-testid="stMetricValue"] > div {{ 
         color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}) !important; 
-        font-size: 2.2rem !important; 
-        font-weight: 600;
+        font-size: 2.5rem !important; /* Further increased size */
+        font-weight: 700; /* Bolder value */
+        line-height: 1.1;
     }}
     div[data-testid="stMetricDelta"] > div {{ 
         color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK}) !important; 
         font-weight: 500;
         opacity: 0.9;
+        font-size: 0.9em;
     }}
     
     /* Expander Styles */
     .streamlit-expanderHeader {{ 
         color: {PURPLE_PAIN} !important; 
-        font-weight: 500;
-        font-size: 1.05em;
+        font-weight: 600; /* Bolder */
+        font-size: 1.1em; /* Slightly larger */
     }} 
     .streamlit-expander {{
         border: 1px solid var(--border-color, #444); 
-        border-radius: 8px;
+        border-radius: 10px; /* More rounded */
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK}); /* Card-like background */
+    }}
+    .streamlit-expander > div > div > p {{ /* Target text inside expander directly if needed */
+        color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK});
     }}
     
     /* DataFrame Styles */
     .stDataFrame {{ 
         border: 1px solid var(--border-color, #444); 
-        border-radius: 8px;
+        border-radius: 10px; /* More rounded */
     }} 
     
     /* Custom Tab (Radio Button) Styles */
     div[data-testid="stRadio"] label {{ 
-        padding: 10px 18px; 
-        margin: 0 3px;
-        border-radius: 8px 8px 0 0; 
+        padding: 12px 20px; /* Increased padding */
+        margin: 0 4px; /* Increased margin */
+        border-radius: 10px 10px 0 0; /* More rounded top corners */
         border: 1px solid transparent;
         border-bottom: none;
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK});
-        opacity: 0.7;
+        opacity: 0.75;
         transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
         font-weight: 500;
     }}
@@ -146,36 +148,36 @@ st.markdown(f"""
         color: {PURPLE_PAIN};
         font-weight: 600;
         opacity: 1.0;
-        border-top: 2px solid {PURPLE_PAIN};
+        border-top: 3px solid {PURPLE_PAIN}; /* Thicker top border for active tab */
         border-left: 1px solid var(--border-color, #555); 
         border-right: 1px solid var(--border-color, #555); 
     }}
     div[data-testid="stRadio"] {{ 
         padding-bottom: 0px; 
         border-bottom: 2px solid {PURPLE_PAIN}; 
-        margin-bottom: 25px; 
+        margin-bottom: 30px; /* Increased space after tabs */
     }}
      div[data-testid="stRadio"] > label > div:first-child {{
         display: none; 
     }}
     
     /* Transcript Viewer Specific Styles */
-    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }}
+    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; }}
     .transcript-summary-item strong {{ color: {PURPLE_PAIN}; }} 
-    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 8px; }}
-    .requirement-item {{ margin-bottom: 10px; padding: 8px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 4px; }}
-    .requirement-item .type {{ font-weight: 500; color: var(--text-color, {HEAVY_PURPLE}); opacity: 0.8; font-size: 0.85em; margin-left: 8px; }} /* Use theme text or HEAVY_PURPLE */
+    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 10px; }}
+    .requirement-item {{ margin-bottom: 12px; padding: 10px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 6px; }}
+    .requirement-item .type {{ font-weight: 500; color: var(--text-color, {HEAVY_PURPLE}); opacity: 0.8; font-size: 0.85em; margin-left: 8px; }}
     .transcript-container {{ 
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK}); 
         color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}); 
         padding: 20px; 
-        border-radius: 8px; 
+        border-radius: 10px; 
         border: 1px solid var(--border-color, #444); 
         max-height: 450px; 
         overflow-y: auto; 
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; 
-        font-size: 0.9em;
-        line-height: 1.6;
+        font-size: 0.95em; /* Slightly larger transcript text */
+        line-height: 1.7; /* More line spacing */
     }}
     .transcript-line {{ margin-bottom: 10px; word-wrap: break-word; white-space: pre-wrap; }}
     .transcript-line strong {{ color: {PURPLE_PAIN}; }} /* Speaker name */
@@ -183,41 +185,46 @@ st.markdown(f"""
     /* Button styles */
     div[data-testid="stButton"] > button {{
         background-color: {PURPLE_PAIN};
-        color: {FREEZE_PURPLE}; /* Light text for dark purple BG */
+        color: {FREEZE_PURPLE}; 
         border: none;
-        padding: 10px 20px;
+        padding: 12px 24px; /* Larger buttons */
         border-radius: 8px;
-        font-weight: 500;
-        transition: background-color 0.3s ease, transform 0.2s ease;
+        font-weight: 600; /* Bolder text */
+        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }}
     div[data-testid="stButton"] > button:hover {{
         background-color: {MEDIUM_PURPLE}; 
-        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Darker text for lighter purple hover BG */
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; 
         transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }}
     div[data-testid="stDownloadButton"] > button {{
-        background-color: {ICE_COLD}; /* Light blue background */
-        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Dark text for light button */
+        background-color: {ICE_COLD}; 
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; 
         border: none;
-        padding: 10px 20px;
+        padding: 12px 24px;
         border-radius: 8px;
-        font-weight: 500;
-        transition: background-color 0.3s ease, transform 0.2s ease;
+        font-weight: 600;
+        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }}
     div[data-testid="stDownloadButton"] > button:hover {{
-        background-color: {FREEZE_PURPLE}; /* Very light on hover */
-        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Dark text */
+        background-color: {FREEZE_PURPLE}; 
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; 
         transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }}
 
     /* Sidebar styling */
     div[data-testid="stSidebarUserContent"] {{
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.5em 1em;
+        border-right: 1px solid var(--border-color, #3a3f4b); /* Add a subtle border to separate sidebar */
     }}
     div[data-testid="stSidebarUserContent"] h2, 
     div[data-testid="stSidebarUserContent"] h3 {{
-        color: {ICE_COLD}; /* Keep sidebar headers distinct if desired */
+        color: {ICE_COLD}; 
         border-bottom-color: {MEDIUM_PURPLE};
     }}
 </style>
@@ -708,4 +715,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v3.1.1 | Secured Access") 
+st.sidebar.info("Dashboard v3.2 | Secured Access") 

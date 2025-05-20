@@ -14,8 +14,8 @@ import matplotlib
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.0", # Version for Visual Overhaul
-    page_icon="🌌", # Aurora/Galaxy emoji
+    page_title="Onboarding Performance Dashboard v3.0.1", # Version for PLOT_BG_COLOR Fix
+    page_icon="🎨", # Artist palette emoji
     layout="wide"
 )
 
@@ -24,18 +24,21 @@ ICE_COLD = "#a0d2eb"
 FREEZE_PURPLE = "#e5eaf5"
 MEDIUM_PURPLE = "#d0bdf4"
 PURPLE_PAIN = "#8458B3"
-HEAVY_PURPLE = "#a28089" # Might be used for subtle accents or borders
+HEAVY_PURPLE = "#a28089" 
 
-# Dark Theme Specifics (if not using Streamlit's direct variables everywhere)
-DARK_BACKGROUND = "#1F2128" # A deep, cool charcoal
-DARK_CARD_BACKGROUND = "#2C2F3A" # Slightly lighter for cards
+# This was missing its Python variable definition
+PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots
+
+# Dark Theme Specifics 
+DARK_BACKGROUND = "#1F2128" 
+DARK_CARD_BACKGROUND = "#2C2F3A" 
 DARK_TEXT_PRIMARY = FREEZE_PURPLE
 DARK_TEXT_SECONDARY = MEDIUM_PURPLE
 
-# Light Theme Specifics (for elements not covered by Streamlit vars)
+# Light Theme Specifics (less critical if relying on Streamlit vars, but good for reference)
 LIGHT_BACKGROUND = FREEZE_PURPLE
 LIGHT_CARD_BACKGROUND = "#FFFFFF"
-LIGHT_TEXT_PRIMARY = "#2C2F3A" # Dark text for light background
+LIGHT_TEXT_PRIMARY = "#2C2F3A" 
 LIGHT_TEXT_SECONDARY = HEAVY_PURPLE
 
 
@@ -44,7 +47,7 @@ st.markdown(f"""
 <style>
     /* General App Styles */
     .stApp {{
-        background-color: var(--background-color, {DARK_BACKGROUND}); /* Default to dark if var not found */
+        background-color: var(--background-color, {DARK_BACKGROUND}); 
     }}
     .stApp > header {{ 
         background-color: transparent !important; 
@@ -65,7 +68,7 @@ st.markdown(f"""
         margin-bottom: 1em;
         font-weight: 500;
     }} 
-    h5 {{ /* For sub-sections like "Onboarding Summary" */
+    h5 {{ 
         color: {MEDIUM_PURPLE};
         margin-top: 1em;
         margin-bottom: 0.5em;
@@ -73,7 +76,7 @@ st.markdown(f"""
     }}
     
     /* Metric Widget Styles */
-    div[data-testid="stMetric"], .metric-card {{ /* Target Streamlit's metric or our custom class */
+    div[data-testid="stMetric"], .metric-card {{ 
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
         padding: 1.2em 1.5em;
         border-radius: 10px;
@@ -91,7 +94,7 @@ st.markdown(f"""
     }}
     div[data-testid="stMetricValue"] > div {{ 
         color: var(--text-color, {DARK_TEXT_PRIMARY}) !important; 
-        font-size: 2.2rem !important; /* Increased size */
+        font-size: 2.2rem !important; 
         font-weight: 600;
     }}
     div[data-testid="stMetricDelta"] > div {{ 
@@ -119,9 +122,9 @@ st.markdown(f"""
     
     /* Custom Tab (Radio Button) Styles */
     div[data-testid="stRadio"] label {{ 
-        padding: 10px 18px; /* Increased padding */
+        padding: 10px 18px; 
         margin: 0 3px;
-        border-radius: 8px 8px 0 0; /* More rounded top corners */
+        border-radius: 8px 8px 0 0; 
         border: 1px solid transparent;
         border-bottom: none;
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
@@ -141,8 +144,8 @@ st.markdown(f"""
     }}
     div[data-testid="stRadio"] {{ 
         padding-bottom: 0px; 
-        border-bottom: 2px solid {PURPLE_PAIN}; /* Line under the active tab row */
-        margin-bottom: 25px; /* Space after tabs */
+        border-bottom: 2px solid {PURPLE_PAIN}; 
+        margin-bottom: 25px; 
     }}
      div[data-testid="stRadio"] > label > div:first-child {{
         display: none; 
@@ -162,7 +165,7 @@ st.markdown(f"""
         border: 1px solid var(--secondary-background-color, #444); 
         max-height: 450px; 
         overflow-y: auto; 
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Better monospace stack */
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; 
         font-size: 0.9em;
         line-height: 1.6;
     }}
@@ -180,13 +183,13 @@ st.markdown(f"""
         transition: background-color 0.3s ease, transform 0.2s ease;
     }}
     div[data-testid="stButton"] > button:hover {{
-        background-color: {MEDIUM_PURPLE}; /* Lighter purple on hover */
+        background-color: {MEDIUM_PURPLE}; 
         color: {DARK_BACKGROUND};
         transform: translateY(-2px);
     }}
     div[data-testid="stDownloadButton"] > button {{
         background-color: {ICE_COLD};
-        color: {DARK_BACKGROUND}; /* Dark text for light button */
+        color: {DARK_BACKGROUND}; 
          border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -288,7 +291,6 @@ def load_data_from_google_sheet(_url_param, _ws_param):
         data = ws.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
         df = pd.DataFrame(data)
-        # st.sidebar.success(f"Loaded {len(df)} records from '{ws_name}'.") # Success message can be intrusive
         if df.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
@@ -348,7 +350,7 @@ def get_default_date_range(series):
 default_s, default_e, _, _ = get_default_date_range(None)
 session_state_defaults = {
     'data_loaded': False, 'df_original': pd.DataFrame(), 'date_range': (default_s, default_e),
-    'active_tab': "📈 Overview", 
+    'active_tab': "🌌 Overview", # Default active tab using new name
     'repName_filter': [], 'status_filter': [], 'clientSentiment_filter': [],
     'licenseNumber_search': "", 'storeName_search': "", 'selected_transcript_key': None
 }
@@ -368,14 +370,14 @@ if not st.session_state.data_loaded:
             else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original 
 
-st.title("🌌 Onboarding Performance Dashboard 🌌") # New Title
+st.title("🌌 Onboarding Performance Dashboard 🌌") 
 
 if not st.session_state.data_loaded or df_original.empty:
     st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
     if st.sidebar.button("🔄 Force Refresh", key="refresh_fail"):
         st.cache_data.clear(); st.session_state.clear(); st.rerun()
 
-with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True): # Expanded by default
+with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True): 
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
     - **Secondary (Max 3 pts):** `Intro Self & DIME` (1), `Offer Display Help` (1), `Provide Promo Credit Link` (1).
@@ -445,8 +447,8 @@ else: df_filtered = pd.DataFrame()
 plotly_base_layout_settings = {
     "plot_bgcolor": PLOT_BG_COLOR, 
     "paper_bgcolor": PLOT_BG_COLOR, 
-    "font_color": "var(--text-color)", # Use Streamlit's theme variable for text
-    "title_font_color": PURPLE_PAIN, # Main accent for titles
+    "font_color": "var(--text-color)", 
+    "title_font_color": PURPLE_PAIN, 
     "legend_font_color": "var(--text-color)",
     "title_x":0.5, 
     "xaxis_showgrid":False, "yaxis_showgrid":False,
@@ -472,11 +474,9 @@ tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
 # --- Custom Tab Navigation ---
-tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"] # Added emojis
+tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"] 
 if 'active_tab' not in st.session_state: st.session_state.active_tab = tab_names[0]
 
-# Use st.radio for tab selection, displayed horizontally.
-# The current selection is stored in st.session_state.active_tab.
 selected_tab = st.radio(
     "Navigation:", 
     tab_names, 
@@ -486,12 +486,11 @@ selected_tab = st.radio(
 )
 if selected_tab != st.session_state.active_tab:
     st.session_state.active_tab = selected_tab
-    st.rerun() # Rerun to reflect tab change immediately if logic depends on it early
+    st.rerun() 
 
 # --- Display Content Based on Active Tab ---
 if st.session_state.active_tab == "🌌 Overview": 
-    # Using st.container for metric cards to apply custom class if needed for more styling
-    with st.container(): # This container can be styled further if we add a class via markdown
+    with st.container(): 
         st.header("📈 Month-to-Date (MTD) Overview")
         c1,c2,c3,c4 = st.columns(4)
         with c1: st.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None else "N/A")
@@ -514,6 +513,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
+    # CORRECTED: Use ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS here as well for consistency if intended
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
@@ -527,11 +527,11 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             if 'score' in df_to_style.columns: 
                 scores_num = pd.to_numeric(df_to_style['score'], errors='coerce')
                 if scores_num.notna().any():
-                    s = s.background_gradient(subset=['score'],cmap='PuBuGn',low=0.3,high=0.7, gmap=scores_num) # Changed cmap
+                    s = s.background_gradient(subset=['score'],cmap='PuBuGn',low=0.3,high=0.7, gmap=scores_num) 
             if 'days_to_confirmation' in df_to_style.columns:
                 days_num = pd.to_numeric(df_to_style['days_to_confirmation'], errors='coerce')
                 if days_num.notna().any():
-                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdPu_r', gmap=days_num) # Changed cmap
+                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdPu_r', gmap=days_num) 
             return s
         st.dataframe(style_df(df_display_table[cols_for_display]), use_container_width=True, height=300)
         
@@ -621,16 +621,16 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_fig = px.bar(df_filtered['repName'].value_counts().reset_index(), x='repName', y='count', 
-                                     color='repName', title="Onboardings by Representative", color_discrete_sequence=px.colors.qualitative.Pastel1) # Softer colors for reps
+                                     color='repName', title="Onboardings by Representative", color_discrete_sequence=px.colors.qualitative.Pastel1) 
                 rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
         
         with c2_charts: 
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
                 color_map = {str(s).lower(): (ICE_COLD if 'positive' in str(s).lower() else 
-                                             (HEAVY_PURPLE if 'negative' in str(s).lower() else MEDIUM_PURPLE)) # Adjusted sentiment colors
+                                             (HEAVY_PURPLE if 'negative' in str(s).lower() else MEDIUM_PURPLE)) 
                              for s in sent_counts['clientSentiment'].unique()}
-                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, # Increased hole size
+                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, 
                                   title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map)
                 sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
 
@@ -654,7 +654,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                         checklist_bar_fig = px.bar(df_checklist_bar_chart.sort_values("Completion (%)",ascending=True), 
                                                      x="Completion (%)", y="Key Requirement", orientation='h', 
                                                      title="Key Requirement Completion (Confirmed Onboardings)", 
-                                                     color_discrete_sequence=[PURPLE_PAIN]) # Main accent for this important chart
+                                                     color_discrete_sequence=[PURPLE_PAIN]) 
                         checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}) 
                         st.plotly_chart(checklist_bar_fig, use_container_width=True)
                 else: st.info("No data for key requirement chart (confirmed).")
@@ -691,4 +691,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v3.0 | Secured Access") 
+st.sidebar.info("Dashboard v3.0.1 | Secured Access") 

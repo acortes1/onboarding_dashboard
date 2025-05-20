@@ -286,8 +286,7 @@ ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 def authenticate_gspread_cached():
     gcp_secrets = st.secrets.get("gcp_service_account")
     if gcp_secrets is None:
-        print("Error: GCP secrets NOT FOUND.") # Log for server-side debugging
-        # st.error("GCP secrets NOT FOUND.") # Avoid st.error in cached function if it prevents caching on failure
+        print("Error: GCP secrets NOT FOUND.")
         return None
     if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')):
         print(f"Error: GCP secrets not structured correctly (type: {type(gcp_secrets)}).")
@@ -298,11 +297,9 @@ def authenticate_gspread_cached():
         print(f"Error: GCP secrets missing keys: {', '.join(missing)}.")
         return None
     try:
-        # Use gspread.service_account_from_dict for more direct handling
         return gspread.service_account_from_dict(dict(gcp_secrets), scopes=SCOPES)
     except Exception as e:
         print(f"Google Auth Error using service_account_from_dict: {e}")
-        # Fallback or further error handling could be added here if needed
         return None
 
 def robust_to_datetime(series):
@@ -340,15 +337,14 @@ def load_data_from_google_sheet():
     # Standardize column names from sheet: strip, lower, remove all internal spaces
     standardized_column_names = []
     for col in df_loaded_internal.columns:
-        col_str = str(col).strip().lower() # Ensure col is string, strip, lower
-        col_str = "".join(col_str.split()) # Remove all internal spaces
+        col_str = str(col).strip().lower() 
+        col_str = "".join(col_str.split()) 
         standardized_column_names.append(col_str)
     df_loaded_internal.columns = standardized_column_names
 
-    # Map standardized sheet names to internal code names
-    # Keys in this map should be the fully standardized (lowercase, no spaces) version
     column_name_map_to_code = {
         "licensenumber": "licenseNumber",
+        "dcclicense": "licenseNumber", # Added mapping for dccLicense
         "storename": "storeName",
         "repname": "repName",
         "onboardingdate": "onboardingDate",
@@ -360,24 +356,31 @@ def load_data_from_google_sheet():
         "status": "status",
         "summary": "summary"
     }
-    for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): # e.g. introSelfAndDIME
-        std_req_key = req_key_internal.lower() # e.g. introselfanddime
+    for req_key_internal in KEY_REQUIREMENT_DETAILS.keys():
+        std_req_key = req_key_internal.lower()
         column_name_map_to_code[std_req_key] = req_key_internal
 
-    # Perform renaming: iterate through current columns and rename if a mapping exists
-    new_columns_for_rename = {}
-    for current_col_std in df_loaded_internal.columns: # These are already standardized
-        if current_col_std in column_name_map_to_code:
-            target_code_name = column_name_map_to_code[current_col_std]
-            # Only rename if the target code_name is different AND the target_code_name isn't already a column
-            # (to prevent renaming a standardized col to a target that might have existed with different casing from sheet)
-            if current_col_std != target_code_name and target_code_name not in df_loaded_internal.columns:
-                 new_columns_for_rename[current_col_std] = target_code_name
-            # If current_col_std is the same as target_code_name (after standardization), no rename needed.
-            # If target_code_name already exists, it implies a duplicate or complex mapping not handled here.
+    cols_to_rename_standardized = {}
+    current_df_columns = list(df_loaded_internal.columns) # Work on a copy
+    for std_sheet_col in current_df_columns: # Iterate over original standardized names
+        if std_sheet_col in column_name_map_to_code:
+            target_code_name = column_name_map_to_code[std_sheet_col]
+            if std_sheet_col != target_code_name: # Only if a rename is needed
+                 # If target_code_name already exists (e.g. from a previous mapping of another variation), don't overwrite
+                 # This prioritizes the first encountered mapping for a target_code_name
+                if target_code_name not in cols_to_rename_standardized.values() and target_code_name not in current_df_columns:
+                    cols_to_rename_standardized[std_sheet_col] = target_code_name
+                elif target_code_name in current_df_columns and std_sheet_col in current_df_columns:
+                    # If both standardized and target exist, and map says std -> target, means we want to drop std
+                    # This case is tricky, usually means sheet has "licenseNumber" and "dcclicense"
+                    # We prefer "licenseNumber" if it exists directly mapped.
+                    # The current rename logic might need to be smarter if multiple source cols map to one target.
+                    # For now, this prioritizes the first mapping found if target doesn't exist yet.
+                    pass
 
-    if new_columns_for_rename:
-        df_loaded_internal.rename(columns=new_columns_for_rename, inplace=True)
+
+    if cols_to_rename_standardized:
+        df_loaded_internal.rename(columns=cols_to_rename_standardized, inplace=True)
 
 
     date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
@@ -386,7 +389,7 @@ def load_data_from_google_sheet():
         else: df_loaded_internal[new_col] = pd.NaT
         if col == 'onboardingDate' and new_col in df_loaded_internal and df_loaded_internal[new_col].notna().any():
              df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
-        elif col == 'onboardingDate': # If new_col not created or all NaT
+        elif col == 'onboardingDate':
              df_loaded_internal['onboarding_date_only'] = pd.NaT
 
 
@@ -451,10 +454,12 @@ def get_default_date_range(series):
 
 
 # --- Initialize Session State ---
-default_s_init, default_e_init, _, _ = get_default_date_range(None)
+default_s_init, default_e_init, initial_min_data_date, initial_max_data_date = get_default_date_range(None)
+
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 
+# Ensure 'date_range' is always a 2-tuple of date objects
 if 'date_range' not in st.session_state or \
    not (isinstance(st.session_state.date_range, tuple) and \
         len(st.session_state.date_range) == 2 and \
@@ -469,8 +474,8 @@ for s_key_base in ['licenseNumber', 'storeName']:
     if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
 if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
-if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = None
-if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = None
+if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = initial_min_data_date
+if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = initial_max_data_date
 
 
 # --- Data Loading Trigger ---
@@ -515,32 +520,39 @@ else:
 
 st.sidebar.header("🔍 Filters")
 
-# Ensure date_range in session_state is always a valid 2-tuple of date objects
+# Defensive check for st.session_state.date_range before unpacking
 if not (isinstance(st.session_state.get('date_range'), tuple) and \
         len(st.session_state.date_range) == 2 and \
         isinstance(st.session_state.date_range[0], date) and \
         isinstance(st.session_state.date_range[1], date)):
-    ds_init_filter, de_init_filter, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
-    st.session_state.date_range = (ds_init_filter, de_init_filter)
+    # This block indicates a corrupted state if reached after initialization.
+    # Reset to defaults and rerun.
+    print(f"Warning: Corrupted date_range in session_state before filter display: {st.session_state.get('date_range')}. Resetting.")
+    ds_reset_sidebar, de_reset_sidebar, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
+    st.session_state.date_range = (ds_reset_sidebar, de_reset_sidebar)
+    st.rerun() # Rerun to ensure the page uses the corrected state from the top.
 
 current_session_start_dt, current_session_end_dt = st.session_state.date_range
 
 min_dt_widget = st.session_state.get('min_data_date_for_filter')
 max_dt_widget = st.session_state.get('max_data_date_for_filter')
 
+# Prepare value for st.date_input, ensuring they are valid dates and start <= end
 value_for_widget_start = current_session_start_dt
 value_for_widget_end = current_session_end_dt
 
 if min_dt_widget and value_for_widget_start < min_dt_widget: value_for_widget_start = min_dt_widget
 if max_dt_widget and value_for_widget_end > max_dt_widget: value_for_widget_end = max_dt_widget
-if value_for_widget_start > value_for_widget_end: value_for_widget_start = value_for_widget_end
+# Ensure start is not after end after potential clipping
+if value_for_widget_start > value_for_widget_end:
+    value_for_widget_start = value_for_widget_end # Or reset to min_dt_widget or default_s_init
 
 sel_range = st.sidebar.date_input(
     "Date Range:",
     value=(value_for_widget_start, value_for_widget_end),
     min_value=min_dt_widget,
     max_value=max_dt_widget,
-    key="date_sel_v3_9_final" # Unique key
+    key="date_sel_v3_9_final"
 )
 
 if isinstance(sel_range, tuple) and len(sel_range) == 2 and \
@@ -548,6 +560,7 @@ if isinstance(sel_range, tuple) and len(sel_range) == 2 and \
     if sel_range != st.session_state.date_range:
         st.session_state.date_range = sel_range
         st.rerun()
+# If sel_range is not a valid 2-tuple of dates, st.session_state.date_range remains unchanged from its last valid state.
 
 start_dt, end_dt = st.session_state.date_range
 

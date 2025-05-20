@@ -840,4 +840,4 @@ st.markdown(
 st.sidebar.markdown("---")
 # Robustly display theme mode in sidebar info
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-st.sidebar.info(f"App Version: 3.9 ({theme_display_name} Mode
+st.sidebar.info(f"App Version: 3.9 ({theme_display_name} Mode)

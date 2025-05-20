@@ -14,31 +14,18 @@ import re  # For regular expression operations, used here for parsing text like 
 import matplotlib # Imported because some pandas styling features (e.g., background_gradient) might use it under the hood
 
 # --- Page Configuration ---
-# This st.set_page_config() function must be the first Streamlit command in your script, except for comments and blank lines.
-# It sets up the basic properties of the web page, such as:
-# - page_title: The title that appears in the browser tab.
-# - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
-# - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.12.2", # Updated version for this NameError fix
-    page_icon="🔧", # Wrench emoji for fixing
+    page_title="Onboarding Performance Dashboard v2.13", # Updated version for custom tabs
+    page_icon="📑", # Pages emoji
     layout="wide"
 )
 
 # --- Custom Styling (CSS) ---
-# These are global CSS styles to customize the visual appearance of the Streamlit application.
-# Streamlit allows embedding HTML (including <style> tags for CSS) using st.markdown
-# with the unsafe_allow_html=True parameter. This gives more control over the look and feel.
-
-# Define color constants for easy reuse and theme consistency.
 GOLD_ACCENT_COLOR = "#FFD700"
-# This is the primary text color intended for dark themes.
 PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" 
 SECONDARY_TEXT_COLOR_DARK_THEME = "#B0B0B0" 
-# PLOT_BG_COLOR is set to transparent for plots to inherit the app's background.
 PLOT_BG_COLOR = "rgba(0,0,0,0)" 
 
-# Use an f-string to embed the color constants into the CSS string.
 st.markdown(f"""
 <style>
     /* General App Styles */
@@ -46,80 +33,54 @@ st.markdown(f"""
     h1 {{ color: {GOLD_ACCENT_COLOR}; text-align: center; padding-top: 0.5em; padding-bottom: 0.5em; }} 
     h2, h3 {{ color: {GOLD_ACCENT_COLOR}; border-bottom: 1px solid {GOLD_ACCENT_COLOR} !important; padding-bottom: 0.3em; }} 
     
-    /* Metric Widget Styles - for st.metric displays */
-    /* Using Streamlit theme variables for better light/dark mode compatibility */
+    /* Metric Widget Styles */
     div[data-testid="stMetricLabel"] > div,
     div[data-testid="stMetricValue"] > div,
     div[data-testid="stMetricDelta"] > div {{ color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}) !important; }} 
     div[data-testid="stMetricValue"] > div {{ font-size: 1.85rem; }} 
     
-    /* Expander Styles - for st.expander elements */
+    /* Expander Styles */
     .streamlit-expanderHeader {{ color: {GOLD_ACCENT_COLOR} !important; font-weight: bold; }} 
     
-    /* DataFrame Styles - for st.dataframe */
-    .stDataFrame {{ border: 1px solid var(--secondary-background-color, #333); }} /* Use theme variable for border */
+    /* DataFrame Styles */
+    .stDataFrame {{ border: 1px solid var(--secondary-background-color, #333); }} 
     
-    /* Paragraph Text (These CSS selectors target general text elements and might need updates if Streamlit changes its internal structure) */
-    /* Using theme variable for general text */
+    /* Paragraph Text */
     .css-1d391kg p, .css- F_1U7P p {{ color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}) !important; }}
     
-    /* Tab Styles - for st.tabs */
-    button[data-baseweb="tab"] {{ 
-        background-color: transparent !important; 
-        color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME}) !important; /* Use theme text color */
-        opacity: 0.7; /* Slightly dim inactive tabs */
-        border-bottom: 2px solid transparent !important; 
+    /* Custom Tab (Radio Button) Styles */
+    div[data-testid="stRadio"] label {{ /* Target the label within the radio group */
+        padding: 8px 12px;
+        margin: 0 2px;
+        border-radius: 4px 4px 0 0;
+        border: 1px solid var(--secondary-background-color, #444);
+        border-bottom: none;
+        background-color: var(--secondary-background-color, #333);
+        color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME});
+        transition: background-color 0.3s ease, color 0.3s ease;
     }}
-    button[data-baseweb="tab"][aria-selected="true"] {{ 
-        color: {GOLD_ACCENT_COLOR} !important; 
-        opacity: 1.0;
-        border-bottom: 2px solid {GOLD_ACCENT_COLOR} !important; 
-        font-weight: bold; 
+    div[data-testid="stRadio"] input:checked + div label {{ /* Style for the selected tab's label */
+        background-color: var(--background-color, #0E1117); /* Match app background for active tab feel */
+        color: {GOLD_ACCENT_COLOR};
+        font-weight: bold;
+        border-color: {GOLD_ACCENT_COLOR};
+    }}
+    div[data-testid="stRadio"] {{ /* Remove default radio button circles */
+        padding-bottom: 0px; /* Align with content below */
+    }}
+     div[data-testid="stRadio"] > label > div:first-child {{
+        display: none; /* Hide the actual radio button circle */
     }}
     
-    /* Transcript Viewer Specific Styles - for displaying onboarding details and transcripts */
-    .transcript-summary-grid {{ 
-        display: grid; 
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
-        gap: 12px; 
-        margin-bottom: 18px; 
-    }}
+    /* Transcript Viewer Specific Styles */
+    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 18px; }}
     .transcript-summary-item strong {{ color: {GOLD_ACCENT_COLOR}; }} 
-    .transcript-summary-item-fullwidth {{ 
-        grid-column: 1 / -1; 
-        margin-top: 5px;
-    }}
-    .requirement-item {{ 
-        margin-bottom: 10px; 
-        padding-left: 5px;
-        border-left: 3px solid var(--secondary-background-color, #444); /* Theme variable for border */
-    }}
-    .requirement-item .type {{ 
-        font-weight: bold;
-        color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME});
-        opacity: 0.8; 
-        font-size: 0.9em; 
-        margin-left: 5px; 
-    }}
-    .transcript-container {{ 
-        background-color: var(--secondary-background-color, #262730); /* Use theme variable for background */
-        color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}); /* Use theme variable for text */
-        padding: 15px; 
-        border-radius: 8px; 
-        border: 1px solid var(--secondary-background-color, #333); /* Theme variable for border */
-        max-height: 400px; 
-        overflow-y: auto; 
-        font-family: monospace; 
-    }}
-    .transcript-line {{ 
-        margin-bottom: 8px; 
-        line-height: 1.4; 
-        word-wrap: break-word; 
-        white-space: pre-wrap; 
-    }}
-    .transcript-line strong {{ /* Speaker names */
-        color: {GOLD_ACCENT_COLOR}; /* Keep gold for speaker names, usually distinct enough */
-    }}
+    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 5px; }}
+    .requirement-item {{ margin-bottom: 10px; padding-left: 5px; border-left: 3px solid var(--secondary-background-color, #444); }}
+    .requirement-item .type {{ font-weight: bold; color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME}); opacity: 0.8; font-size: 0.9em; margin-left: 5px; }}
+    .transcript-container {{ background-color: var(--secondary-background-color, #262730); color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}); padding: 15px; border-radius: 8px; border: 1px solid var(--secondary-background-color, #333); max-height: 400px; overflow-y: auto; font-family: monospace; }}
+    .transcript-line {{ margin-bottom: 8px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }}
+    .transcript-line strong {{ color: {GOLD_ACCENT_COLOR}; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -150,51 +111,16 @@ if not check_password():
 
 # --- Constants ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] 
-
 KEY_REQUIREMENT_DETAILS = {
-    'introSelfAndDIME': { 
-        "description": "Warmly introduce yourself and DIME Industries.",
-        "type": "Secondary",
-        "chart_label": "Intro Self & DIME"
-    },
-    'confirmKitReceived': { 
-        "description": "Confirm the reseller has received their onboarding kit and initial order.",
-        "type": "Primary",
-        "chart_label": "Kit & Order Received"
-    },
-    'offerDisplayHelp': { 
-        "description": "Ask whether they need help setting up the in-store display kit.",
-        "type": "Secondary",
-        "chart_label": "Offer Display Help"
-    },
-    'scheduleTrainingAndPromo': { 
-        "description": "Schedule a budtender-training session and the first promotional event.",
-        "type": "Primary",
-        "chart_label": "Schedule Training & Promo"
-    },
-    'providePromoCreditLink': { 
-        "description": "Provide the link for submitting future promo-credit reimbursement requests.",
-        "type": "Secondary",
-        "chart_label": "Provide Promo Link"
-    },
-    'expectationsSet': { 
-        "description": "Client expectations were clearly set.",
-        "type": "Bonus Criterion", 
-        "chart_label": "Expectations Set" 
-    }
+    'introSelfAndDIME': {"description": "Warmly introduce yourself and DIME Industries.", "type": "Secondary", "chart_label": "Intro Self & DIME"},
+    'confirmKitReceived': {"description": "Confirm the reseller has received their onboarding kit and initial order.", "type": "Primary", "chart_label": "Kit & Order Received"},
+    'offerDisplayHelp': {"description": "Ask whether they need help setting up the in-store display kit.", "type": "Secondary", "chart_label": "Offer Display Help"},
+    'scheduleTrainingAndPromo': {"description": "Schedule a budtender-training session and the first promotional event.", "type": "Primary", "chart_label": "Schedule Training & Promo"},
+    'providePromoCreditLink': {"description": "Provide the link for submitting future promo-credit reimbursement requests.", "type": "Secondary", "chart_label": "Provide Promo Link"},
+    'expectationsSet': {"description": "Client expectations were clearly set.", "type": "Bonus Criterion", "chart_label": "Expectations Set"}
 }
-# This list defines the *display order* for requirements in the transcript viewer.
-ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = [
-    'introSelfAndDIME',
-    'confirmKitReceived',
-    'offerDisplayHelp',
-    'scheduleTrainingAndPromo',
-    'providePromoCreditLink',
-    'expectationsSet' 
-]
-# This list defines the order for the "Key Requirement Completion" chart.
+ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
-
 
 # --- Google Sheets Authentication and Data Loading Functions ---
 def authenticate_gspread():
@@ -267,7 +193,6 @@ def load_data_from_google_sheet(_url_param, _ws_param):
     if 'score' not in df.columns: df['score'] = pd.NA
     df['score'] = pd.to_numeric(df['score'], errors='coerce')
     
-    # CORRECTED: Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or similar correct constant)
     checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome'] 
     for col in checklist_cols_to_ensure:
         if col not in df.columns: df[col] = pd.NA 
@@ -295,12 +220,15 @@ def get_default_date_range(series):
     return s,e,min_d,max_d
 
 default_s, default_e, _, _ = get_default_date_range(None)
-for k,v in {'data_loaded':False,'df_original':pd.DataFrame(),'date_range':(default_s,default_e)}.items():
-    if k not in st.session_state: st.session_state[k]=v
-for k in ['repName_filter','status_filter','clientSentiment_filter']: 
-    if k not in st.session_state: st.session_state[k]=[]
-for k in ['licenseNumber_search','storeName_search','selected_transcript_key']: 
-    if k not in st.session_state: st.session_state[k]="" if "search" in k else None
+# Initialize session state for active tab and other filters
+session_state_defaults = {
+    'data_loaded': False, 'df_original': pd.DataFrame(), 'date_range': (default_s, default_e),
+    'active_tab': "📈 Overview", # Default active tab
+    'repName_filter': [], 'status_filter': [], 'clientSentiment_filter': [],
+    'licenseNumber_search': "", 'storeName_search': "", 'selected_transcript_key': None
+}
+for k, v in session_state_defaults.items():
+    if k not in st.session_state: st.session_state[k] = v
 
 if not st.session_state.data_loaded:
     url_s, ws_s = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"), st.secrets.get("GOOGLE_WORKSHEET_NAME")
@@ -315,7 +243,7 @@ if not st.session_state.data_loaded:
             else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original 
 
-st.title("🚀 Onboarding Performance Dashboard v2.12.1 🚀") 
+st.title("🚀 Onboarding Performance Dashboard v2.13 🚀") 
 
 if not st.session_state.data_loaded or df_original.empty:
     st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
@@ -388,19 +316,10 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy() 
 else: df_filtered = pd.DataFrame() 
 
-# --- Plotly Layout Configuration ---
-plotly_base_layout_settings = {
-    "plot_bgcolor":PLOT_BG_COLOR, 
-    "paper_bgcolor":PLOT_BG_COLOR, 
-    "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
-    "title_font_color":GOLD_ACCENT_COLOR, 
-    "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
-    "title_x":0.5, 
-    "xaxis_showgrid":False, 
-    "yaxis_showgrid":False
-}
+plotly_base_layout_settings = {"plot_bgcolor":PLOT_BG_COLOR, "paper_bgcolor":PLOT_BG_COLOR, "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
+                               "title_font_color":GOLD_ACCENT_COLOR, "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
+                               "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":False}
 
-# --- MTD Metrics Calculation ---
 today_date = date.today(); mtd_s = today_date.replace(day=1)
 prev_mtd_e = mtd_s - timedelta(days=1); prev_mtd_s = prev_mtd_e.replace(day=1)
 df_mtd, df_prev_mtd = pd.DataFrame(), pd.DataFrame()
@@ -416,10 +335,25 @@ tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd)
 tot_prev,_,_,_ = calculate_metrics(df_prev_mtd) 
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-# --- Main Content Tabs ---
-tab1_main_content_ui, tab2_main_content_ui, tab3_main_content_ui = st.tabs(["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"])
+# --- Custom Tab Navigation ---
+# Define the tab names
+tab_names = ["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"]
 
-with tab1_main_content_ui: 
+# Use st.radio for tab selection, displayed horizontally.
+# The current selection is stored in st.session_state.active_tab.
+# The 'on_change' callback is not strictly necessary here if we read st.session_state.active_tab directly,
+# but it ensures the state is updated immediately if other parts of the script depend on it before the next full rerun.
+st.session_state.active_tab = st.radio(
+    "Select a View:", 
+    tab_names, 
+    index=tab_names.index(st.session_state.active_tab), # Set default index based on current active tab
+    horizontal=True,
+    key="main_tab_selector" # Unique key for the radio widget
+)
+st.markdown("<hr style='margin-top:0px; margin-bottom:20px;'>", unsafe_allow_html=True) # Visual separator after tabs
+
+# --- Display Content Based on Active Tab ---
+if st.session_state.active_tab == "📈 Overview": 
     st.header("📈 Month-to-Date (MTD) Overview")
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None else "N/A")
@@ -435,11 +369,11 @@ with tab1_main_content_ui:
         fc3.metric("Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
         fc4.metric("Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
     else: st.info("No data matches filters for Overview.")
-with tab2_main_content_ui: 
+
+elif st.session_state.active_tab == "📊 Detailed Analysis & Data": 
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
-    # CORRECTED: Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or ORDERED_CHART_REQUIREMENTS)
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
@@ -472,7 +406,7 @@ with tab2_main_content_ui:
             if transcript_options:
                 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
                 
-                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v2_12"
+                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v2_12" # Keep key consistent if possible
                 
                 selected_key_display = st.selectbox("Select onboarding to view details:",
                     options=[None] + list(transcript_options.keys()), index=0, 
@@ -480,8 +414,11 @@ with tab2_main_content_ui:
                     key=selectbox_widget_key 
                 )
                 
+                # If the selectbox value changes, Streamlit will rerun.
+                # We store the selection in session_state to persist it.
                 if selected_key_display != st.session_state.selected_transcript_key:
                     st.session_state.selected_transcript_key = selected_key_display
+                    # A rerun will happen automatically due to widget interaction.
                 
                 if st.session_state.selected_transcript_key :
                     selected_idx = transcript_options[st.session_state.selected_transcript_key]
@@ -600,7 +537,7 @@ with tab2_main_content_ui:
     else: 
         st.info("No data matches filters for detailed visuals.")
 
-with tab3_main_content_ui: 
+elif st.session_state.active_tab == "💡 Trends & Distributions": 
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
@@ -636,4 +573,4 @@ with tab3_main_content_ui:
         st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v2.12.1 | Secured Access") 
+st.sidebar.info("Dashboard v2.13 | Secured Access") 

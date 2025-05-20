@@ -14,32 +14,25 @@ import matplotlib
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.0.1", # Version for PLOT_BG_COLOR Fix
-    page_icon="🎨", # Artist palette emoji
+    page_title="Onboarding Performance Dashboard v3.1", 
+    page_icon="💎", # Diamond, for DIME perhaps?
     layout="wide"
 )
 
 # --- Color Palette ---
-ICE_COLD = "#a0d2eb"
-FREEZE_PURPLE = "#e5eaf5"
-MEDIUM_PURPLE = "#d0bdf4"
-PURPLE_PAIN = "#8458B3"
-HEAVY_PURPLE = "#a28089" 
+ICE_COLD = "#a0d2eb"        # Light Blue
+FREEZE_PURPLE = "#e5eaf5"   # Very Light, almost white purple/blue
+MEDIUM_PURPLE = "#d0bdf4"   # Light Lavender
+PURPLE_PAIN = "#8458B3"     # Medium-Dark Purple (Primary Accent)
+HEAVY_PURPLE = "#a28089"    # Muted, desaturated purplish-pink/mauve (Good for secondary text on light bg)
 
-# This was missing its Python variable definition
 PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots
 
-# Dark Theme Specifics 
-DARK_BACKGROUND = "#1F2128" 
-DARK_CARD_BACKGROUND = "#2C2F3A" 
-DARK_TEXT_PRIMARY = FREEZE_PURPLE
-DARK_TEXT_SECONDARY = MEDIUM_PURPLE
-
-# Light Theme Specifics (less critical if relying on Streamlit vars, but good for reference)
-LIGHT_BACKGROUND = FREEZE_PURPLE
-LIGHT_CARD_BACKGROUND = "#FFFFFF"
-LIGHT_TEXT_PRIMARY = "#2C2F3A" 
-LIGHT_TEXT_SECONDARY = HEAVY_PURPLE
+# Fallback Dark Theme Specifics (used in var() fallbacks)
+DARK_BACKGROUND_FALLBACK = "#1F2128" 
+DARK_CARD_BACKGROUND_FALLBACK = "#2C2F3A" 
+DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE
+DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE
 
 
 # --- Custom Styling (CSS) ---
@@ -47,7 +40,7 @@ st.markdown(f"""
 <style>
     /* General App Styles */
     .stApp {{
-        background-color: var(--background-color, {DARK_BACKGROUND}); 
+        background-color: var(--background-color, {DARK_BACKGROUND_FALLBACK}); 
     }}
     .stApp > header {{ 
         background-color: transparent !important; 
@@ -61,62 +54,65 @@ st.markdown(f"""
         letter-spacing: 1px;
     }} 
     h2, h3 {{ 
-        color: {ICE_COLD}; 
+        color: {PURPLE_PAIN}; /* Changed from ICE_COLD for better light/dark contrast */
         border-bottom: 2px solid {PURPLE_PAIN} !important; 
         padding-bottom: 0.4em; 
         margin-top: 1.5em;
         margin-bottom: 1em;
         font-weight: 500;
     }} 
-    h5 {{ 
-        color: {MEDIUM_PURPLE};
+    h5 {{ /* For sub-sections like "Onboarding Summary" */
+        color: {PURPLE_PAIN}; /* Changed from MEDIUM_PURPLE */
+        opacity: 0.9;
         margin-top: 1em;
         margin-bottom: 0.5em;
         font-weight: 500;
     }}
     
     /* Metric Widget Styles */
-    div[data-testid="stMetric"], .metric-card {{ 
-        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
+    div[data-testid="stMetric"], .metric-card {{
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.2em 1.5em;
         border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transition: transform 0.2s ease-in-out;
+        border: 1px solid var(--border-color, #3a3f4b); /* Subtle border */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Softer shadow */
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }}
     div[data-testid="stMetric"]:hover, .metric-card:hover {{
-         transform: translateY(-3px);
+         transform: translateY(-4px);
+         box-shadow: 0 6px 16px rgba(0,0,0,0.18);
     }}
     div[data-testid="stMetricLabel"] > div {{ 
-        color: var(--text-color, {DARK_TEXT_SECONDARY}) !important; 
+        color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK}) !important; 
         font-weight: 500;
         font-size: 0.95em;
         opacity: 0.85;
     }}
     div[data-testid="stMetricValue"] > div {{ 
-        color: var(--text-color, {DARK_TEXT_PRIMARY}) !important; 
+        color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}) !important; 
         font-size: 2.2rem !important; 
         font-weight: 600;
     }}
     div[data-testid="stMetricDelta"] > div {{ 
-        color: var(--text-color, {DARK_TEXT_SECONDARY}) !important; 
+        color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK}) !important; 
         font-weight: 500;
         opacity: 0.9;
     }}
     
     /* Expander Styles */
     .streamlit-expanderHeader {{ 
-        color: {MEDIUM_PURPLE} !important; 
+        color: {PURPLE_PAIN} !important; /* Changed from MEDIUM_PURPLE */
         font-weight: 500;
         font-size: 1.05em;
     }} 
     .streamlit-expander {{
-        border: 1px solid var(--secondary-background-color, #444);
+        border: 1px solid var(--border-color, #444); /* Theme variable for border */
         border-radius: 8px;
     }}
     
     /* DataFrame Styles */
     .stDataFrame {{ 
-        border: 1px solid var(--secondary-background-color, #444);
+        border: 1px solid var(--border-color, #444); /* Theme variable for border */
         border-radius: 8px;
     }} 
     
@@ -127,20 +123,20 @@ st.markdown(f"""
         border-radius: 8px 8px 0 0; 
         border: 1px solid transparent;
         border-bottom: none;
-        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
-        color: var(--text-color, {DARK_TEXT_SECONDARY});
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
+        color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK});
         opacity: 0.7;
         transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
         font-weight: 500;
     }}
     div[data-testid="stRadio"] input:checked + div label {{ 
-        background-color: var(--background-color, {DARK_BACKGROUND}); 
+        background-color: var(--background-color, {DARK_BACKGROUND_FALLBACK}); 
         color: {PURPLE_PAIN};
         font-weight: 600;
         opacity: 1.0;
         border-top: 2px solid {PURPLE_PAIN};
-        border-left: 1px solid var(--secondary-background-color, #555);
-        border-right: 1px solid var(--secondary-background-color, #555);
+        border-left: 1px solid var(--border-color, #555); /* Theme variable */
+        border-right: 1px solid var(--border-color, #555); /* Theme variable */
     }}
     div[data-testid="stRadio"] {{ 
         padding-bottom: 0px; 
@@ -153,16 +149,16 @@ st.markdown(f"""
     
     /* Transcript Viewer Specific Styles */
     .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }}
-    .transcript-summary-item strong {{ color: {ICE_COLD}; }} 
+    .transcript-summary-item strong {{ color: {PURPLE_PAIN}; }} /* Changed from ICE_COLD */
     .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 8px; }}
     .requirement-item {{ margin-bottom: 10px; padding: 8px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 4px; }}
-    .requirement-item .type {{ font-weight: 500; color: {ICE_COLD}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }}
+    .requirement-item .type {{ font-weight: 500; color: {HEAVY_PURPLE}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }} /* Changed from ICE_COLD */
     .transcript-container {{ 
-        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND}); 
-        color: var(--text-color, {DARK_TEXT_PRIMARY}); 
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK}); 
+        color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}); 
         padding: 20px; 
         border-radius: 8px; 
-        border: 1px solid var(--secondary-background-color, #444); 
+        border: 1px solid var(--border-color, #444); /* Theme variable */
         max-height: 450px; 
         overflow-y: auto; 
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; 
@@ -175,7 +171,7 @@ st.markdown(f"""
     /* Button styles */
     div[data-testid="stButton"] > button {{
         background-color: {PURPLE_PAIN};
-        color: {FREEZE_PURPLE};
+        color: {FREEZE_PURPLE}; /* Light text for dark purple BG */
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -184,32 +180,35 @@ st.markdown(f"""
     }}
     div[data-testid="stButton"] > button:hover {{
         background-color: {MEDIUM_PURPLE}; 
-        color: {DARK_BACKGROUND};
+        color: {DARK_BACKGROUND_FALLBACK}; /* Dark text for lighter purple BG */
         transform: translateY(-2px);
     }}
     div[data-testid="stDownloadButton"] > button {{
-        background-color: {ICE_COLD};
-        color: {DARK_BACKGROUND}; 
-         border: none;
+        background-color: {ICE_COLD}; /* Light blue background */
+        color: {DARK_BACKGROUND_FALLBACK}; /* Dark text for light button */
+        border: none;
         padding: 10px 20px;
         border-radius: 8px;
         font-weight: 500;
         transition: background-color 0.3s ease, transform 0.2s ease;
     }}
     div[data-testid="stDownloadButton"] > button:hover {{
-        background-color: {FREEZE_PURPLE};
+        background-color: {FREEZE_PURPLE}; /* Very light on hover */
+        color: {DARK_BACKGROUND_FALLBACK};
         transform: translateY(-2px);
     }}
 
     /* Sidebar styling */
     div[data-testid="stSidebarUserContent"] {{
-        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.5em 1em;
     }}
-    .st-emotion-cache-16txtl3 {{ /* Target sidebar header */
-        color: {ICE_COLD};
+    /* Target specific sidebar headers if needed, otherwise they inherit general h2/h3 */
+    div[data-testid="stSidebarUserContent"] h2, 
+    div[data-testid="stSidebarUserContent"] h3 {{
+        color: {ICE_COLD}; /* Keep sidebar headers distinct if desired */
+        border-bottom-color: {MEDIUM_PURPLE};
     }}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -350,7 +349,7 @@ def get_default_date_range(series):
 default_s, default_e, _, _ = get_default_date_range(None)
 session_state_defaults = {
     'data_loaded': False, 'df_original': pd.DataFrame(), 'date_range': (default_s, default_e),
-    'active_tab': "🌌 Overview", # Default active tab using new name
+    'active_tab': "🌌 Overview", 
     'repName_filter': [], 'status_filter': [], 'clientSentiment_filter': [],
     'licenseNumber_search': "", 'storeName_search': "", 'selected_transcript_key': None
 }
@@ -367,13 +366,22 @@ if not st.session_state.data_loaded:
                 st.session_state.df_original = df; st.session_state.data_loaded = True
                 ds,de,_,_ = get_default_date_range(df.get('onboarding_date_only'))
                 st.session_state.date_range = (ds,de) if ds and de else (default_s,default_e)
-            else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
+                # Display success message in sidebar after successful load
+                st.sidebar.success(f"Data loaded: {len(df_original)} records.") 
+            else: 
+                st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
+                st.sidebar.error("Data loading failed or sheet is empty.") # More specific message
 df_original = st.session_state.df_original 
 
 st.title("🌌 Onboarding Performance Dashboard 🌌") 
 
 if not st.session_state.data_loaded or df_original.empty:
-    st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
+    # Error message already handled by load_data or initial check, 
+    # but this provides a fallback if user lands here with no data.
+    if not (st.secrets.get("GOOGLE_SHEET_URL_OR_NAME") and st.secrets.get("GOOGLE_WORKSHEET_NAME")):
+        pass # Error about secrets missing is already covered.
+    else:
+        st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
     if st.sidebar.button("🔄 Force Refresh", key="refresh_fail"):
         st.cache_data.clear(); st.session_state.clear(); st.rerun()
 
@@ -443,19 +451,20 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy() 
 else: df_filtered = pd.DataFrame() 
 
-# Updated Plotly Layout with new color scheme
+# Updated Plotly Layout with new color scheme and theme variables
 plotly_base_layout_settings = {
     "plot_bgcolor": PLOT_BG_COLOR, 
     "paper_bgcolor": PLOT_BG_COLOR, 
-    "font_color": "var(--text-color)", 
+    "font_color": "var(--text-color)", # Use Streamlit's theme variable for general text
     "title_font_color": PURPLE_PAIN, 
     "legend_font_color": "var(--text-color)",
     "title_x":0.5, 
     "xaxis_showgrid":False, "yaxis_showgrid":False,
-    "xaxis_title_font_color": MEDIUM_PURPLE,
-    "yaxis_title_font_color": MEDIUM_PURPLE,
-    "xaxis_tickfont_color": MEDIUM_PURPLE,
-    "yaxis_tickfont_color": MEDIUM_PURPLE,
+    "xaxis_title_font_color": "var(--text-color)", # Use theme variable
+    "yaxis_title_font_color": "var(--text-color)", # Use theme variable
+    "xaxis_tickfont_color": "var(--text-color)",   # Use theme variable
+    "yaxis_tickfont_color": "var(--text-color)",   # Use theme variable
+    "margin": dict(l=40, r=20, t=60, b=40) # Adjust margins for better spacing
 }
 
 today_date = date.today(); mtd_s = today_date.replace(day=1)
@@ -513,7 +522,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
-    # CORRECTED: Use ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS here as well for consistency if intended
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
@@ -691,4 +699,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v3.0.1 | Secured Access") 
+st.sidebar.info("Dashboard v3.1 | Secured Access") 

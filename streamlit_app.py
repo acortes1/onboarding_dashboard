@@ -12,7 +12,7 @@ import re
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.7", # Incremented version
+    page_title="Onboarding Performance Dashboard v3.8", # Incremented version
     page_icon="💎",
     layout="wide"
 )
@@ -87,11 +87,8 @@ else: # Default to Dark Theme Accents
 PLOT_BG_COLOR = "rgba(0,0,0,0)" # Common for both, charts transparent
 
 # --- Custom Styling (CSS) ---
-# This CSS primarily uses Streamlit's own theme variables for base styling.
-# Our Python-set ACTIVE_... variables are used for app-specific ACCENTS.
 css_parts = [
     "<style>",
-    # Define our app-specific ACCENT CSS variables using the Python ACTIVE_... variables
     f"""
     :root {{
         --app-accent-primary: {ACTIVE_ACCENT_PRIMARY};
@@ -105,23 +102,19 @@ css_parts = [
         --app-dl-button-text: {ACTIVE_DL_BUTTON_TEXT};
         --app-dl-button-hover-bg: {ACTIVE_DL_BUTTON_HOVER_BG};
 
-        /* Fallback for Streamlit's border-color if not defined by theme */
         --border-color-fallback: {"#DADCE0" if THEME == "light" else "#3a3f4b"};
     }}
     """,
-    # General App Styles - Use Streamlit's variables first, then our app accents
     """
     /* General App Styles */
-    /* .stApp background is handled by Streamlit theme */
     .stApp > header { background-color: transparent !important; }
-
     h1 { color: var(--app-accent-primary); text-align: center; padding-top: 1em; padding-bottom: 0.8em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
     h2, h3 { color: var(--app-accent-primary); border-bottom: 2px solid var(--app-accent-primary) !important; padding-bottom: 0.4em; margin-top: 2em; margin-bottom: 1.2em; font-weight: 600; }
     h5 { color: var(--app-accent-primary); opacity: 0.95; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: 600; letter-spacing: 0.5px; }
 
     /* Metric Widget Styles */
     div[data-testid="stMetric"], .metric-card {
-        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        background-color: var(--secondary-background-color);
         padding: 1.5em; border-radius: 12px; border: 1px solid var(--border-color, var(--border-color-fallback));
         box-shadow: 0 4px 6px rgba(0,0,0,0.04);
         transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
@@ -129,7 +122,6 @@ css_parts = [
     div[data-testid="stMetric"]:hover, .metric-card:hover {
          transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0,0,0,0.06);
     }
-    /* For metric labels and values, Streamlit's --text-color should provide good contrast on --secondary-background-color */
     div[data-testid="stMetricLabel"] > div { color: var(--text-color) !important; opacity: 0.7; font-weight: 500; font-size: 1em; text-transform: uppercase; letter-spacing: 0.5px; }
     div[data-testid="stMetricValue"] > div { color: var(--text-color) !important; font-size: 2.5rem !important; font-weight: 700; line-height: 1.1; }
     div[data-testid="stMetricDelta"] > div { color: var(--text-color) !important; opacity: 0.7; font-weight: 500; font-size: 0.9em; }
@@ -138,34 +130,33 @@ css_parts = [
     .streamlit-expanderHeader { color: var(--app-accent-primary) !important; font-weight: 600; font-size: 1.1em; }
     .streamlit-expander {
         border: 1px solid var(--border-color, var(--border-color-fallback));
-        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        background-color: var(--secondary-background-color);
         border-radius: 10px;
     }
-    .streamlit-expander > div > div > p { color: var(--text-color); /* Streamlit's variable */ }
+    .streamlit-expander > div > div > p { color: var(--text-color); }
 
     /* DataFrame Styles */
-    /* Streamlit handles DataFrame theming well by default. Only add border if desired. */
     .stDataFrame { border: 1px solid var(--border-color, var(--border-color-fallback)); border-radius: 10px; }
 
     /* Custom Tab (Radio Button) Styles */
-    div[data-testid="stRadio"] label { /* Non-active tab */
+    div[data-testid="stRadio"] label {
         padding: 10px 18px; margin: 0 3px; border-radius: 8px 8px 0 0;
         border: 1px solid transparent; border-bottom: none;
-        background-color: var(--secondary-background-color); /* Streamlit's variable */
-        color: var(--text-color); opacity: 0.7; /* Use Streamlit's text color, slightly transparent */
+        background-color: var(--secondary-background-color);
+        color: var(--text-color); opacity: 0.7;
         transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
         font-weight: 500;
     }
-    div[data-testid="stRadio"] input:checked + div label { /* Active tab */
-        background-color: var(--app-accent-lightest); /* Our lightest accent for BG */
-        color: var(--app-accent-primary); /* Our primary accent for text */
+    div[data-testid="stRadio"] input:checked + div label {
+        background-color: var(--app-accent-lightest);
+        color: var(--app-accent-primary);
         font-weight: 600; opacity: 1.0;
         border-top: 2px solid var(--app-accent-primary);
         border-left: 1px solid var(--border-color, var(--border-color-fallback));
         border-right: 1px solid var(--border-color, var(--border-color-fallback));
     }
     div[data-testid="stRadio"] { padding-bottom: 0px; border-bottom: 2px solid var(--app-accent-primary); margin-bottom: 30px; }
-    div[data-testid="stRadio"] > label > div:first-child { display: none; } /* Hide the actual radio dot */
+    div[data-testid="stRadio"] > label > div:first-child { display: none; }
 
     /* Transcript Viewer Specific Styles */
     .transcript-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; color: var(--text-color);}
@@ -186,7 +177,7 @@ css_parts = [
     .transcript-line strong { color: var(--app-accent-primary); }
 
     /* Button styles */
-    div[data-testid="stButton"] > button { /* Standard Streamlit buttons, themed with our primary accent */
+    div[data-testid="stButton"] > button {
         background-color: var(--app-accent-primary);
         color: var(--app-text-on-accent);
         border: none; padding: 10px 20px; border-radius: 6px;
@@ -194,10 +185,9 @@ css_parts = [
         box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     }
     div[data-testid="stButton"] > button:hover {
-        background-color: color-mix(in srgb, var(--app-accent-primary) 90%, #000000 10%); /* Darken slightly */
+        background-color: color-mix(in srgb, var(--app-accent-primary) 90%, #000000 10%);
         color: var(--app-text-on-accent); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
-    /* Download button uses its specific app accent variables */
     div[data-testid="stDownloadButton"] > button {
         background-color: var(--app-dl-button-bg);
         color: var(--app-dl-button-text);
@@ -207,19 +197,45 @@ css_parts = [
     }
     div[data-testid="stDownloadButton"] > button:hover {
         background-color: var(--app-dl-button-hover-bg);
-        color: var(--app-dl-button-text); /* Text color usually same on hover for DL button */
+        color: var(--app-dl-button-text);
         transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
 
     /* Sidebar styling */
     div[data-testid="stSidebarUserContent"] {
-        background-color: var(--secondary-background-color); /* Streamlit's variable */
+        background-color: var(--secondary-background-color);
         padding: 1.5em 1em; border-right: 1px solid var(--border-color, var(--border-color-fallback));
     }
     div[data-testid="stSidebarUserContent"] h2,
     div[data-testid="stSidebarUserContent"] h3 {
-        color: var(--app-accent-highlight); /* Our specific highlight for sidebar headers */
+        color: var(--app-accent-highlight);
         border-bottom-color: var(--app-accent-secondary);
+    }
+    .footer {
+        font-size: 0.8em;
+        color: var(--text-color); /* Use Streamlit's text color */
+        opacity: 0.7;
+        text-align: center;
+        padding: 20px 0;
+        border-top: 1px solid var(--border-color, var(--border-color-fallback));
+        margin-top: 40px;
+    }
+    .active-filters-summary {
+        font-size: 0.9em;
+        color: var(--text-color);
+        opacity: 0.8;
+        margin-bottom: 15px;
+        padding: 8px;
+        background-color: var(--secondary-background-color);
+        border-radius: 6px;
+        border: 1px solid var(--border-color, var(--border-color-fallback));
+    }
+    .no-data-message {
+        text-align: center;
+        padding: 20px;
+        font-size: 1.1em;
+        color: var(--text-color);
+        opacity: 0.7;
     }
     """,
     "</style>"
@@ -239,9 +255,9 @@ def check_password():
         st.session_state.password_entered = False
     if st.session_state.password_entered:
         return True
-    with st.form("password_form_main_app_v3_7"): # Unique key
+    with st.form("password_form_main_app_v3_8"): # Unique key
         st.markdown("### 🔐 Access Required")
-        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_7")
+        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_8")
         submitted = st.form_submit_button("Submit")
         if submitted:
             if password_attempt == app_password:
@@ -253,7 +269,7 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- Constants ---
+# --- Constants & Helper Functions ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and DIME Industries.", "type": "Secondary", "chart_label": "Intro Self & DIME"},
@@ -266,11 +282,10 @@ KEY_REQUIREMENT_DETAILS = {
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 
-# --- Google Sheets Authentication and Data Loading Functions ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets = st.secrets.get("gcp_service_account")
-    if gcp_secrets is None: print("Error: GCP secrets NOT FOUND."); return None # Log for server
+    if gcp_secrets is None: print("Error: GCP secrets NOT FOUND."); return None
     if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')): print(f"Error: GCP secrets not structured correctly (type: {type(gcp_secrets)})."); return None
     required_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id"]
     missing = [k for k in required_keys if gcp_secrets.get(k) is None]
@@ -296,7 +311,7 @@ def robust_to_datetime(series):
 @st.cache_data(ttl=600)
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
-    if gc is None: st.error("Google Sheets authentication failed. Cannot load data."); return pd.DataFrame() # UI error
+    if gc is None: st.error("Google Sheets authentication failed. Cannot load data."); return pd.DataFrame()
     url = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"); ws_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
     if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame()
     if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame()
@@ -307,6 +322,8 @@ def load_data_from_google_sheet():
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
         df_loaded_internal = pd.DataFrame(data)
         if df_loaded_internal.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
+        # Store last refresh time
+        st.session_state.last_data_refresh_time = datetime.now()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); return pd.DataFrame()
@@ -368,9 +385,10 @@ if 'date_range' not in st.session_state: st.session_state.date_range = (default_
 if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
-for s_key_base in ['licenseNumber', 'storeName']: # Search terms
+for s_key_base in ['licenseNumber', 'storeName']:
     if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
+if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
 
 
 # --- Data Loading Trigger ---
@@ -392,10 +410,11 @@ df_original = st.session_state.df_original
 st.title("🌌 Onboarding Performance Dashboard 🌌")
 
 if not st.session_state.data_loaded or df_original.empty:
-    st.warning("No data loaded or data is empty. Check configurations or try refreshing.")
-    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_7"):
+    st.markdown("<div class='no-data-message'>🚧 No data loaded or data is empty. Check configurations or try refreshing. 🚧</div>", unsafe_allow_html=True)
+    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_8"):
         st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 
+# --- Sidebar ---
 with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True):
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
@@ -404,45 +423,46 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 st.sidebar.header("⚙️ Data Controls")
-if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_7"):
+if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_8"):
     st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
+if st.session_state.last_data_refresh_time:
+    st.sidebar.caption(f"Last refreshed: {st.session_state.last_data_refresh_time.strftime('%b %d, %Y %I:%M %p')}")
+else:
+    st.sidebar.caption("Data not yet loaded.")
+
 
 st.sidebar.header("🔍 Filters")
 min_dt_filter = st.session_state.get('min_data_date_for_filter', default_s_init)
 max_dt_filter = st.session_state.get('max_data_date_for_filter', default_e_init)
 current_date_range_start, current_date_range_end = st.session_state.date_range
-
-# Ensure current range is valid against available data min/max, and default if necessary
 current_date_range_start = current_date_range_start or default_s_init
 current_date_range_end = current_date_range_end or default_e_init
 if min_dt_filter and current_date_range_start < min_dt_filter: current_date_range_start = min_dt_filter
 if max_dt_filter and current_date_range_end > max_dt_filter: current_date_range_end = max_dt_filter
-if current_date_range_start > current_date_range_end: # If correction leads to invalid range
+if current_date_range_start > current_date_range_end:
     current_date_range_start = min_dt_filter if min_dt_filter else default_s_init
     current_date_range_end = max_dt_filter if max_dt_filter else default_e_init
 
-
-if min_dt_filter and max_dt_filter : # Only show if actual data range is known
+if min_dt_filter and max_dt_filter :
     sel_range = st.sidebar.date_input("Date Range:", value=(current_date_range_start, current_date_range_end),
-                                      min_value=min_dt_filter, max_value=max_dt_filter, key="date_sel_v3_7")
+                                      min_value=min_dt_filter, max_value=max_dt_filter, key="date_sel_v3_8")
     if sel_range != st.session_state.date_range: st.session_state.date_range = sel_range; st.rerun()
-else: # Fallback if data range isn't determined (e.g., no data loaded yet)
-    st.sidebar.warning("Date data for filtering is not fully available. Using default range.")
-    sel_range_fallback = st.sidebar.date_input("Date Range:", value=(default_s_init, default_e_init), key="date_sel_fallback_v3_7")
+else:
+    st.sidebar.warning("Date range for filtering not fully determined.")
+    sel_range_fallback = st.sidebar.date_input("Date Range:", value=(default_s_init, default_e_init), key="date_sel_fallback_v3_8")
     if sel_range_fallback != st.session_state.date_range: st.session_state.date_range = sel_range_fallback; st.rerun()
 start_dt,end_dt = st.session_state.date_range
 
-
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
-    val = st.sidebar.text_input(f"Search {lbl} (on all data):",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_7")
+    val = st.sidebar.text_input(f"Search {lbl}:",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_8")
     if val != st.session_state[k+"_search"]: st.session_state[k+"_search"]=val; st.rerun()
 cat_filters_definition = {'repName':'Rep(s)', 'status':'Status(es)', 'clientSentiment':'Client Sentiment(s)'}
 for k,lbl in cat_filters_definition.items():
     if not df_original.empty and k in df_original.columns and df_original[k].notna().any():
         opts = sorted([v for v in df_original[k].astype(str).dropna().unique() if v.strip()])
-        sel = [v for v in st.session_state[k+"_filter"] if v in opts] # Ensure selected are valid
-        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_7")
+        sel = [v for v in st.session_state[k+"_filter"] if v in opts]
+        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_8")
         if new_sel != st.session_state[k+"_filter"]: st.session_state[k+"_filter"]=new_sel; st.rerun()
 
 def clear_filters_cb():
@@ -452,7 +472,20 @@ def clear_filters_cb():
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
     st.session_state.selected_transcript_key = None
-if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_7"): st.rerun()
+if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_8"): st.rerun()
+
+# --- Active Filters Summary ---
+active_filter_parts = []
+if start_dt and end_dt and (start_dt != default_s_init or end_dt != default_e_init): # Check against initial defaults
+    active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
+for k, lbl in search_cols_definition.items():
+    if st.session_state[k+"_search"]: active_filter_parts.append(f"{lbl}: '{st.session_state[k+'_search']}'")
+for k, lbl in cat_filters_definition.items():
+    if st.session_state[k+"_filter"]: active_filter_parts.append(f"{lbl}: {', '.join(st.session_state[k+'_filter'])}")
+
+if active_filter_parts:
+    st.markdown(f"<div class='active-filters-summary'>🔍 Active Filters: {'; '.join(active_filter_parts)}</div>", unsafe_allow_html=True)
+
 
 # --- Data Filtering Logic ---
 df_filtered = pd.DataFrame()
@@ -480,19 +513,15 @@ if not df_original.empty:
     df_filtered = df_working.copy()
 
 # --- Plotly Base Layout ---
-# Use Streamlit's theme variables for Plotly chart text/titles where possible.
-# Our ACTIVE_ACCENT_PRIMARY can be used for specific title colors if Streamlit's primaryColor isn't desired.
 plotly_base_layout_settings = {
     "plot_bgcolor": PLOT_BG_COLOR, "paper_bgcolor": PLOT_BG_COLOR, "title_x":0.5,
     "xaxis_showgrid":False, "yaxis_showgrid":False, "margin": dict(l=40, r=20, t=60, b=40),
-    "font_color": "var(--text-color)", # Use Streamlit's main text color
-    "title_font_color": "var(--app-accent-primary)", # Our app's primary accent for titles
-    # For axes and legend, let Streamlit's theme (via plotly template) handle it or use a more neutral color
+    "font_color": "var(--text-color)",
+    "title_font_color": "var(--app-accent-primary)",
     "xaxis_title_font_color": "var(--text-color)", "yaxis_title_font_color": "var(--text-color)",
     "xaxis_tickfont_color": "var(--text-color)", "yaxis_tickfont_color": "var(--text-color)",
     "legend_font_color": "var(--text-color)",
 }
-
 
 # --- MTD Metrics ---
 today_date_mtd = date.today(); mtd_s = today_date_mtd.replace(day=1)
@@ -513,7 +542,7 @@ delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else 
 # --- Tab Navigation ---
 tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
-                        horizontal=True, key="main_tab_selector_v3_7") # Unique key
+                        horizontal=True, key="main_tab_selector_v3_8")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
 # --- Display Content ---
@@ -521,20 +550,21 @@ if st.session_state.active_tab == "🌌 Overview":
     with st.container():
         st.header("📈 Month-to-Date (MTD) Overview")
         c1,c2,c3,c4 = st.columns(4)
-        with c1: st.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None and pd.notna(delta_mtd) else "N/A")
-        with c2: st.metric("Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A")
-        with c3: st.metric("Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A")
-        with c4: st.metric("Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A")
+        with c1: st.metric("🗓️ Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None and pd.notna(delta_mtd) else "N/A", help="Total onboardings this month to date vs. previous month for the same period.")
+        with c2: st.metric("✅ Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Percentage of onboardings marked 'Confirmed' this month to date.")
+        with c3: st.metric("⭐ Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average onboarding score (0-10) this month to date.")
+        with c4: st.metric("⏳ Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A", help="Average number of days from delivery to confirmation for onboardings confirmed this month to date.")
     with st.container():
         st.header("📊 Filtered Data Overview")
         if not df_filtered.empty:
             tot_filt, sr_filt, score_filt, days_filt = calculate_metrics(df_filtered)
             fc1,fc2,fc3,fc4 = st.columns(4)
-            with fc1: st.metric("Filtered Onboardings", tot_filt or "0")
-            with fc2: st.metric("Filtered Success Rate", f"{sr_filt:.1f}%" if pd.notna(sr_filt) else "N/A")
-            with fc3: st.metric("Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
-            with fc4: st.metric("Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
-        else: st.info("No data matches current filters for Overview.")
+            with fc1: st.metric("📄 Filtered Onboardings", tot_filt or "0")
+            with fc2: st.metric("🎯 Filtered Success Rate", f"{sr_filt:.1f}%" if pd.notna(sr_filt) else "N/A")
+            with fc3: st.metric("🌟 Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
+            with fc4: st.metric("⏱️ Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
+        else: st.markdown("<div class='no-data-message'>🤷 No data matches current filters for Overview. Try adjusting your selections! 🤷</div>", unsafe_allow_html=True)
+
 
 elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
@@ -547,7 +577,20 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     cols_for_display = list(dict.fromkeys(cols_for_display + other_cols))
 
     if not df_display_table.empty:
-        st.dataframe(df_display_table[cols_for_display], use_container_width=True, height=300)
+        # Pandas Styler for in-cell bars
+        def style_table_with_bars(df):
+            styled_df = df.style
+            if 'score' in df.columns:
+                styled_df = styled_df.bar(subset=['score'], align='mid', color=[ACTIVE_ACCENT_MUTED, ACTIVE_ACCENT_SECONDARY], vmin=0, vmax=10)
+            if 'days_to_confirmation' in df.columns:
+                 # Ensure days_to_confirmation is numeric for bar styling
+                df_numeric_days = pd.to_numeric(df['days_to_confirmation'], errors='coerce')
+                min_days = df_numeric_days.min() if df_numeric_days.notna().any() else 0
+                max_days = df_numeric_days.max() if df_numeric_days.notna().any() else 30 # Sensible max if no data
+                styled_df = styled_df.bar(subset=['days_to_confirmation'], align='zero', color=[ACTIVE_ACCENT_HIGHLIGHT], vmin=min_days, vmax=max_days)
+            return styled_df
+
+        st.dataframe(style_table_with_bars(df_display_table[cols_for_display]), use_container_width=True, height=350) # Increased height slightly
         st.markdown("---")
         st.subheader("🔍 View Full Onboarding Details & Transcript")
         if not df_display_table.empty and 'fullTranscript' in df_display_table.columns:
@@ -560,7 +603,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
 
                 selected_key_display = st.selectbox("Select onboarding to view details:", options=options_list,
                                                     index=current_index, format_func=lambda x: "Choose an entry..." if x is None else x,
-                                                    key="transcript_selector_v3_7") # Unique key
+                                                    key="transcript_selector_v3_8")
                 if selected_key_display != st.session_state.selected_transcript_key :
                     st.session_state.selected_transcript_key = selected_key_display
                     st.rerun()
@@ -588,7 +631,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                     content = selected_row.get('fullTranscript', "")
                     if content:
                         html_transcript = "<div class='transcript-container'>"
-                        for line in content.replace('\\n', '\n').split('\n'): # Handle escaped newlines
+                        for line in content.replace('\\n', '\n').split('\n'):
                             line = line.strip();
                             if not line: continue
                             parts = line.split(":", 1); speaker = f"<strong>{parts[0].strip()}:</strong>" if len(parts) == 2 else ""
@@ -596,13 +639,14 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                             html_transcript += f"<p class='transcript-line'>{speaker} {msg}</p>"
                         st.markdown(html_transcript + "</div>", unsafe_allow_html=True)
                     else: st.info("No transcript available or empty.")
-            else: st.info("No entries in the filtered table to select for details.")
-        else: st.info("No data in table for transcript viewer, or 'fullTranscript' column missing.")
+            else: st.markdown("<div class='no-data-message'>📋 No entries in the filtered table to select for details. 📋</div>", unsafe_allow_html=True)
+        else: st.markdown("<div class='no-data-message'>📜 No data in table for transcript viewer, or 'fullTranscript' column missing. 📜</div>", unsafe_allow_html=True)
         st.markdown("---")
         csv_data = convert_df_to_csv(df_filtered)
-        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_7") # Unique key
-    elif not df_original.empty: st.info("No data matches current filters for table display.")
-    else: st.info("No data loaded to display.")
+        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_8")
+    elif not df_original.empty: st.markdown("<div class='no-data-message'>📊 No data matches current filters for table display. Try different filter settings! 📊</div>", unsafe_allow_html=True)
+    else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
+
 
     st.header("📊 Key Visuals (Based on Filtered Data)")
     if not df_filtered.empty:
@@ -613,26 +657,32 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                 status_fig = px.bar(status_counts, x='status', y='count', color='status', title="Onboarding Status Distribution",
                                      color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
                 status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
+            else: st.markdown("<div class='no-data-message'>📉 Status data unavailable for chart. 📉</div>", unsafe_allow_html=True)
+
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_counts = df_filtered['repName'].value_counts().reset_index()
                 rep_fig = px.bar(rep_counts, x='repName', y='count', color='repName', title="Onboardings by Representative",
                                      color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ)
                 rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
+            else: st.markdown("<div class='no-data-message'>👥 Rep data unavailable for chart. 👥</div>", unsafe_allow_html=True)
+
         with c2_charts:
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
                 current_sentiment_map = {
-                    s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), ACTIVE_ACCENT_MUTED) # Fallback to muted accent
+                    s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), ACTIVE_ACCENT_MUTED)
                     for s in sent_counts['clientSentiment'].unique()
                 }
                 sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, title="Client Sentiment Breakdown",
                                   color='clientSentiment', color_discrete_map=current_sentiment_map)
                 sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
+            else: st.markdown("<div class='no-data-message'>😊 Sentiment data unavailable for chart. 😊</div>", unsafe_allow_html=True)
+
 
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
             actual_key_cols_for_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_conf_chart.columns]
-            checklist_data_for_chart = []
             if not df_conf_chart.empty and actual_key_cols_for_chart:
+                checklist_data_for_chart = []
                 for item_col_name_for_chart in actual_key_cols_for_chart:
                     item_details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_for_chart)
                     chart_label_for_bar = item_details_obj.get("chart_label", item_col_name_for_chart.replace('_',' ').title()) if item_details_obj else item_col_name_for_chart.replace('_',' ').title()
@@ -651,12 +701,14 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                         checklist_bar_fig = px.bar(df_checklist_bar_chart.sort_values("Completion (%)",ascending=True),
                                                      x="Completion (%)", y="Key Requirement", orientation='h',
                                                      title="Key Requirement Completion (Confirmed Onboardings)",
-                                                     color_discrete_sequence=[ACTIVE_ACCENT_PRIMARY]) # Single color bar
+                                                     color_discrete_sequence=[ACTIVE_ACCENT_PRIMARY])
                         checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(checklist_bar_fig, use_container_width=True)
-                else: st.info("No data for key requirement chart (confirmed).")
-            else: st.info("No 'confirmed' onboardings or checklist columns for requirement chart.")
-    else: st.info("No data matches current filters for detailed visuals.")
+                    else: st.markdown("<div class='no-data-message'>📊 No data for key requirement chart (confirmed). 📊</div>", unsafe_allow_html=True)
+                else: st.markdown("<div class='no-data-message'>📊 No data for key requirement chart (confirmed). 📊</div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='no-data-message'>✅ No 'confirmed' onboardings or checklist columns for requirement chart. ✅</div>", unsafe_allow_html=True)
+    else: st.markdown("<div class='no-data-message'>🖼️ No data matches current filters for detailed visuals. 🖼️</div>", unsafe_allow_html=True)
+
 
 elif st.session_state.active_tab == "📈 Trends & Distributions":
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
@@ -674,9 +726,9 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
                                       title="Onboardings Over Filtered Period", color_discrete_sequence=[ACTIVE_ACCENT_HIGHLIGHT])
                     fig_for_trend_tab3.update_layout(plotly_base_layout_settings)
                     st.plotly_chart(fig_for_trend_tab3, use_container_width=True)
-                else: st.info("Not enough data for trend plot after resampling.")
-            else: st.info("No valid date data for trend chart after processing.")
-        else: st.info("Date column missing for trend chart.")
+                else: st.markdown("<div class='no-data-message'>📈 Not enough data for trend plot after resampling. 📈</div>", unsafe_allow_html=True)
+            else: st.markdown("<div class='no-data-message'>📅 No valid date data for trend chart after processing. 📅</div>", unsafe_allow_html=True)
+        else: st.markdown("<div class='no-data-message'>🗓️ Date column missing for trend chart. 🗓️</div>", unsafe_allow_html=True)
 
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             days_data_for_hist_tab3 = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna()
@@ -686,9 +738,16 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
                                            title="Days to Confirmation Distribution", color_discrete_sequence=[ACTIVE_ACCENT_SECONDARY])
                 fig_days_dist_hist_tab3.update_layout(plotly_base_layout_settings)
                 st.plotly_chart(fig_days_dist_hist_tab3, use_container_width=True)
-            else: st.info("No valid 'Days to Confirmation' data for distribution plot.")
-        else: st.info("'Days to Confirmation' column missing for distribution plot.")
-    else: st.info("No data matches current filters for Trends & Distributions.")
+            else: st.markdown("<div class='no-data-message'>⏳ No valid 'Days to Confirmation' data for distribution plot. ⏳</div>", unsafe_allow_html=True)
+        else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' column missing for distribution plot. ⏱️</div>", unsafe_allow_html=True)
+    else: st.markdown("<div class='no-data-message'>📉 No data matches current filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
+
+# --- Footer ---
+st.markdown("---")
+st.markdown(
+    f"<div class='footer'>Onboarding Performance Dashboard v3.8 © {datetime.now().year} DIME Industries. All Rights Reserved.</div>",
+    unsafe_allow_html=True
+)
 
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v3.7 | Secured Access") # Corrected closing parenthesis
+st.sidebar.info(f"App Version: 3.8 ({THEME.capitalize()} Mode)")

@@ -1,34 +1,41 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, date, timedelta
-from dateutil.relativedelta import relativedelta
-import gspread
-from google.oauth2.service_account import Credentials
-from collections.abc import Mapping 
-import time
-import numpy as np
-import re 
-import matplotlib
+# Import necessary libraries
+import streamlit as st  # For creating the web application interface and UI elements
+import pandas as pd  # For data manipulation and analysis, especially using DataFrames
+import plotly.express as px  # For creating interactive charts and visualizations easily
+import plotly.graph_objects as go  # For more advanced and custom Plotly charts (though not heavily used here)
+from datetime import datetime, date, timedelta  # For working with date and time objects
+from dateutil.relativedelta import relativedelta  # For more complex date calculations (e.g., adding/subtracting months)
+import gspread  # Python client library for Google Sheets API
+from google.oauth2.service_account import Credentials  # For authenticating with Google services using a service account
+from collections.abc import Mapping  # Abstract Base Class for dictionary-like objects, used for robust type checking
+import time  # For time-related functions (not actively used in this version but often useful)
+import numpy as np  # For numerical operations; Pandas is built on NumPy
+import re  # For regular expression operations, used here for parsing text like transcripts
+import matplotlib # Imported because some pandas styling features (e.g., background_gradient) might use it under the hood
 
 # --- Page Configuration ---
+# This st.set_page_config() function must be the first Streamlit command in your script, except for comments and blank lines.
+# It sets up the basic properties of the web page, such as:
+# - page_title: The title that appears in the browser tab.
+# - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
+# - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.1", 
-    page_icon="💎", # Diamond, for DIME perhaps?
+    page_title="Onboarding Performance Dashboard v3.1.1", # Version for this NameError fix
+    page_icon="✅", # Checkmark, indicating a fix
     layout="wide"
 )
 
 # --- Color Palette ---
+# Define color constants for easy reuse and theme consistency.
 ICE_COLD = "#a0d2eb"        # Light Blue
 FREEZE_PURPLE = "#e5eaf5"   # Very Light, almost white purple/blue
 MEDIUM_PURPLE = "#d0bdf4"   # Light Lavender
 PURPLE_PAIN = "#8458B3"     # Medium-Dark Purple (Primary Accent)
 HEAVY_PURPLE = "#a28089"    # Muted, desaturated purplish-pink/mauve (Good for secondary text on light bg)
 
-PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots
+PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots, ensuring it's defined
 
-# Fallback Dark Theme Specifics (used in var() fallbacks)
+# Fallback Dark Theme Specifics (used in var() fallbacks in CSS)
 DARK_BACKGROUND_FALLBACK = "#1F2128" 
 DARK_CARD_BACKGROUND_FALLBACK = "#2C2F3A" 
 DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE
@@ -36,6 +43,7 @@ DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE
 
 
 # --- Custom Styling (CSS) ---
+# These are global CSS styles to customize the visual appearance of the Streamlit application.
 st.markdown(f"""
 <style>
     /* General App Styles */
@@ -54,15 +62,15 @@ st.markdown(f"""
         letter-spacing: 1px;
     }} 
     h2, h3 {{ 
-        color: {PURPLE_PAIN}; /* Changed from ICE_COLD for better light/dark contrast */
+        color: {PURPLE_PAIN}; 
         border-bottom: 2px solid {PURPLE_PAIN} !important; 
         padding-bottom: 0.4em; 
         margin-top: 1.5em;
         margin-bottom: 1em;
         font-weight: 500;
     }} 
-    h5 {{ /* For sub-sections like "Onboarding Summary" */
-        color: {PURPLE_PAIN}; /* Changed from MEDIUM_PURPLE */
+    h5 {{ 
+        color: {PURPLE_PAIN}; 
         opacity: 0.9;
         margin-top: 1em;
         margin-bottom: 0.5em;
@@ -74,8 +82,8 @@ st.markdown(f"""
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.2em 1.5em;
         border-radius: 10px;
-        border: 1px solid var(--border-color, #3a3f4b); /* Subtle border */
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Softer shadow */
+        border: 1px solid var(--border-color, #3a3f4b); 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }}
     div[data-testid="stMetric"]:hover, .metric-card:hover {{
@@ -101,18 +109,18 @@ st.markdown(f"""
     
     /* Expander Styles */
     .streamlit-expanderHeader {{ 
-        color: {PURPLE_PAIN} !important; /* Changed from MEDIUM_PURPLE */
+        color: {PURPLE_PAIN} !important; 
         font-weight: 500;
         font-size: 1.05em;
     }} 
     .streamlit-expander {{
-        border: 1px solid var(--border-color, #444); /* Theme variable for border */
+        border: 1px solid var(--border-color, #444); 
         border-radius: 8px;
     }}
     
     /* DataFrame Styles */
     .stDataFrame {{ 
-        border: 1px solid var(--border-color, #444); /* Theme variable for border */
+        border: 1px solid var(--border-color, #444); 
         border-radius: 8px;
     }} 
     
@@ -135,8 +143,8 @@ st.markdown(f"""
         font-weight: 600;
         opacity: 1.0;
         border-top: 2px solid {PURPLE_PAIN};
-        border-left: 1px solid var(--border-color, #555); /* Theme variable */
-        border-right: 1px solid var(--border-color, #555); /* Theme variable */
+        border-left: 1px solid var(--border-color, #555); 
+        border-right: 1px solid var(--border-color, #555); 
     }}
     div[data-testid="stRadio"] {{ 
         padding-bottom: 0px; 
@@ -149,16 +157,16 @@ st.markdown(f"""
     
     /* Transcript Viewer Specific Styles */
     .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }}
-    .transcript-summary-item strong {{ color: {PURPLE_PAIN}; }} /* Changed from ICE_COLD */
+    .transcript-summary-item strong {{ color: {PURPLE_PAIN}; }} 
     .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 8px; }}
     .requirement-item {{ margin-bottom: 10px; padding: 8px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 4px; }}
-    .requirement-item .type {{ font-weight: 500; color: {HEAVY_PURPLE}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }} /* Changed from ICE_COLD */
+    .requirement-item .type {{ font-weight: 500; color: {HEAVY_PURPLE}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }}
     .transcript-container {{ 
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK}); 
         color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}); 
         padding: 20px; 
         border-radius: 8px; 
-        border: 1px solid var(--border-color, #444); /* Theme variable */
+        border: 1px solid var(--border-color, #444); 
         max-height: 450px; 
         overflow-y: auto; 
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; 
@@ -171,7 +179,7 @@ st.markdown(f"""
     /* Button styles */
     div[data-testid="stButton"] > button {{
         background-color: {PURPLE_PAIN};
-        color: {FREEZE_PURPLE}; /* Light text for dark purple BG */
+        color: {FREEZE_PURPLE}; 
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -180,12 +188,12 @@ st.markdown(f"""
     }}
     div[data-testid="stButton"] > button:hover {{
         background-color: {MEDIUM_PURPLE}; 
-        color: {DARK_BACKGROUND_FALLBACK}; /* Dark text for lighter purple BG */
+        color: {DARK_BACKGROUND_FALLBACK}; 
         transform: translateY(-2px);
     }}
     div[data-testid="stDownloadButton"] > button {{
-        background-color: {ICE_COLD}; /* Light blue background */
-        color: {DARK_BACKGROUND_FALLBACK}; /* Dark text for light button */
+        background-color: {ICE_COLD}; 
+        color: {DARK_BACKGROUND_FALLBACK}; 
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -193,7 +201,7 @@ st.markdown(f"""
         transition: background-color 0.3s ease, transform 0.2s ease;
     }}
     div[data-testid="stDownloadButton"] > button:hover {{
-        background-color: {FREEZE_PURPLE}; /* Very light on hover */
+        background-color: {FREEZE_PURPLE}; 
         color: {DARK_BACKGROUND_FALLBACK};
         transform: translateY(-2px);
     }}
@@ -203,10 +211,9 @@ st.markdown(f"""
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.5em 1em;
     }}
-    /* Target specific sidebar headers if needed, otherwise they inherit general h2/h3 */
     div[data-testid="stSidebarUserContent"] h2, 
     div[data-testid="stSidebarUserContent"] h3 {{
-        color: {ICE_COLD}; /* Keep sidebar headers distinct if desired */
+        color: {ICE_COLD}; 
         border-bottom-color: {MEDIUM_PURPLE};
     }}
 </style>
@@ -289,42 +296,43 @@ def load_data_from_google_sheet(_url_param, _ws_param):
         ws = ss.worksheet(ws_name)
         data = ws.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
-        df = pd.DataFrame(data)
-        if df.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
+        df_loaded_internal = pd.DataFrame(data) # Use a local variable name here
+        if df_loaded_internal.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); return pd.DataFrame()
 
-    df.columns = df.columns.str.strip()
+    df_loaded_internal.columns = df_loaded_internal.columns.str.strip()
     date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
     for col, new_col in date_cols.items():
-        if col in df: df[new_col] = robust_to_datetime(df[col].astype(str).str.replace('\n','',regex=False).str.strip())
-        else: df[new_col] = pd.NaT
-        if col == 'onboardingDate': df['onboarding_date_only'] = df[new_col].dt.date
+        if col in df_loaded_internal: df_loaded_internal[new_col] = robust_to_datetime(df_loaded_internal[col].astype(str).str.replace('\n','',regex=False).str.strip())
+        else: df_loaded_internal[new_col] = pd.NaT
+        if col == 'onboardingDate': df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
     
-    if 'deliveryDate_dt' in df and 'confirmationTimestamp_dt' in df:
-        df['deliveryDate_dt'] = pd.to_datetime(df['deliveryDate_dt'], errors='coerce')
-        df['confirmationTimestamp_dt'] = pd.to_datetime(df['confirmationTimestamp_dt'], errors='coerce')
+    if 'deliveryDate_dt' in df_loaded_internal and 'confirmationTimestamp_dt' in df_loaded_internal:
+        df_loaded_internal['deliveryDate_dt'] = pd.to_datetime(df_loaded_internal['deliveryDate_dt'], errors='coerce')
+        df_loaded_internal['confirmationTimestamp_dt'] = pd.to_datetime(df_loaded_internal['confirmationTimestamp_dt'], errors='coerce')
         def to_utc(s):
             if pd.api.types.is_datetime64_any_dtype(s) and s.notna().any():
                 try: return s.dt.tz_localize('UTC') if s.dt.tz is None else s.dt.tz_convert('UTC')
                 except Exception: return s
             return s
-        df['days_to_confirmation'] = (to_utc(df['confirmationTimestamp_dt']) - to_utc(df['deliveryDate_dt'])).dt.days
-    else: df['days_to_confirmation'] = pd.NA
+        df_loaded_internal['days_to_confirmation'] = (to_utc(df_loaded_internal['confirmationTimestamp_dt']) - to_utc(df_loaded_internal['deliveryDate_dt'])).dt.days
+    else: df_loaded_internal['days_to_confirmation'] = pd.NA
     
     str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary']
     for col in str_cols_ensure:
-        if col not in df.columns: df[col] = ""
-        else: df[col] = df[col].astype(str).fillna("")
-    if 'score' not in df.columns: df['score'] = pd.NA
-    df['score'] = pd.to_numeric(df['score'], errors='coerce')
+        if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
+        else: df_loaded_internal[col] = df_loaded_internal[col].astype(str).fillna("")
+    if 'score' not in df_loaded_internal.columns: df_loaded_internal['score'] = pd.NA
+    df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
     
+    # Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or a similar correct constant)
     checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome'] 
     for col in checklist_cols_to_ensure:
-        if col not in df.columns: df[col] = pd.NA 
+        if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA 
             
-    return df
+    return df_loaded_internal
 
 @st.cache_data
 def convert_df_to_csv(df): return df.to_csv(index=False).encode('utf-8')
@@ -361,25 +369,27 @@ if not st.session_state.data_loaded:
     if not url_s or not ws_s: st.error("Config Error: Sheet URL/Name missing in secrets.")
     else:
         with st.spinner("Loading data..."):
-            df = load_data_from_google_sheet(url_s, ws_s) 
-            if not df.empty:
-                st.session_state.df_original = df; st.session_state.data_loaded = True
-                ds,de,_,_ = get_default_date_range(df.get('onboarding_date_only'))
+            # The variable 'df' here is local to this block
+            df_from_load_func = load_data_from_google_sheet(url_s, ws_s) 
+            if not df_from_load_func.empty:
+                st.session_state.df_original = df_from_load_func
+                st.session_state.data_loaded = True
+                ds,de,_,_ = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
                 st.session_state.date_range = (ds,de) if ds and de else (default_s,default_e)
-                # Display success message in sidebar after successful load
-                st.sidebar.success(f"Data loaded: {len(df_original)} records.") 
+                # CORRECTED: Use the local 'df_from_load_func' for len() here
+                st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.") 
             else: 
-                st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
-                st.sidebar.error("Data loading failed or sheet is empty.") # More specific message
+                st.session_state.df_original = pd.DataFrame()
+                st.session_state.data_loaded = False
+                st.sidebar.error("Data loading failed or sheet is empty.")
+# Assign from session state to the global df_original after the loading block
 df_original = st.session_state.df_original 
 
 st.title("🌌 Onboarding Performance Dashboard 🌌") 
 
 if not st.session_state.data_loaded or df_original.empty:
-    # Error message already handled by load_data or initial check, 
-    # but this provides a fallback if user lands here with no data.
     if not (st.secrets.get("GOOGLE_SHEET_URL_OR_NAME") and st.secrets.get("GOOGLE_WORKSHEET_NAME")):
-        pass # Error about secrets missing is already covered.
+        pass 
     else:
         st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
     if st.sidebar.button("🔄 Force Refresh", key="refresh_fail"):
@@ -451,20 +461,19 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy() 
 else: df_filtered = pd.DataFrame() 
 
-# Updated Plotly Layout with new color scheme and theme variables
 plotly_base_layout_settings = {
     "plot_bgcolor": PLOT_BG_COLOR, 
     "paper_bgcolor": PLOT_BG_COLOR, 
-    "font_color": "var(--text-color)", # Use Streamlit's theme variable for general text
+    "font_color": "var(--text-color)", 
     "title_font_color": PURPLE_PAIN, 
     "legend_font_color": "var(--text-color)",
     "title_x":0.5, 
     "xaxis_showgrid":False, "yaxis_showgrid":False,
-    "xaxis_title_font_color": "var(--text-color)", # Use theme variable
-    "yaxis_title_font_color": "var(--text-color)", # Use theme variable
-    "xaxis_tickfont_color": "var(--text-color)",   # Use theme variable
-    "yaxis_tickfont_color": "var(--text-color)",   # Use theme variable
-    "margin": dict(l=40, r=20, t=60, b=40) # Adjust margins for better spacing
+    "xaxis_title_font_color": "var(--text-color)", 
+    "yaxis_title_font_color": "var(--text-color)", 
+    "xaxis_tickfont_color": "var(--text-color)",   
+    "yaxis_tickfont_color": "var(--text-color)",   
+    "margin": dict(l=40, r=20, t=60, b=40) 
 }
 
 today_date = date.today(); mtd_s = today_date.replace(day=1)
@@ -522,6 +531,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
+    # CORRECTED: Use ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS for consistency
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
@@ -699,4 +709,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v3.1 | Secured Access") 
+st.sidebar.info("Dashboard v3.1.1 | Secured Access") 

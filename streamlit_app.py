@@ -20,8 +20,8 @@ import matplotlib # Imported because some pandas styling features (e.g., backgro
 # - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
 # - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.1.1", # Version for this NameError fix
-    page_icon="✅", # Checkmark, indicating a fix
+    page_title="Onboarding Performance Dashboard v3.2", # Version for Theme Enhancements
+    page_icon="🎨", # Artist palette emoji
     layout="wide"
 )
 
@@ -38,8 +38,12 @@ PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent background for plots, ensuring it'
 # Fallback Dark Theme Specifics (used in var() fallbacks in CSS)
 DARK_BACKGROUND_FALLBACK = "#1F2128" 
 DARK_CARD_BACKGROUND_FALLBACK = "#2C2F3A" 
-DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE
-DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE
+DARK_TEXT_PRIMARY_FALLBACK = FREEZE_PURPLE # Light text for dark backgrounds
+DARK_TEXT_SECONDARY_FALLBACK = MEDIUM_PURPLE # Lighter purple for secondary text on dark
+
+# Fallback Light Theme Specifics (for elements not directly using Streamlit vars)
+LIGHT_TEXT_PRIMARY_FALLBACK = "#212936" # Dark text for light backgrounds
+LIGHT_TEXT_SECONDARY_FALLBACK = "#4A5568" # Slightly lighter dark text
 
 
 # --- Custom Styling (CSS) ---
@@ -62,14 +66,14 @@ st.markdown(f"""
         letter-spacing: 1px;
     }} 
     h2, h3 {{ 
-        color: {PURPLE_PAIN}; 
+        color: {PURPLE_PAIN}; /* Primary accent for main headers */
         border-bottom: 2px solid {PURPLE_PAIN} !important; 
         padding-bottom: 0.4em; 
         margin-top: 1.5em;
         margin-bottom: 1em;
         font-weight: 500;
     }} 
-    h5 {{ 
+    h5 {{ /* For sub-sections like "Onboarding Summary" */
         color: {PURPLE_PAIN}; 
         opacity: 0.9;
         margin-top: 1em;
@@ -82,13 +86,13 @@ st.markdown(f"""
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK});
         padding: 1.2em 1.5em;
         border-radius: 10px;
-        border: 1px solid var(--border-color, #3a3f4b); 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        border: 1px solid var(--border-color, #3a3f4b); /* Use Streamlit's border color var */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Softer shadow for light/dark */
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }}
     div[data-testid="stMetric"]:hover, .metric-card:hover {{
          transform: translateY(-4px);
-         box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+         box-shadow: 0 6px 16px rgba(0,0,0,0.12);
     }}
     div[data-testid="stMetricLabel"] > div {{ 
         color: var(--text-color, {DARK_TEXT_SECONDARY_FALLBACK}) !important; 
@@ -160,7 +164,7 @@ st.markdown(f"""
     .transcript-summary-item strong {{ color: {PURPLE_PAIN}; }} 
     .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 8px; }}
     .requirement-item {{ margin-bottom: 10px; padding: 8px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 4px; }}
-    .requirement-item .type {{ font-weight: 500; color: {HEAVY_PURPLE}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }}
+    .requirement-item .type {{ font-weight: 500; color: var(--text-color, {HEAVY_PURPLE}); opacity: 0.8; font-size: 0.85em; margin-left: 8px; }} /* Use theme text or HEAVY_PURPLE */
     .transcript-container {{ 
         background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND_FALLBACK}); 
         color: var(--text-color, {DARK_TEXT_PRIMARY_FALLBACK}); 
@@ -174,12 +178,12 @@ st.markdown(f"""
         line-height: 1.6;
     }}
     .transcript-line {{ margin-bottom: 10px; word-wrap: break-word; white-space: pre-wrap; }}
-    .transcript-line strong {{ color: {PURPLE_PAIN}; }}
+    .transcript-line strong {{ color: {PURPLE_PAIN}; }} /* Speaker name */
 
     /* Button styles */
     div[data-testid="stButton"] > button {{
         background-color: {PURPLE_PAIN};
-        color: {FREEZE_PURPLE}; 
+        color: {FREEZE_PURPLE}; /* Light text for dark purple BG */
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -188,12 +192,12 @@ st.markdown(f"""
     }}
     div[data-testid="stButton"] > button:hover {{
         background-color: {MEDIUM_PURPLE}; 
-        color: {DARK_BACKGROUND_FALLBACK}; 
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Darker text for lighter purple hover BG */
         transform: translateY(-2px);
     }}
     div[data-testid="stDownloadButton"] > button {{
-        background-color: {ICE_COLD}; 
-        color: {DARK_BACKGROUND_FALLBACK}; 
+        background-color: {ICE_COLD}; /* Light blue background */
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Dark text for light button */
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
@@ -201,8 +205,8 @@ st.markdown(f"""
         transition: background-color 0.3s ease, transform 0.2s ease;
     }}
     div[data-testid="stDownloadButton"] > button:hover {{
-        background-color: {FREEZE_PURPLE}; 
-        color: {DARK_BACKGROUND_FALLBACK};
+        background-color: {FREEZE_PURPLE}; /* Very light on hover */
+        color: {LIGHT_TEXT_PRIMARY_FALLBACK}; /* Dark text */
         transform: translateY(-2px);
     }}
 
@@ -213,7 +217,7 @@ st.markdown(f"""
     }}
     div[data-testid="stSidebarUserContent"] h2, 
     div[data-testid="stSidebarUserContent"] h3 {{
-        color: {ICE_COLD}; 
+        color: {ICE_COLD}; /* Keep sidebar headers distinct if desired */
         border-bottom-color: {MEDIUM_PURPLE};
     }}
 </style>
@@ -296,7 +300,7 @@ def load_data_from_google_sheet(_url_param, _ws_param):
         ws = ss.worksheet(ws_name)
         data = ws.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
-        df_loaded_internal = pd.DataFrame(data) # Use a local variable name here
+        df_loaded_internal = pd.DataFrame(data) 
         if df_loaded_internal.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
@@ -327,7 +331,6 @@ def load_data_from_google_sheet(_url_param, _ws_param):
     if 'score' not in df_loaded_internal.columns: df_loaded_internal['score'] = pd.NA
     df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
     
-    # Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or a similar correct constant)
     checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome'] 
     for col in checklist_cols_to_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA 
@@ -369,20 +372,17 @@ if not st.session_state.data_loaded:
     if not url_s or not ws_s: st.error("Config Error: Sheet URL/Name missing in secrets.")
     else:
         with st.spinner("Loading data..."):
-            # The variable 'df' here is local to this block
             df_from_load_func = load_data_from_google_sheet(url_s, ws_s) 
             if not df_from_load_func.empty:
                 st.session_state.df_original = df_from_load_func
                 st.session_state.data_loaded = True
                 ds,de,_,_ = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
                 st.session_state.date_range = (ds,de) if ds and de else (default_s,default_e)
-                # CORRECTED: Use the local 'df_from_load_func' for len() here
                 st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.") 
             else: 
                 st.session_state.df_original = pd.DataFrame()
                 st.session_state.data_loaded = False
                 st.sidebar.error("Data loading failed or sheet is empty.")
-# Assign from session state to the global df_original after the loading block
 df_original = st.session_state.df_original 
 
 st.title("🌌 Onboarding Performance Dashboard 🌌") 
@@ -531,7 +531,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
-    # CORRECTED: Use ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS for consistency
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]

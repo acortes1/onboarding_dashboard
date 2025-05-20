@@ -718,4 +718,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches current filters for Trends & Distributions.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v3.6 | Secured Access"
+st.sidebar.info("Dashboard v3.6 | Secured Access")

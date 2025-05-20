@@ -628,28 +628,47 @@ selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.sessi
                         horizontal=True, key="main_tab_selector_v3_10")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
-# --- Active Filters Summary (Moved to be below tabs) ---
-active_filter_parts = []
-if st.session_state.get('date_filter_is_active', False) and start_dt and end_dt:
+# --- Active Filters Summary ---
+other_active_filters_list = []
+date_display_string = ""
+
+# Always determine the date display string if start_dt and end_dt are valid
+if isinstance(start_dt, date) and isinstance(end_dt, date):
     min_data_for_summary = st.session_state.get('min_data_date_for_filter')
     max_data_for_summary = st.session_state.get('max_data_date_for_filter')
-    date_label = ""
+    
+    is_all_data_range_and_active = False
     if min_data_for_summary and max_data_for_summary and \
-       start_dt == min_data_for_summary and end_dt == max_data_for_summary:
-        date_label = "🗓️ Dates: ALL"
+       start_dt == min_data_for_summary and end_dt == max_data_for_summary and \
+       st.session_state.get('date_filter_is_active', False):
+        is_all_data_range_and_active = True
+
+    if is_all_data_range_and_active:
+        date_display_string = "🗓️ Dates: ALL"
     else:
-        date_label = f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}"
-    active_filter_parts.append(date_label)
+        date_display_string = f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}"
+else:
+    date_display_string = "🗓️ Dates: Range not set"
 
+# Collect other filters
 for k, lbl in search_cols_definition.items():
-    if st.session_state[k+"_search"]: active_filter_parts.append(f"{lbl}: '{st.session_state[k+'_search']}'")
+    if st.session_state[k+"_search"]:
+        other_active_filters_list.append(f"{lbl}: '{st.session_state[k+'_search']}'")
 for k, lbl in cat_filters_definition.items():
-    if st.session_state[k+"_filter"]: active_filter_parts.append(f"{lbl}: {', '.join(st.session_state[k+'_filter'])}")
+    if st.session_state[k+"_filter"]:
+        other_active_filters_list.append(f"{lbl}: {', '.join(st.session_state[k+'_filter'])}")
 
-if active_filter_parts:
-    st.markdown(f"<div class='active-filters-summary'>🔍 Active Filters: {'; '.join(active_filter_parts)}</div>", unsafe_allow_html=True)
-else: 
-    st.markdown(f"<div class='active-filters-summary'>No active filters. Showing all data within default date range.</div>", unsafe_allow_html=True)
+# Construct the final summary message
+if other_active_filters_list or st.session_state.get('date_filter_is_active', False):
+    # If any other filter is active, or if the date filter was explicitly touched by user
+    final_summary_parts = [date_display_string] + other_active_filters_list
+    summary_message = f"🔍 Active Filters: {'; '.join(final_summary_parts)}"
+else:
+    # This case means no user interaction with date filters AND no other filters are set.
+    # So, it's showing the initial default load.
+    summary_message = f"Showing data for: {date_display_string} (default range). No other filters active."
+
+st.markdown(f"<div class='active-filters-summary'>{summary_message}</div>", unsafe_allow_html=True)
 
 
 # --- Data Filtering Logic ---

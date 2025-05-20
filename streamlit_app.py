@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
 import gspread
-from google.oauth2.service_account import Credentials
+from google.oauth2.service_account import Credentials # Keep for type hinting if used, but not for gspread.authorize
 import time
 import numpy as np
 import re
@@ -285,15 +285,25 @@ ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets = st.secrets.get("gcp_service_account")
-    if gcp_secrets is None: print("Error: GCP secrets NOT FOUND."); return None
-    if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')): print(f"Error: GCP secrets not structured correctly (type: {type(gcp_secrets)})."); return None
+    if gcp_secrets is None:
+        print("Error: GCP secrets NOT FOUND.") # Log for server-side debugging
+        # st.error("GCP secrets NOT FOUND.") # Avoid st.error in cached function if it prevents caching on failure
+        return None
+    if not (hasattr(gcp_secrets, 'get') and hasattr(gcp_secrets, 'keys')):
+        print(f"Error: GCP secrets not structured correctly (type: {type(gcp_secrets)}).")
+        return None
     required_keys = ["type", "project_id", "private_key_id", "private_key", "client_email", "client_id"]
     missing = [k for k in required_keys if gcp_secrets.get(k) is None]
-    if missing: print(f"Error: GCP secrets missing keys: {', '.join(missing)}."); return None
+    if missing:
+        print(f"Error: GCP secrets missing keys: {', '.join(missing)}.")
+        return None
     try:
-        creds = Credentials.from_service_account_info(dict(gcp_secrets), scopes=SCOPES)
-        return gspread.authorize(creds)
-    except Exception as e: print(f"Google Auth Error: {e}"); return None
+        # Use gspread.service_account_from_dict for more direct handling
+        return gspread.service_account_from_dict(dict(gcp_secrets), scopes=SCOPES)
+    except Exception as e:
+        print(f"Google Auth Error using service_account_from_dict: {e}")
+        # Fallback or further error handling could be added here if needed
+        return None
 
 def robust_to_datetime(series):
     dates = pd.to_datetime(series, errors='coerce', infer_datetime_format=True)
@@ -358,15 +368,13 @@ def load_data_from_google_sheet():
     new_columns_for_rename = {}
     for current_col_std in df_loaded_internal.columns: # These are already standardized
         if current_col_std in column_name_map_to_code:
-            # Only rename if the target code_name is different and not already present
             target_code_name = column_name_map_to_code[current_col_std]
+            # Only rename if the target code_name is different AND the target_code_name isn't already a column
+            # (to prevent renaming a standardized col to a target that might have existed with different casing from sheet)
             if current_col_std != target_code_name and target_code_name not in df_loaded_internal.columns:
                  new_columns_for_rename[current_col_std] = target_code_name
-            elif current_col_std != target_code_name and target_code_name in df_loaded_internal.columns and current_col_std not in df_loaded_internal.columns:
-                 # This case is tricky, if target exists but original standardized doesn't, means it was already named as target.
-                 # This should ideally not happen if standardization is consistent.
-                 pass
-
+            # If current_col_std is the same as target_code_name (after standardization), no rename needed.
+            # If target_code_name already exists, it implies a duplicate or complex mapping not handled here.
 
     if new_columns_for_rename:
         df_loaded_internal.rename(columns=new_columns_for_rename, inplace=True)
@@ -391,7 +399,6 @@ def load_data_from_google_sheet():
                 except Exception: return s
             return s
         valid_dates_mask = df_loaded_internal['confirmationTimestamp_dt'].notna() & df_loaded_internal['deliveryDate_dt'].notna()
-        # Initialize column first to avoid KeyError if no valid_dates_mask is true
         df_loaded_internal['days_to_confirmation'] = pd.NA
         if valid_dates_mask.any():
             df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = \

@@ -1,86 +1,212 @@
-# Import necessary libraries
-import streamlit as st  # For creating the web application interface and UI elements
-import pandas as pd  # For data manipulation and analysis, especially using DataFrames
-import plotly.express as px  # For creating interactive charts and visualizations easily
-import plotly.graph_objects as go  # For more advanced and custom Plotly charts (though not heavily used here)
-from datetime import datetime, date, timedelta  # For working with date and time objects
-from dateutil.relativedelta import relativedelta  # For more complex date calculations (e.g., adding/subtracting months)
-import gspread  # Python client library for Google Sheets API
-from google.oauth2.service_account import Credentials  # For authenticating with Google services using a service account
-from collections.abc import Mapping  # Abstract Base Class for dictionary-like objects, used for robust type checking
-import time  # For time-related functions (not actively used in this version but often useful)
-import numpy as np  # For numerical operations; Pandas is built on NumPy
-import re  # For regular expression operations, used here for parsing text like transcripts
-import matplotlib # Imported because some pandas styling features (e.g., background_gradient) might use it under the hood
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date, timedelta
+from dateutil.relativedelta import relativedelta
+import gspread
+from google.oauth2.service_account import Credentials
+from collections.abc import Mapping 
+import time
+import numpy as np
+import re 
+import matplotlib
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.13", # Updated version for custom tabs
-    page_icon="📑", # Pages emoji
+    page_title="Onboarding Performance Dashboard v3.0", # Version for Visual Overhaul
+    page_icon="🌌", # Aurora/Galaxy emoji
     layout="wide"
 )
 
-# --- Custom Styling (CSS) ---
-GOLD_ACCENT_COLOR = "#FFD700"
-PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" 
-SECONDARY_TEXT_COLOR_DARK_THEME = "#B0B0B0" 
-PLOT_BG_COLOR = "rgba(0,0,0,0)" 
+# --- Color Palette ---
+ICE_COLD = "#a0d2eb"
+FREEZE_PURPLE = "#e5eaf5"
+MEDIUM_PURPLE = "#d0bdf4"
+PURPLE_PAIN = "#8458B3"
+HEAVY_PURPLE = "#a28089" # Might be used for subtle accents or borders
 
+# Dark Theme Specifics (if not using Streamlit's direct variables everywhere)
+DARK_BACKGROUND = "#1F2128" # A deep, cool charcoal
+DARK_CARD_BACKGROUND = "#2C2F3A" # Slightly lighter for cards
+DARK_TEXT_PRIMARY = FREEZE_PURPLE
+DARK_TEXT_SECONDARY = MEDIUM_PURPLE
+
+# Light Theme Specifics (for elements not covered by Streamlit vars)
+LIGHT_BACKGROUND = FREEZE_PURPLE
+LIGHT_CARD_BACKGROUND = "#FFFFFF"
+LIGHT_TEXT_PRIMARY = "#2C2F3A" # Dark text for light background
+LIGHT_TEXT_SECONDARY = HEAVY_PURPLE
+
+
+# --- Custom Styling (CSS) ---
 st.markdown(f"""
 <style>
     /* General App Styles */
-    .stApp > header {{ background-color: transparent; }} 
-    h1 {{ color: {GOLD_ACCENT_COLOR}; text-align: center; padding-top: 0.5em; padding-bottom: 0.5em; }} 
-    h2, h3 {{ color: {GOLD_ACCENT_COLOR}; border-bottom: 1px solid {GOLD_ACCENT_COLOR} !important; padding-bottom: 0.3em; }} 
+    .stApp {{
+        background-color: var(--background-color, {DARK_BACKGROUND}); /* Default to dark if var not found */
+    }}
+    .stApp > header {{ 
+        background-color: transparent !important; 
+    }} 
+    h1 {{ 
+        color: {PURPLE_PAIN}; 
+        text-align: center; 
+        padding-top: 1em; 
+        padding-bottom: 0.8em; 
+        font-weight: 600;
+        letter-spacing: 1px;
+    }} 
+    h2, h3 {{ 
+        color: {ICE_COLD}; 
+        border-bottom: 2px solid {PURPLE_PAIN} !important; 
+        padding-bottom: 0.4em; 
+        margin-top: 1.5em;
+        margin-bottom: 1em;
+        font-weight: 500;
+    }} 
+    h5 {{ /* For sub-sections like "Onboarding Summary" */
+        color: {MEDIUM_PURPLE};
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        font-weight: 500;
+    }}
     
     /* Metric Widget Styles */
-    div[data-testid="stMetricLabel"] > div,
-    div[data-testid="stMetricValue"] > div,
-    div[data-testid="stMetricDelta"] > div {{ color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}) !important; }} 
-    div[data-testid="stMetricValue"] > div {{ font-size: 1.85rem; }} 
+    div[data-testid="stMetric"], .metric-card {{ /* Target Streamlit's metric or our custom class */
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
+        padding: 1.2em 1.5em;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: transform 0.2s ease-in-out;
+    }}
+    div[data-testid="stMetric"]:hover, .metric-card:hover {{
+         transform: translateY(-3px);
+    }}
+    div[data-testid="stMetricLabel"] > div {{ 
+        color: var(--text-color, {DARK_TEXT_SECONDARY}) !important; 
+        font-weight: 500;
+        font-size: 0.95em;
+        opacity: 0.85;
+    }}
+    div[data-testid="stMetricValue"] > div {{ 
+        color: var(--text-color, {DARK_TEXT_PRIMARY}) !important; 
+        font-size: 2.2rem !important; /* Increased size */
+        font-weight: 600;
+    }}
+    div[data-testid="stMetricDelta"] > div {{ 
+        color: var(--text-color, {DARK_TEXT_SECONDARY}) !important; 
+        font-weight: 500;
+        opacity: 0.9;
+    }}
     
     /* Expander Styles */
-    .streamlit-expanderHeader {{ color: {GOLD_ACCENT_COLOR} !important; font-weight: bold; }} 
+    .streamlit-expanderHeader {{ 
+        color: {MEDIUM_PURPLE} !important; 
+        font-weight: 500;
+        font-size: 1.05em;
+    }} 
+    .streamlit-expander {{
+        border: 1px solid var(--secondary-background-color, #444);
+        border-radius: 8px;
+    }}
     
     /* DataFrame Styles */
-    .stDataFrame {{ border: 1px solid var(--secondary-background-color, #333); }} 
-    
-    /* Paragraph Text */
-    .css-1d391kg p, .css- F_1U7P p {{ color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}) !important; }}
+    .stDataFrame {{ 
+        border: 1px solid var(--secondary-background-color, #444);
+        border-radius: 8px;
+    }} 
     
     /* Custom Tab (Radio Button) Styles */
-    div[data-testid="stRadio"] label {{ /* Target the label within the radio group */
-        padding: 8px 12px;
-        margin: 0 2px;
-        border-radius: 4px 4px 0 0;
-        border: 1px solid var(--secondary-background-color, #444);
+    div[data-testid="stRadio"] label {{ 
+        padding: 10px 18px; /* Increased padding */
+        margin: 0 3px;
+        border-radius: 8px 8px 0 0; /* More rounded top corners */
+        border: 1px solid transparent;
         border-bottom: none;
-        background-color: var(--secondary-background-color, #333);
-        color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME});
-        transition: background-color 0.3s ease, color 0.3s ease;
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
+        color: var(--text-color, {DARK_TEXT_SECONDARY});
+        opacity: 0.7;
+        transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
+        font-weight: 500;
     }}
-    div[data-testid="stRadio"] input:checked + div label {{ /* Style for the selected tab's label */
-        background-color: var(--background-color, #0E1117); /* Match app background for active tab feel */
-        color: {GOLD_ACCENT_COLOR};
-        font-weight: bold;
-        border-color: {GOLD_ACCENT_COLOR};
+    div[data-testid="stRadio"] input:checked + div label {{ 
+        background-color: var(--background-color, {DARK_BACKGROUND}); 
+        color: {PURPLE_PAIN};
+        font-weight: 600;
+        opacity: 1.0;
+        border-top: 2px solid {PURPLE_PAIN};
+        border-left: 1px solid var(--secondary-background-color, #555);
+        border-right: 1px solid var(--secondary-background-color, #555);
     }}
-    div[data-testid="stRadio"] {{ /* Remove default radio button circles */
-        padding-bottom: 0px; /* Align with content below */
+    div[data-testid="stRadio"] {{ 
+        padding-bottom: 0px; 
+        border-bottom: 2px solid {PURPLE_PAIN}; /* Line under the active tab row */
+        margin-bottom: 25px; /* Space after tabs */
     }}
      div[data-testid="stRadio"] > label > div:first-child {{
-        display: none; /* Hide the actual radio button circle */
+        display: none; 
     }}
     
     /* Transcript Viewer Specific Styles */
-    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 18px; }}
-    .transcript-summary-item strong {{ color: {GOLD_ACCENT_COLOR}; }} 
-    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 5px; }}
-    .requirement-item {{ margin-bottom: 10px; padding-left: 5px; border-left: 3px solid var(--secondary-background-color, #444); }}
-    .requirement-item .type {{ font-weight: bold; color: var(--text-color, {SECONDARY_TEXT_COLOR_DARK_THEME}); opacity: 0.8; font-size: 0.9em; margin-left: 5px; }}
-    .transcript-container {{ background-color: var(--secondary-background-color, #262730); color: var(--text-color, {PRIMARY_TEXT_COLOR_DARK_THEME}); padding: 15px; border-radius: 8px; border: 1px solid var(--secondary-background-color, #333); max-height: 400px; overflow-y: auto; font-family: monospace; }}
-    .transcript-line {{ margin-bottom: 8px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }}
-    .transcript-line strong {{ color: {GOLD_ACCENT_COLOR}; }}
+    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }}
+    .transcript-summary-item strong {{ color: {ICE_COLD}; }} 
+    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 8px; }}
+    .requirement-item {{ margin-bottom: 10px; padding: 8px; border-left: 4px solid {MEDIUM_PURPLE}; background-color: var(--secondary-background-color, #2a2d39); border-radius: 4px; }}
+    .requirement-item .type {{ font-weight: 500; color: {ICE_COLD}; opacity: 0.9; font-size: 0.85em; margin-left: 8px; }}
+    .transcript-container {{ 
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND}); 
+        color: var(--text-color, {DARK_TEXT_PRIMARY}); 
+        padding: 20px; 
+        border-radius: 8px; 
+        border: 1px solid var(--secondary-background-color, #444); 
+        max-height: 450px; 
+        overflow-y: auto; 
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Better monospace stack */
+        font-size: 0.9em;
+        line-height: 1.6;
+    }}
+    .transcript-line {{ margin-bottom: 10px; word-wrap: break-word; white-space: pre-wrap; }}
+    .transcript-line strong {{ color: {PURPLE_PAIN}; }}
+
+    /* Button styles */
+    div[data-testid="stButton"] > button {{
+        background-color: {PURPLE_PAIN};
+        color: {FREEZE_PURPLE};
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }}
+    div[data-testid="stButton"] > button:hover {{
+        background-color: {MEDIUM_PURPLE}; /* Lighter purple on hover */
+        color: {DARK_BACKGROUND};
+        transform: translateY(-2px);
+    }}
+    div[data-testid="stDownloadButton"] > button {{
+        background-color: {ICE_COLD};
+        color: {DARK_BACKGROUND}; /* Dark text for light button */
+         border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }}
+    div[data-testid="stDownloadButton"] > button:hover {{
+        background-color: {FREEZE_PURPLE};
+        transform: translateY(-2px);
+    }}
+
+    /* Sidebar styling */
+    div[data-testid="stSidebarUserContent"] {{
+        background-color: var(--secondary-background-color, {DARK_CARD_BACKGROUND});
+        padding: 1.5em 1em;
+    }}
+    .st-emotion-cache-16txtl3 {{ /* Target sidebar header */
+        color: {ICE_COLD};
+    }}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -89,7 +215,7 @@ def check_password():
     app_password = st.secrets.get("APP_ACCESS_KEY")
     app_hint = st.secrets.get("APP_ACCESS_HINT", "Hint not available.")
     if app_password is None:
-        st.sidebar.warning("APP_ACCESS_KEY not set in secrets. Bypassing password for local development.")
+        st.sidebar.warning("APP_ACCESS_KEY not set. Bypassing password.")
         return True
     if "password_entered" not in st.session_state: 
         st.session_state.password_entered = False
@@ -103,7 +229,7 @@ def check_password():
             if password_attempt == app_password:
                 st.session_state.password_entered = True; st.rerun() 
             else: 
-                st.error("Incorrect Access Key. Please try again."); return False
+                st.error("Incorrect Access Key."); return False
     return False
 
 if not check_password(): 
@@ -162,7 +288,7 @@ def load_data_from_google_sheet(_url_param, _ws_param):
         data = ws.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
         df = pd.DataFrame(data)
-        st.sidebar.success(f"Loaded {len(df)} records from '{ws_name}'.") 
+        # st.sidebar.success(f"Loaded {len(df)} records from '{ws_name}'.") # Success message can be intrusive
         if df.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
@@ -220,10 +346,9 @@ def get_default_date_range(series):
     return s,e,min_d,max_d
 
 default_s, default_e, _, _ = get_default_date_range(None)
-# Initialize session state for active tab and other filters
 session_state_defaults = {
     'data_loaded': False, 'df_original': pd.DataFrame(), 'date_range': (default_s, default_e),
-    'active_tab': "📈 Overview", # Default active tab
+    'active_tab': "📈 Overview", 
     'repName_filter': [], 'status_filter': [], 'clientSentiment_filter': [],
     'licenseNumber_search': "", 'storeName_search': "", 'selected_transcript_key': None
 }
@@ -243,14 +368,14 @@ if not st.session_state.data_loaded:
             else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original 
 
-st.title("🚀 Onboarding Performance Dashboard v2.13 🚀") 
+st.title("🌌 Onboarding Performance Dashboard 🌌") # New Title
 
 if not st.session_state.data_loaded or df_original.empty:
     st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
     if st.sidebar.button("🔄 Force Refresh", key="refresh_fail"):
         st.cache_data.clear(); st.session_state.clear(); st.rerun()
 
-with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=False):
+with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True): # Expanded by default
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
     - **Secondary (Max 3 pts):** `Intro Self & DIME` (1), `Offer Display Help` (1), `Provide Promo Credit Link` (1).
@@ -316,9 +441,20 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy() 
 else: df_filtered = pd.DataFrame() 
 
-plotly_base_layout_settings = {"plot_bgcolor":PLOT_BG_COLOR, "paper_bgcolor":PLOT_BG_COLOR, "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
-                               "title_font_color":GOLD_ACCENT_COLOR, "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
-                               "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":False}
+# Updated Plotly Layout with new color scheme
+plotly_base_layout_settings = {
+    "plot_bgcolor": PLOT_BG_COLOR, 
+    "paper_bgcolor": PLOT_BG_COLOR, 
+    "font_color": "var(--text-color)", # Use Streamlit's theme variable for text
+    "title_font_color": PURPLE_PAIN, # Main accent for titles
+    "legend_font_color": "var(--text-color)",
+    "title_x":0.5, 
+    "xaxis_showgrid":False, "yaxis_showgrid":False,
+    "xaxis_title_font_color": MEDIUM_PURPLE,
+    "yaxis_title_font_color": MEDIUM_PURPLE,
+    "xaxis_tickfont_color": MEDIUM_PURPLE,
+    "yaxis_tickfont_color": MEDIUM_PURPLE,
+}
 
 today_date = date.today(); mtd_s = today_date.replace(day=1)
 prev_mtd_e = mtd_s - timedelta(days=1); prev_mtd_s = prev_mtd_e.replace(day=1)
@@ -336,41 +472,45 @@ tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
 # --- Custom Tab Navigation ---
-# Define the tab names
-tab_names = ["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"]
+tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"] # Added emojis
+if 'active_tab' not in st.session_state: st.session_state.active_tab = tab_names[0]
 
 # Use st.radio for tab selection, displayed horizontally.
 # The current selection is stored in st.session_state.active_tab.
-# The 'on_change' callback is not strictly necessary here if we read st.session_state.active_tab directly,
-# but it ensures the state is updated immediately if other parts of the script depend on it before the next full rerun.
-st.session_state.active_tab = st.radio(
-    "Select a View:", 
+selected_tab = st.radio(
+    "Navigation:", 
     tab_names, 
-    index=tab_names.index(st.session_state.active_tab), # Set default index based on current active tab
+    index=tab_names.index(st.session_state.active_tab), 
     horizontal=True,
-    key="main_tab_selector" # Unique key for the radio widget
+    key="main_tab_selector_v3" 
 )
-st.markdown("<hr style='margin-top:0px; margin-bottom:20px;'>", unsafe_allow_html=True) # Visual separator after tabs
+if selected_tab != st.session_state.active_tab:
+    st.session_state.active_tab = selected_tab
+    st.rerun() # Rerun to reflect tab change immediately if logic depends on it early
 
 # --- Display Content Based on Active Tab ---
-if st.session_state.active_tab == "📈 Overview": 
-    st.header("📈 Month-to-Date (MTD) Overview")
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None else "N/A")
-    c2.metric("Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A")
-    c3.metric("Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A")
-    c4.metric("Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A")
-    st.header("📊 Filtered Data Overview")
-    if not df_filtered.empty:
-        tot_filt, sr_filt, score_filt, days_filt = calculate_metrics(df_filtered)
-        fc1,fc2,fc3,fc4 = st.columns(4)
-        fc1.metric("Filtered Onboardings", tot_filt or "0")
-        fc2.metric("Filtered Success Rate", f"{sr_filt:.1f}%" if pd.notna(sr_filt) else "N/A")
-        fc3.metric("Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
-        fc4.metric("Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
-    else: st.info("No data matches filters for Overview.")
+if st.session_state.active_tab == "🌌 Overview": 
+    # Using st.container for metric cards to apply custom class if needed for more styling
+    with st.container(): # This container can be styled further if we add a class via markdown
+        st.header("📈 Month-to-Date (MTD) Overview")
+        c1,c2,c3,c4 = st.columns(4)
+        with c1: st.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None else "N/A")
+        with c2: st.metric("Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A")
+        with c3: st.metric("Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A")
+        with c4: st.metric("Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A")
+    
+    with st.container():
+        st.header("📊 Filtered Data Overview")
+        if not df_filtered.empty:
+            tot_filt, sr_filt, score_filt, days_filt = calculate_metrics(df_filtered)
+            fc1,fc2,fc3,fc4 = st.columns(4)
+            with fc1: st.metric("Filtered Onboardings", tot_filt or "0")
+            with fc2: st.metric("Filtered Success Rate", f"{sr_filt:.1f}%" if pd.notna(sr_filt) else "N/A")
+            with fc3: st.metric("Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
+            with fc4: st.metric("Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
+        else: st.info("No data matches filters for Overview.")
 
-elif st.session_state.active_tab == "📊 Detailed Analysis & Data": 
+elif st.session_state.active_tab == "📊 Analysis & Transcripts": 
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
@@ -387,11 +527,11 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
             if 'score' in df_to_style.columns: 
                 scores_num = pd.to_numeric(df_to_style['score'], errors='coerce')
                 if scores_num.notna().any():
-                    s = s.background_gradient(subset=['score'],cmap='RdYlGn',low=0.3,high=0.7, gmap=scores_num)
+                    s = s.background_gradient(subset=['score'],cmap='PuBuGn',low=0.3,high=0.7, gmap=scores_num) # Changed cmap
             if 'days_to_confirmation' in df_to_style.columns:
                 days_num = pd.to_numeric(df_to_style['days_to_confirmation'], errors='coerce')
                 if days_num.notna().any():
-                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdYlGn_r', gmap=days_num)
+                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdPu_r', gmap=days_num) # Changed cmap
             return s
         st.dataframe(style_df(df_display_table[cols_for_display]), use_container_width=True, height=300)
         
@@ -406,7 +546,7 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
             if transcript_options:
                 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
                 
-                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v2_12" # Keep key consistent if possible
+                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v2_12" 
                 
                 selected_key_display = st.selectbox("Select onboarding to view details:",
                     options=[None] + list(transcript_options.keys()), index=0, 
@@ -414,11 +554,8 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
                     key=selectbox_widget_key 
                 )
                 
-                # If the selectbox value changes, Streamlit will rerun.
-                # We store the selection in session_state to persist it.
                 if selected_key_display != st.session_state.selected_transcript_key:
                     st.session_state.selected_transcript_key = selected_key_display
-                    # A rerun will happen automatically due to widget interaction.
                 
                 if st.session_state.selected_transcript_key :
                     selected_idx = transcript_options[st.session_state.selected_transcript_key]
@@ -427,17 +564,14 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
                     st.markdown("##### Onboarding Summary:")
                     summary_html = "<div class='transcript-summary-grid'>"
                     summary_items = { 
-                        "Store": selected_row.get('storeName', 'N/A'), 
-                        "Rep": selected_row.get('repName', 'N/A'),
-                        "Score": selected_row.get('score', 'N/A'),
-                        "Status": selected_row.get('status', 'N/A'),
+                        "Store": selected_row.get('storeName', 'N/A'), "Rep": selected_row.get('repName', 'N/A'),
+                        "Score": selected_row.get('score', 'N/A'), "Status": selected_row.get('status', 'N/A'),
                         "Sentiment": selected_row.get('clientSentiment', 'N/A')
                     }
                     for item_label, item_value in summary_items.items():
                         summary_html += f"<div class='transcript-summary-item'><strong>{item_label}:</strong> {item_value}</div>"
-                    
                     data_summary_text = selected_row.get('summary', 'N/A') 
-                    summary_html += f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>Call Summary (from data):</strong> {data_summary_text}</div>"
+                    summary_html += f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>Call Summary:</strong> {data_summary_text}</div>"
                     summary_html += "</div>" 
                     st.markdown(summary_html, unsafe_allow_html=True)
 
@@ -447,11 +581,9 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
                         if requirement_details: 
                             item_description = requirement_details.get("description", item_column_name.replace('_',' ').title())
                             item_type = requirement_details.get("type", "") 
-                            
                             item_value_str = str(selected_row.get(item_column_name, "")).lower()
                             is_requirement_met = item_value_str in ['true', '1', 'yes']
                             status_emoji = "✅" if is_requirement_met else "❌"
-                            
                             type_tag_html = f"<span class='type'>[{item_type}]</span>" if item_type else ""
                             st.markdown(f"<div class='requirement-item'>{status_emoji} {item_description} {type_tag_html}</div>", unsafe_allow_html=True)
                     
@@ -461,28 +593,22 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
                     if transcript_content:
                         html_transcript = "<div class='transcript-container'>"
                         processed_transcript = transcript_content.replace('\\n', '\n') 
-                        
                         for line_segment in processed_transcript.split('\n'): 
                             current_line = line_segment.strip()
                             if not current_line: continue 
-                            
                             parts = current_line.split(":", 1)
                             speaker_html = f"<strong>{parts[0].strip()}:</strong>" if len(parts) == 2 else ""
                             message_html = parts[1].strip().replace('\n', '<br>') if len(parts) == 2 else current_line.replace('\n', '<br>')
-                            
                             html_transcript += f"<p class='transcript-line'>{speaker_html} {message_html}</p>"
                         html_transcript += "</div>"
                         st.markdown(html_transcript, unsafe_allow_html=True)
-                    else: 
-                        st.info("No transcript available or empty.")
-        else: 
-            st.info("No data in the filtered table to select a transcript from, or 'fullTranscript' column is missing.")
+                    else: st.info("No transcript available or empty.")
+        else: st.info("No data in table for transcript viewer, or 'fullTranscript' column missing.")
         st.markdown("---") 
 
         csv_data = convert_df_to_csv(df_filtered)
-        st.download_button("📥 Download Filtered Data as CSV", csv_data, 'filtered_onboarding_data.csv', 'text/csv', use_container_width=True)
-    elif not df_original.empty: 
-        st.info("No data matches current filter criteria for table display.")
+        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True)
+    elif not df_original.empty: st.info("No data matches filters for table.")
     
     st.header("📊 Key Visuals (Based on Filtered Data)") 
     if not df_filtered.empty:
@@ -490,19 +616,22 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
         with c1_charts: 
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_fig = px.bar(df_filtered['status'].value_counts().reset_index(), x='status', y='count', 
-                                     color='status', title="Onboarding Status Distribution")
+                                     color='status', title="Onboarding Status Distribution", color_discrete_sequence=[PURPLE_PAIN, MEDIUM_PURPLE, ICE_COLD])
                 status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
             
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_fig = px.bar(df_filtered['repName'].value_counts().reset_index(), x='repName', y='count', 
-                                     color='repName', title="Onboardings by Representative")
+                                     color='repName', title="Onboardings by Representative", color_discrete_sequence=px.colors.qualitative.Pastel1) # Softer colors for reps
                 rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
         
         with c2_charts: 
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
-                color_map = {str(s).lower(): (GOLD_ACCENT_COLOR if 'neutral' in str(s).lower() else ('#2ca02c' if 'positive' in str(s).lower() else ('#d62728' if 'negative' in str(s).lower() else None))) for s in sent_counts['clientSentiment'].unique()}
-                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map)
+                color_map = {str(s).lower(): (ICE_COLD if 'positive' in str(s).lower() else 
+                                             (HEAVY_PURPLE if 'negative' in str(s).lower() else MEDIUM_PURPLE)) # Adjusted sentiment colors
+                             for s in sent_counts['clientSentiment'].unique()}
+                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, # Increased hole size
+                                  title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map)
                 sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
 
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
@@ -512,65 +641,54 @@ elif st.session_state.active_tab == "📊 Detailed Analysis & Data":
                 for item_col_name_for_chart in actual_key_cols_for_chart:
                     item_details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_for_chart)
                     chart_label_for_bar = item_details_obj.get("chart_label", item_col_name_for_chart.replace('_',' ').title()) if item_details_obj else item_col_name_for_chart.replace('_',' ').title()
-                    
                     map_bool_for_chart = {'true':True,'yes':True,'1':True,1:True,'false':False,'no':False,'0':False,0:False}
                     if item_col_name_for_chart in df_conf_chart.columns:
                         bool_series_for_chart = pd.to_numeric(df_conf_chart[item_col_name_for_chart].astype(str).str.lower().map(map_bool_for_chart), errors='coerce')
                         if bool_series_for_chart.notna().any():
                             true_count_for_chart, total_valid_for_chart = bool_series_for_chart.sum(), bool_series_for_chart.notna().sum()
                             if total_valid_for_chart > 0:
-                                checklist_data_for_chart.append({"Key Requirement": chart_label_for_bar, 
-                                                                  "Completion (%)": (true_count_for_chart/total_valid_for_chart)*100})
+                                checklist_data_for_chart.append({"Key Requirement": chart_label_for_bar, "Completion (%)": (true_count_for_chart/total_valid_for_chart)*100})
                 if checklist_data_for_chart:
                     df_checklist_bar_chart = pd.DataFrame(checklist_data_for_chart)
                     if not df_checklist_bar_chart.empty:
                         checklist_bar_fig = px.bar(df_checklist_bar_chart.sort_values("Completion (%)",ascending=True), 
                                                      x="Completion (%)", y="Key Requirement", orientation='h', 
                                                      title="Key Requirement Completion (Confirmed Onboardings)", 
-                                                     color_discrete_sequence=[GOLD_ACCENT_COLOR])
+                                                     color_discrete_sequence=[PURPLE_PAIN]) # Main accent for this important chart
                         checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}) 
                         st.plotly_chart(checklist_bar_fig, use_container_width=True)
-                else: 
-                    st.info("No data for key requirement completion chart (confirmed).")
-            else: 
-                st.info("No 'confirmed' onboardings or checklist columns for requirement chart.")
-    else: 
-        st.info("No data matches filters for detailed visuals.")
+                else: st.info("No data for key requirement chart (confirmed).")
+            else: st.info("No 'confirmed' onboardings or checklist columns for requirement chart.")
+    else: st.info("No data matches filters for detailed visuals.")
 
-elif st.session_state.active_tab == "💡 Trends & Distributions": 
+elif st.session_state.active_tab == "📈 Trends & Distributions": 
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             df_trend_for_tab3 = df_filtered.copy()
             df_trend_for_tab3['onboarding_date_only'] = pd.to_datetime(df_trend_for_tab3['onboarding_date_only'], errors='coerce')
             df_trend_for_tab3.dropna(subset=['onboarding_date_only'], inplace=True) 
-            
             if not df_trend_for_tab3.empty:
                 span_for_trend_tab3 = (df_trend_for_tab3['onboarding_date_only'].max() - df_trend_for_tab3['onboarding_date_only'].min()).days
                 freq_for_trend_tab3 = 'D' if span_for_trend_tab3 <= 62 else ('W-MON' if span_for_trend_tab3 <= 365*1.5 else 'ME')
                 data_for_trend_tab3 = df_trend_for_tab3.set_index('onboarding_date_only').resample(freq_for_trend_tab3).size().reset_index(name='count')
                 if not data_for_trend_tab3.empty:
                     fig_for_trend_tab3 = px.line(data_for_trend_tab3, x='onboarding_date_only', y='count', markers=True, 
-                                      title="Onboardings Over Filtered Period")
+                                      title="Onboardings Over Filtered Period", color_discrete_sequence=[ICE_COLD])
                     fig_for_trend_tab3.update_layout(plotly_base_layout_settings) 
                     st.plotly_chart(fig_for_trend_tab3, use_container_width=True)
-                else: 
-                    st.info("Not enough data for trend plot.")
-            else: 
-                st.info("No valid date data for trend chart.")
-        
+                else: st.info("Not enough data for trend plot.")
+            else: st.info("No valid date data for trend chart.")
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             days_data_for_hist_tab3 = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna()
             if not days_data_for_hist_tab3.empty:
                 nbins_for_hist_tab3 = max(10, min(50, int(len(days_data_for_hist_tab3)/5))) if len(days_data_for_hist_tab3) > 20 else (len(days_data_for_hist_tab3.unique()) or 10)
                 fig_days_dist_hist_tab3 = px.histogram(days_data_for_hist_tab3, nbins=nbins_for_hist_tab3, 
-                                           title="Days to Confirmation Distribution")
+                                           title="Days to Confirmation Distribution", color_discrete_sequence=[MEDIUM_PURPLE])
                 fig_days_dist_hist_tab3.update_layout(plotly_base_layout_settings) 
                 st.plotly_chart(fig_days_dist_hist_tab3, use_container_width=True)
-            else: 
-                st.info("No valid 'Days to Confirmation' for distribution.")
-    else: 
-        st.info("No data matches filters for Trends & Distributions.")
+            else: st.info("No valid 'Days to Confirmation' for distribution.")
+    else: st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v2.13 | Secured Access") 
+st.sidebar.info("Dashboard v3.0 | Secured Access") 

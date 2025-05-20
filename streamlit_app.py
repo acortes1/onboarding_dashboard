@@ -506,10 +506,17 @@ min_dt_widget = st.session_state.get('min_data_date_for_filter')
 max_dt_widget = st.session_state.get('max_data_date_for_filter')
 
 # Prepare value for st.date_input. It must be concrete dates.
-# If session dates are outside widget's actual min/max (from data), date_input will clip.
-# If min/max_dt_widget is None, date_input won't restrict.
 value_for_widget_start = current_session_start_dt
 value_for_widget_end = current_session_end_dt
+
+# Clip widget value to min/max from data if they exist
+if min_dt_widget and value_for_widget_start < min_dt_widget:
+    value_for_widget_start = min_dt_widget
+if max_dt_widget and value_for_widget_end > max_dt_widget:
+    value_for_widget_end = max_dt_widget
+# Ensure start is not after end after potential clipping
+if value_for_widget_start > value_for_widget_end:
+    value_for_widget_start = value_for_widget_end # Or some other logic like resetting to min_dt_widget
 
 sel_range = st.sidebar.date_input(
     "Date Range:",
@@ -558,8 +565,7 @@ max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter',
 
 if start_dt and end_dt:
     is_default_date_range = (start_dt == min_possible_date_for_summary and end_dt == max_possible_date_for_summary)
-    # Also check against system defaults if data min/max are None (i.e. no data loaded)
-    if min_possible_date_for_summary is None and max_possible_date_for_summary is None:
+    if min_possible_date_for_summary is None and max_possible_date_for_summary is None: # No data loaded yet
         is_default_date_range = (start_dt == default_s_init and end_dt == default_e_init)
 
     if not is_default_date_range:
@@ -840,4 +846,5 @@ st.markdown(
 st.sidebar.markdown("---")
 # Robustly display theme mode in sidebar info
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-st.sidebar.info(f"App Version: 3.9 ({theme_display_name} Mode)
+info_string = "App Version: 3.9 (" + theme_display_name + " Mode)"
+st.sidebar.info(info_string)

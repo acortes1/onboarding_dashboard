@@ -536,29 +536,29 @@ st.sidebar.header("🔍 Filters")
 # --- Date Range Shortcuts ---
 st.sidebar.markdown("##### Date Shortcuts")
 s_col1, s_col2, s_col3 = st.sidebar.columns(3)
-today = date.today()
+today_for_shortcuts = date.today() # Use a separate 'today' for clarity
 
-if s_col1.button("MTD", key="mtd_button", use_container_width=True):
-    start_mtd = today.replace(day=1)
-    st.session_state.date_range = (start_mtd, today)
+if s_col1.button("MTD", key="mtd_button_v3_10", use_container_width=True):
+    start_mtd_shortcut = today_for_shortcuts.replace(day=1)
+    st.session_state.date_range = (start_mtd_shortcut, today_for_shortcuts)
     st.rerun()
 
-if s_col2.button("YTD", key="ytd_button", use_container_width=True):
-    start_ytd = today.replace(month=1, day=1)
-    st.session_state.date_range = (start_ytd, today)
+if s_col2.button("YTD", key="ytd_button_v3_10", use_container_width=True):
+    start_ytd_shortcut = today_for_shortcuts.replace(month=1, day=1)
+    st.session_state.date_range = (start_ytd_shortcut, today_for_shortcuts)
     st.rerun()
 
-if s_col3.button("ALL", key="all_button", use_container_width=True):
-    all_start = st.session_state.get('min_data_date_for_filter')
-    all_end = st.session_state.get('max_data_date_for_filter')
-    if all_start and all_end:
-        st.session_state.date_range = (all_start, all_end)
-    else: # Fallback if no data min/max (e.g. no data loaded yet)
-        start_ytd_fallback = today.replace(month=1, day=1)
-        st.session_state.date_range = (start_ytd_fallback, today)
-        st.sidebar.caption("No data extent for 'ALL', used YTD.") # Inform user
+if s_col3.button("ALL", key="all_button_v3_10", use_container_width=True):
+    all_start_shortcut = st.session_state.get('min_data_date_for_filter')
+    all_end_shortcut = st.session_state.get('max_data_date_for_filter')
+    if all_start_shortcut and all_end_shortcut:
+        st.session_state.date_range = (all_start_shortcut, all_end_shortcut)
+    else: 
+        start_ytd_fallback_shortcut = today_for_shortcuts.replace(month=1, day=1)
+        st.session_state.date_range = (start_ytd_fallback_shortcut, today_for_shortcuts)
+        st.sidebar.caption("Used YTD for 'ALL' (no data extent).")
     st.rerun()
-st.sidebar.markdown("---") # Visual separator for shortcuts
+st.sidebar.markdown("---") 
 
 # --- Manual Date Range Input ---
 if not (isinstance(st.session_state.get('date_range'), tuple) and \

@@ -12,7 +12,7 @@ import re
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.8", # Incremented version
+    page_title="Onboarding Performance Dashboard v3.9", # Incremented version
     page_icon="💎",
     layout="wide"
 )
@@ -255,9 +255,9 @@ def check_password():
         st.session_state.password_entered = False
     if st.session_state.password_entered:
         return True
-    with st.form("password_form_main_app_v3_8"): # Unique key
+    with st.form("password_form_main_app_v3_9"): # Unique key
         st.markdown("### 🔐 Access Required")
-        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_8")
+        password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_9")
         submitted = st.form_submit_button("Submit")
         if submitted:
             if password_attempt == app_password:
@@ -322,13 +322,28 @@ def load_data_from_google_sheet():
         if not data: st.warning("No data in sheet."); return pd.DataFrame()
         df_loaded_internal = pd.DataFrame(data)
         if df_loaded_internal.empty: st.warning("Empty DataFrame after load."); return pd.DataFrame()
-        # Store last refresh time
         st.session_state.last_data_refresh_time = datetime.now()
     except gspread.exceptions.SpreadsheetNotFound: st.error(f"Sheet Not Found: '{url}'. Check URL & permissions."); return pd.DataFrame()
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); return pd.DataFrame()
 
     df_loaded_internal.columns = df_loaded_internal.columns.str.strip()
+    # Standardize common column name variations to the names used in the code
+    column_name_map = {
+        "License Number": "licenseNumber",
+        "Store Name": "storeName",
+        "Rep Name": "repName",
+        "Onboarding Date": "onboardingDate",
+        "Delivery Date": "deliveryDate",
+        "Confirmation Timestamp": "confirmationTimestamp",
+        "Client Sentiment": "clientSentiment",
+        "Full Transcript": "fullTranscript",
+        # Add other potential variations from the sheet if needed
+    }
+    existing_cols_to_rename = {k: v for k, v in column_name_map.items() if k in df_loaded_internal.columns}
+    df_loaded_internal.rename(columns=existing_cols_to_rename, inplace=True)
+
+
     date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
     for col, new_col in date_cols.items():
         if col in df_loaded_internal: df_loaded_internal[new_col] = robust_to_datetime(df_loaded_internal[col].astype(str).str.replace('\n','',regex=False).str.strip())
@@ -344,12 +359,15 @@ def load_data_from_google_sheet():
             return s
         df_loaded_internal['days_to_confirmation'] = (to_utc(df_loaded_internal['confirmationTimestamp_dt']) - to_utc(df_loaded_internal['deliveryDate_dt'])).dt.days
     else: df_loaded_internal['days_to_confirmation'] = pd.NA
+
+    # Ensure core columns (using standardized names) exist, filling with empty strings or NA
     str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary']
     for col in str_cols_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
         else: df_loaded_internal[col] = df_loaded_internal[col].astype(str).fillna("")
     if 'score' not in df_loaded_internal.columns: df_loaded_internal['score'] = pd.NA
-    df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
+    else: df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
+
     checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome']
     for col in checklist_cols_to_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
@@ -381,7 +399,8 @@ def get_default_date_range(series):
 default_s_init, default_e_init, _, _ = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
-if 'date_range' not in st.session_state: st.session_state.date_range = (default_s_init, default_e_init)
+if 'date_range' not in st.session_state or not (isinstance(st.session_state.date_range, tuple) and len(st.session_state.date_range) == 2):
+    st.session_state.date_range = (default_s_init, default_e_init)
 if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
@@ -398,7 +417,7 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = df_from_load_func
         st.session_state.data_loaded = True
         ds,de,min_data_date,max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
-        st.session_state.date_range = (ds,de)
+        st.session_state.date_range = (ds,de) if ds and de else (default_s_init, default_e_init)
         st.session_state.min_data_date_for_filter = min_data_date
         st.session_state.max_data_date_for_filter = max_data_date
         st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
@@ -411,7 +430,7 @@ st.title("🌌 Onboarding Performance Dashboard 🌌")
 
 if not st.session_state.data_loaded or df_original.empty:
     st.markdown("<div class='no-data-message'>🚧 No data loaded or data is empty. Check configurations or try refreshing. 🚧</div>", unsafe_allow_html=True)
-    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_8"):
+    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_9"): # Unique key
         st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 
 # --- Sidebar ---
@@ -423,7 +442,7 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 st.sidebar.header("⚙️ Data Controls")
-if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_8"):
+if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_9"): # Unique key
     st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 if st.session_state.last_data_refresh_time:
     st.sidebar.caption(f"Last refreshed: {st.session_state.last_data_refresh_time.strftime('%b %d, %Y %I:%M %p')}")
@@ -432,57 +451,79 @@ else:
 
 
 st.sidebar.header("🔍 Filters")
+# Robust handling of date_range from session state
+if not (isinstance(st.session_state.get('date_range'), tuple) and len(st.session_state.date_range) == 2 and
+        st.session_state.date_range[0] is not None and st.session_state.date_range[1] is not None):
+    # If corrupted or not initialized as expected, reset it
+    ds_reset, de_reset, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
+    st.session_state.date_range = (ds_reset if ds_reset else default_s_init, de_reset if de_reset else default_e_init)
+
+current_date_range_start, current_date_range_end = st.session_state.date_range
+
 min_dt_filter = st.session_state.get('min_data_date_for_filter', default_s_init)
 max_dt_filter = st.session_state.get('max_data_date_for_filter', default_e_init)
-current_date_range_start, current_date_range_end = st.session_state.date_range
+
+# Ensure current range is valid against available data min/max, and default if necessary
 current_date_range_start = current_date_range_start or default_s_init
 current_date_range_end = current_date_range_end or default_e_init
+
 if min_dt_filter and current_date_range_start < min_dt_filter: current_date_range_start = min_dt_filter
 if max_dt_filter and current_date_range_end > max_dt_filter: current_date_range_end = max_dt_filter
+# Ensure start is not after end
 if current_date_range_start > current_date_range_end:
-    current_date_range_start = min_dt_filter if min_dt_filter else default_s_init
-    current_date_range_end = max_dt_filter if max_dt_filter else default_e_init
+    current_date_range_start = min_dt_filter if min_dt_filter else default_s_init # Reset to min possible or default
+    current_date_range_end = max_dt_filter if max_dt_filter else default_e_init   # Reset to max possible or default
+    if current_date_range_start > current_date_range_end : # Final fallback if defaults are also crossed
+        current_date_range_start = default_s_init
+        current_date_range_end = default_e_init
 
-if min_dt_filter and max_dt_filter :
-    sel_range = st.sidebar.date_input("Date Range:", value=(current_date_range_start, current_date_range_end),
-                                      min_value=min_dt_filter, max_value=max_dt_filter, key="date_sel_v3_8")
-    if sel_range != st.session_state.date_range: st.session_state.date_range = sel_range; st.rerun()
-else:
-    st.sidebar.warning("Date range for filtering not fully determined.")
-    sel_range_fallback = st.sidebar.date_input("Date Range:", value=(default_s_init, default_e_init), key="date_sel_fallback_v3_8")
-    if sel_range_fallback != st.session_state.date_range: st.session_state.date_range = sel_range_fallback; st.rerun()
-start_dt,end_dt = st.session_state.date_range
+
+sel_range = st.sidebar.date_input(
+    "Date Range:",
+    value=(current_date_range_start, current_date_range_end),
+    min_value=min_dt_filter, # Can be None
+    max_value=max_dt_filter, # Can be None
+    key="date_sel_v3_9" # Unique key
+)
+
+if isinstance(sel_range, tuple) and len(sel_range) == 2 and sel_range[0] is not None and sel_range[1] is not None:
+    if sel_range != st.session_state.date_range:
+        st.session_state.date_range = sel_range
+        st.rerun()
+# else: date_input might have returned something unexpected (e.g. single date if one was cleared), ignore update to prevent error
+
+start_dt, end_dt = st.session_state.date_range # This should now be safe
 
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
-    val = st.sidebar.text_input(f"Search {lbl}:",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_8")
+    val = st.sidebar.text_input(f"Search {lbl}:",value=st.session_state[k+"_search"],key=f"{k}_widget_v3_9")
     if val != st.session_state[k+"_search"]: st.session_state[k+"_search"]=val; st.rerun()
 cat_filters_definition = {'repName':'Rep(s)', 'status':'Status(es)', 'clientSentiment':'Client Sentiment(s)'}
 for k,lbl in cat_filters_definition.items():
     if not df_original.empty and k in df_original.columns and df_original[k].notna().any():
         opts = sorted([v for v in df_original[k].astype(str).dropna().unique() if v.strip()])
         sel = [v for v in st.session_state[k+"_filter"] if v in opts]
-        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_8")
+        new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget_v3_9")
         if new_sel != st.session_state[k+"_filter"]: st.session_state[k+"_filter"]=new_sel; st.rerun()
 
 def clear_filters_cb():
     ds_clear, de_clear, min_d_clear, max_d_clear = get_default_date_range(st.session_state.df_original.get('onboarding_date_only'))
-    st.session_state.date_range = (ds_clear, de_clear)
-    st.session_state.min_data_date_for_filter = min_d_clear; st.session_state.max_data_date_for_filter = max_d_clear
+    st.session_state.date_range = (ds_clear if ds_clear else default_s_init, de_clear if de_clear else default_e_init)
+    st.session_state.min_data_date_for_filter = min_d_clear
+    st.session_state.max_data_date_for_filter = max_d_clear
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
     st.session_state.selected_transcript_key = None
-if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_8"): st.rerun()
+if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_9"): st.rerun()
 
 # --- Active Filters Summary ---
 active_filter_parts = []
-# Check if date range is different from the absolute min/max possible if data exists, or initial defaults if no data
-min_possible_date = st.session_state.get('min_data_date_for_filter', default_s_init)
-max_possible_date = st.session_state.get('max_data_date_for_filter', default_e_init)
+min_possible_date_for_summary = st.session_state.get('min_data_date_for_filter', default_s_init)
+max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter', default_e_init)
 
-if start_dt and end_dt:
-    is_default_date_range = (start_dt == min_possible_date and end_dt == max_possible_date)
-    if not is_default_date_range: # Only show if not the widest possible range
+if start_dt and end_dt: # Ensure start_dt and end_dt are not None
+    is_default_date_range = (start_dt == min_possible_date_for_summary and end_dt == max_possible_date_for_summary)
+    if not is_default_date_range:
          active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
 
 for k, lbl in search_cols_definition.items():
@@ -504,7 +545,10 @@ if not df_original.empty:
     store_search_term = st.session_state.get("storeName_search", "")
     if store_search_term and "storeName" in df_working.columns:
         df_working = df_working[df_working['storeName'].astype(str).str.contains(store_search_term, case=False, na=False)]
-    if start_dt and end_dt and 'onboarding_date_only' in df_working.columns and df_working['onboarding_date_only'].notna().any():
+    
+    # Ensure start_dt and end_dt are valid date objects before filtering
+    if isinstance(start_dt, date) and isinstance(end_dt, date) and \
+       'onboarding_date_only' in df_working.columns and df_working['onboarding_date_only'].notna().any():
         date_objects_for_filtering = pd.to_datetime(df_working['onboarding_date_only'], errors='coerce').dt.date
         valid_dates_mask = date_objects_for_filtering.notna()
         date_filter_mask = pd.Series([False] * len(df_working), index=df_working.index)
@@ -513,6 +557,7 @@ if not df_original.empty:
                 (date_objects_for_filtering[valid_dates_mask] >= start_dt) & \
                 (date_objects_for_filtering[valid_dates_mask] <= end_dt)
         df_working = df_working[date_filter_mask]
+        
     for col_name, _ in cat_filters_definition.items():
         selected_values = st.session_state.get(f"{col_name}_filter", [])
         if selected_values and col_name in df_working.columns:
@@ -549,7 +594,7 @@ delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else 
 # --- Tab Navigation ---
 tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
-                        horizontal=True, key="main_tab_selector_v3_8")
+                        horizontal=True, key="main_tab_selector_v3_9") # Unique key
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
 # --- Display Content ---
@@ -584,7 +629,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     cols_for_display = list(dict.fromkeys(cols_for_display + other_cols))
 
     if not df_display_table.empty:
-        # Pandas Styler for in-cell bars
         def style_table_with_bars(df):
             styled_df = df.style
             if 'score' in df.columns:
@@ -593,7 +637,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                 df_numeric_days = pd.to_numeric(df['days_to_confirmation'], errors='coerce')
                 min_days = df_numeric_days.min() if df_numeric_days.notna().any() else 0
                 max_days = df_numeric_days.max() if df_numeric_days.notna().any() else 30
-                # Pass the single color string directly for 'days_to_confirmation'
                 styled_df = styled_df.bar(subset=['days_to_confirmation'], align='zero', color=ACTIVE_ACCENT_HIGHLIGHT, vmin=min_days, vmax=max_days)
             return styled_df
 
@@ -610,7 +653,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
 
                 selected_key_display = st.selectbox("Select onboarding to view details:", options=options_list,
                                                     index=current_index, format_func=lambda x: "Choose an entry..." if x is None else x,
-                                                    key="transcript_selector_v3_8")
+                                                    key="transcript_selector_v3_9") # Unique key
                 if selected_key_display != st.session_state.selected_transcript_key :
                     st.session_state.selected_transcript_key = selected_key_display
                     st.rerun()
@@ -650,7 +693,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
         else: st.markdown("<div class='no-data-message'>📜 No data in table for transcript viewer, or 'fullTranscript' column missing. 📜</div>", unsafe_allow_html=True)
         st.markdown("---")
         csv_data = convert_df_to_csv(df_filtered)
-        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_8")
+        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_9") # Unique key
     elif not df_original.empty: st.markdown("<div class='no-data-message'>📊 No data matches current filters for table display. Try different filter settings! 📊</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 

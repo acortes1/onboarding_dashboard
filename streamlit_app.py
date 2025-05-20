@@ -18,8 +18,8 @@ import matplotlib # Imported because pandas styling (e.g., background_gradient) 
 # It sets up the basic properties of the web page, like its title in the browser tab,
 # the icon (favicon), and the layout (wide means it uses the full width of the screen).
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.10", # Updated version for this annotated release
-    page_icon="🌟", # A star emoji for the page icon
+    page_title="Onboarding Performance Dashboard v2.11", # Updated version for this fix
+    page_icon="🛠️", # A tool emoji for fixing
     layout="wide"
 )
 
@@ -334,7 +334,7 @@ def get_default_date_range(date_series_for_default_range):
             max_date_in_data = parsed_dates_for_range_calc.max()
             start_date_default_range = max(start_date_default_range, min_date_in_data)
             end_date_default_range = min(end_date_default_range, max_date_in_data)
-            if start_date_default_range > end_date_default_range: # If default range is invalid (e.g., all data is future)
+            if start_date_default_range > end_date_default_range: # If default range is invalid
                 start_date_default_range, end_date_default_range = min_date_in_data, max_date_in_data
     return start_date_default_range, end_date_default_range, min_date_in_data, max_date_in_data
 
@@ -346,7 +346,7 @@ session_state_key_value_pairs = {
     'date_range_filter': (default_start_date_for_ss, default_end_date_for_ss),
     'repName_filter': [], 'status_filter': [], 'clientSentiment_filter': [],
     'licenseNumber_search': "", 'storeName_search': "",
-    'selected_transcript_key': None # Stores the key of the selected transcript for viewing
+    'selected_transcript_key': None 
 }
 for session_key, session_default_value in session_state_key_value_pairs.items():
     if session_key not in st.session_state: 
@@ -360,24 +360,21 @@ if not st.session_state.data_loaded_successfully:
     if not gs_url_secret_for_load or not gs_worksheet_secret_for_load: 
         st.error("Configuration Error: Google Sheet URL/Name or Worksheet Name missing in Streamlit secrets.")
     else:
-        with st.spinner("Loading onboarding data... This may take a moment."): # Show loading spinner
+        with st.spinner("Loading onboarding data... This may take a moment."): 
             main_loaded_df = load_data_from_google_sheet(gs_url_secret_for_load, gs_worksheet_secret_for_load) 
             if not main_loaded_df.empty:
-                st.session_state.df_original = main_loaded_df # Store in session state
+                st.session_state.df_original = main_loaded_df 
                 st.session_state.data_loaded_successfully = True
-                # Update date filter defaults based on loaded data
                 ds_main_load, de_main_load, _, _ = get_default_date_range(main_loaded_df.get('onboarding_date_only'))
                 st.session_state.date_range_filter = (ds_main_load, de_main_load) if ds_main_load and de_main_load else (default_start_date_for_ss, default_end_date_for_ss)
             else: 
-                st.session_state.df_original = pd.DataFrame() # Ensure it's an empty DF on failure
+                st.session_state.df_original = pd.DataFrame() 
                 st.session_state.data_loaded_successfully = False
-# Get the original DataFrame from session state for use throughout the app.
 df_original = st.session_state.df_original 
 
 # --- Main Application UI ---
-st.title("🚀 Onboarding Performance Dashboard v2.10 🚀") # App title
+st.title("🚀 Onboarding Performance Dashboard v2.10 🚀") 
 
-# If data loading failed, display an error and a refresh button.
 if not st.session_state.data_loaded_successfully or df_original.empty:
     st.error("Failed to load data. Please check Google Sheet content, permissions, and secret configurations. You can try refreshing the data.")
     if st.sidebar.button("🔄 Force Refresh Data", key="refresh_button_on_fail_sidebar"):
@@ -401,19 +398,17 @@ if st.sidebar.button("🔄 Refresh Data from Google Sheet", key="refresh_data_bu
 st.sidebar.header("🔍 Filters")
 onboarding_dates_for_sidebar_date_filter = df_original.get('onboarding_date_only')
 def_start_date_sidebar, def_end_date_sidebar, min_date_sidebar, max_date_sidebar = get_default_date_range(onboarding_dates_for_sidebar_date_filter)
-# Ensure date_range_filter in session state is valid before use
 if 'date_range_filter' not in st.session_state or \
    not (isinstance(st.session_state.date_range_filter,tuple) and len(st.session_state.date_range_filter)==2 and \
-        all(isinstance(d_val, date) for d_val in st.session_state.date_range_filter)): # Check if all elements are dates
+        all(isinstance(d_val, date) for d_val in st.session_state.date_range_filter)): 
     st.session_state.date_range_filter = (def_start_date_sidebar,def_end_date_sidebar) if def_start_date_sidebar and def_end_date_sidebar else (date.today().replace(day=1),date.today())
 
 if min_date_sidebar and max_date_sidebar and def_start_date_sidebar and def_end_date_sidebar:
     current_val_start_sidebar, current_val_end_sidebar = st.session_state.date_range_filter
-    # Ensure widget value is within min/max bounds
     widget_val_start_sidebar = max(min_date_sidebar,current_val_start_sidebar) if current_val_start_sidebar else min_date_sidebar
     widget_val_end_sidebar = min(max_date_sidebar,current_val_end_sidebar) if current_val_end_sidebar else max_date_sidebar
     if widget_val_start_sidebar and widget_val_end_sidebar and widget_val_start_sidebar > widget_val_end_sidebar:
-        widget_val_start_sidebar, widget_val_end_sidebar = min_date_sidebar, max_date_sidebar # Fallback
+        widget_val_start_sidebar, widget_val_end_sidebar = min_date_sidebar, max_date_sidebar 
     
     selected_date_range_sidebar_widget = st.sidebar.date_input("Date Range:",
                                          value=(widget_val_start_sidebar, widget_val_end_sidebar), 
@@ -422,10 +417,8 @@ if min_date_sidebar and max_date_sidebar and def_start_date_sidebar and def_end_
         st.session_state.date_range_filter = selected_date_range_sidebar_widget
 else: 
     st.sidebar.warning("Onboarding date data not available for range filter.")
-# Unpack active date filter values
 start_date_filter_active_main, end_date_filter_active_main = st.session_state.date_range_filter if isinstance(st.session_state.date_range_filter,tuple) and len(st.session_state.date_range_filter)==2 else (None,None)
 
-# Text search filters in sidebar
 search_cols_definitions_sidebar_main = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for col_key_search_main, display_label_search_main in search_cols_definitions_sidebar_main.items():
     if f"{col_key_search_main}_search" not in st.session_state: st.session_state[f"{col_key_search_main}_search"]=""
@@ -435,7 +428,6 @@ for col_key_search_main, display_label_search_main in search_cols_definitions_si
     if input_val_search_main != st.session_state[f"{col_key_search_main}_search"]: 
         st.session_state[f"{col_key_search_main}_search"]=input_val_search_main
 
-# Categorical multiselect filters in sidebar
 cat_filters_definitions_sidebar_main = {'repName':'Rep(s)', 'status':'Status(es)', 'clientSentiment':'Client Sentiment(s)'}
 for col_name_cat_main, display_label_cat_main in cat_filters_definitions_sidebar_main.items():
     if col_name_cat_main in df_original.columns and df_original[col_name_cat_main].notna().any():
@@ -448,130 +440,92 @@ for col_name_cat_main, display_label_cat_main in cat_filters_definitions_sidebar
         if new_selection_cat_main != st.session_state[f"{col_name_cat_main}_filter"]: 
             st.session_state[f"{col_name_cat_main}_filter"]=new_selection_cat_main
 
-# Callback function for "Clear All Filters" button
 def clear_all_filters_callback_main():
     ds_cb_main, de_cb_main, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
     st.session_state.date_range_filter = (ds_cb_main,de_cb_main) if ds_cb_main and de_cb_main else (date.today().replace(day=1),date.today())
     for key_search_main_cb in search_cols_definitions_sidebar_main: st.session_state[f"{key_search_main_cb}_search"]=""
     for key_cat_main_cb in cat_filters_definitions_sidebar_main: st.session_state[f"{key_cat_main_cb}_filter"]=[]
-    st.session_state.selected_transcript_key = None # Reset transcript selection as well
+    st.session_state.selected_transcript_key = None 
 if st.sidebar.button("🧹 Clear All Filters",on_click=clear_all_filters_callback_main,use_container_width=True): 
-    st.rerun() # Rerun to apply cleared filters
+    st.rerun() 
 
 # --- Filtering Logic (Revised for search order) ---
-# Initialize df_filtered as an empty DataFrame.
 df_filtered = pd.DataFrame() 
 if 'df_original' in st.session_state and not st.session_state.df_original.empty:
-    df_working_copy_for_filtering = st.session_state.df_original.copy() # Start with a copy of the original data
-
-    # 1. Apply License Number Search (operates on the working copy)
+    df_working_copy_for_filtering = st.session_state.df_original.copy()
     license_search_term_for_filter = st.session_state.get("licenseNumber_search", "")
     if license_search_term_for_filter and "licenseNumber" in df_working_copy_for_filtering.columns:
-        df_working_copy_for_filtering = df_working_copy_for_filtering[
-            df_working_copy_for_filtering['licenseNumber'].astype(str).str.contains(license_search_term_for_filter, case=False, na=False)
-        ]
-
-    # 2. Apply Store Name Search (operates on the result of the previous filter)
+        df_working_copy_for_filtering = df_working_copy_for_filtering[df_working_copy_for_filtering['licenseNumber'].astype(str).str.contains(license_search_term_for_filter, case=False, na=False)]
     store_search_term_for_filter = st.session_state.get("storeName_search", "")
     if store_search_term_for_filter and "storeName" in df_working_copy_for_filtering.columns:
-        df_working_copy_for_filtering = df_working_copy_for_filtering[
-            df_working_copy_for_filtering['storeName'].astype(str).str.contains(store_search_term_for_filter, case=False, na=False)
-        ]
-
-    # df_working_copy_for_filtering now contains results from license/store search.
-    # Now, apply other filters (date, categorical) to this intermediate DataFrame.
-
-    # 3. Apply date range filter
+        df_working_copy_for_filtering = df_working_copy_for_filtering[df_working_copy_for_filtering['storeName'].astype(str).str.contains(store_search_term_for_filter, case=False, na=False)]
     if start_date_filter_active_main and end_date_filter_active_main and 'onboarding_date_only' in df_working_copy_for_filtering.columns:
         parsed_dates_for_date_filter = pd.to_datetime(df_working_copy_for_filtering['onboarding_date_only'], errors='coerce').dt.date
-        date_filter_mask_apply = parsed_dates_for_date_filter.notna() & \
-                                 (parsed_dates_for_date_filter >= start_date_filter_active_main) & \
-                                 (parsed_dates_for_date_filter <= end_date_filter_active_main)
+        date_filter_mask_apply = parsed_dates_for_date_filter.notna() & (parsed_dates_for_date_filter >= start_date_filter_active_main) & (parsed_dates_for_date_filter <= end_date_filter_active_main)
         df_working_copy_for_filtering = df_working_copy_for_filtering[date_filter_mask_apply]
-    
-    # 4. Apply categorical multiselect filters
     for col_name_cat_filter_apply, _ in cat_filters_definitions_sidebar_main.items(): 
         selected_values_cat_filter_apply = st.session_state.get(f"{col_name_cat_filter_apply}_filter", [])
         if selected_values_cat_filter_apply and col_name_cat_filter_apply in df_working_copy_for_filtering.columns: 
-            df_working_copy_for_filtering = df_working_copy_for_filtering[
-                df_working_copy_for_filtering[col_name_cat_filter_apply].astype(str).isin(selected_values_cat_filter_apply)
-            ]
-    
-    df_filtered = df_working_copy_for_filtering.copy() # This is the final filtered DataFrame
-else: 
-    df_filtered = pd.DataFrame() # Ensure df_filtered is an empty DataFrame if no original data
+            df_working_copy_for_filtering = df_working_copy_for_filtering[df_working_copy_for_filtering[col_name_cat_filter_apply].astype(str).isin(selected_values_cat_filter_apply)]
+    df_filtered = df_working_copy_for_filtering.copy() 
+else: df_filtered = pd.DataFrame() 
 
 # --- Plotly Layout Configuration ---
-# Base layout settings for all Plotly charts to ensure consistency.
+# CORRECTED Variable name used here
 plotly_base_layout_settings = {"plot_bgcolor":PLOT_BG_COLOR, "paper_bgcolor":PLOT_BG_COLOR, "font_color":PRIMARY_TEXT_COLOR, 
                                "title_font_color":GOLD_ACCENT_COLOR, "legend_font_color":PRIMARY_TEXT_COLOR, 
                                "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":False}
 
 # --- MTD Metrics Calculation ---
-# Calculate Month-to-Date (MTD) and Previous Month metrics.
-today_date_for_mtd_metrics = date.today()
-current_month_start_date_metrics = today_date_for_mtd_metrics.replace(day=1)
-prev_month_end_date_metrics = current_month_start_date_metrics - timedelta(days=1)
-prev_month_start_date_metrics = prev_month_end_date_metrics.replace(day=1)
-
-df_current_month_data_metrics, df_previous_month_data_metrics = pd.DataFrame(), pd.DataFrame() # Initialize as empty
+today_date_for_mtd_metrics = date.today(); mtd_start_calc = today_date_for_mtd_metrics.replace(day=1)
+prev_month_end_mtd_calc = mtd_start_calc - timedelta(days=1); prev_month_start_mtd_calc = prev_month_end_mtd_calc.replace(day=1)
+df_current_mtd_calc, df_prev_mtd_calc = pd.DataFrame(), pd.DataFrame()
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
-    onboarding_dates_series_metrics = pd.to_datetime(df_original['onboarding_date_only'],errors='coerce').dt.date
-    valid_dates_mask_metrics = onboarding_dates_series_metrics.notna()
-    if valid_dates_mask_metrics.any():
-        df_valid_dates_metrics = df_original[valid_dates_mask_metrics].copy()
-        valid_onboarding_dates_metrics = onboarding_dates_series_metrics[valid_dates_mask_metrics]
-        
-        current_month_mask_metrics = (valid_onboarding_dates_metrics >= current_month_start_date_metrics) & (valid_onboarding_dates_metrics <= today_date_for_mtd_metrics)
-        previous_month_mask_metrics = (valid_onboarding_dates_metrics >= prev_month_start_date_metrics) & (valid_onboarding_dates_metrics <= prev_month_end_date_metrics)
-        
-        df_current_month_data_metrics = df_valid_dates_metrics[current_month_mask_metrics.values]
-        df_previous_month_data_metrics = df_valid_dates_metrics[previous_month_mask_metrics.values]
-
-total_mtd_metric_val, sr_mtd_metric_val, score_mtd_metric_val, days_mtd_metric_val = calculate_metrics(df_current_month_data_metrics)
-total_prev_metric_val,_,_,_ = calculate_metrics(df_previous_month_data_metrics) 
-delta_mtd_metric_val = total_mtd_metric_val - total_prev_metric_val if pd.notna(total_mtd_metric_val) and pd.notna(total_prev_metric_val) else None
+    dates_series_mtd_calc = pd.to_datetime(df_original['onboarding_date_only'],errors='coerce').dt.date
+    valid_mask_mtd_calc = dates_series_mtd_calc.notna()
+    if valid_mask_mtd_calc.any():
+        df_valid_mtd_calc = df_original[valid_mask_mtd_calc].copy(); valid_dates_mtd_calc = dates_series_mtd_calc[valid_mask_mtd_calc]
+        mtd_mask_calc = (valid_dates_mtd_calc >= mtd_start_calc) & (valid_dates_mtd_calc <= today_date_for_mtd_metrics)
+        prev_mask_calc = (valid_dates_mtd_calc >= prev_month_start_mtd_calc) & (valid_dates_mtd_calc <= prev_month_end_mtd_calc)
+        df_current_mtd_calc = df_valid_mtd_calc[mtd_mask_calc.values]; df_prev_mtd_calc = df_valid_mtd_calc[prev_mask_calc.values]
+total_mtd_val, sr_mtd_val, score_mtd_val, days_mtd_val = calculate_metrics(df_current_mtd_calc)
+total_prev_val,_,_,_ = calculate_metrics(df_prev_mtd_calc) 
+delta_mtd_val = total_mtd_val - total_prev_val if pd.notna(total_mtd_val) and pd.notna(total_prev_val) else None
 
 # --- Main Content Tabs ---
-# Define the main tabs for the dashboard content.
 tab1_main_content, tab2_main_content, tab3_main_content = st.tabs(["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"])
 
-with tab1_main_content: # Content for the "Overview" tab
+with tab1_main_content: 
     st.header("📈 Month-to-Date (MTD) Overview")
-    col1_tab1_metrics, col2_tab1_metrics, col3_tab1_metrics, col4_tab1_metrics = st.columns(4) # Layout for MTD metrics
-    col1_tab1_metrics.metric("Onboardings MTD", total_mtd_metric_val or "0", f"{delta_mtd_metric_val:+}" if delta_mtd_metric_val is not None else "N/A")
-    col2_tab1_metrics.metric("Success Rate MTD", f"{sr_mtd_metric_val:.1f}%" if pd.notna(sr_mtd_metric_val) else "N/A")
-    col3_tab1_metrics.metric("Avg Score MTD", f"{score_mtd_metric_val:.2f}" if pd.notna(score_mtd_metric_val) else "N/A")
-    col4_tab1_metrics.metric("Avg Days to Confirm MTD", f"{days_mtd_metric_val:.1f}" if pd.notna(days_mtd_metric_val) else "N/A")
-    
+    col1_tab1, col2_tab1, col3_tab1, col4_tab1 = st.columns(4)
+    col1_tab1.metric("Onboardings MTD", total_mtd_val or "0", f"{delta_mtd_val:+}" if delta_mtd_val is not None else "N/A")
+    col2_tab1.metric("Success Rate MTD", f"{sr_mtd_val:.1f}%" if pd.notna(sr_mtd_val) else "N/A")
+    col3_tab1.metric("Avg Score MTD", f"{score_mtd_val:.2f}" if pd.notna(score_mtd_val) else "N/A")
+    col4_tab1.metric("Avg Days to Confirm MTD", f"{days_mtd_val:.1f}" if pd.notna(days_mtd_val) else "N/A")
     st.header("📊 Filtered Data Overview")
     if not df_filtered.empty:
-        total_filtered_metrics, sr_filtered_metrics, score_filtered_metrics, days_filtered_metrics = calculate_metrics(df_filtered)
-        fc1_tab1_metrics,fc2_tab1_metrics,fc3_tab1_metrics,fc4_tab1_metrics = st.columns(4)
-        fc1_tab1_metrics.metric("Filtered Onboardings", total_filtered_metrics or "0")
-        fc2_tab1_metrics.metric("Filtered Success Rate", f"{sr_filtered_metrics:.1f}%" if pd.notna(sr_filtered_metrics) else "N/A")
-        fc3_tab1_metrics.metric("Filtered Avg Score", f"{score_filtered_metrics:.2f}" if pd.notna(score_filtered_metrics) else "N/A")
-        fc4_tab1_metrics.metric("Filtered Avg Days Confirm", f"{days_filtered_metrics:.1f}" if pd.notna(days_filtered_metrics) else "N/A")
-    else: 
-        st.info("No data matches current filter criteria to display in Overview.")
+        tot_filt_tab1, sr_filt_tab1, score_filt_tab1, days_filt_tab1 = calculate_metrics(df_filtered)
+        fc1_tab1,fc2_tab1,fc3_tab1,fc4_tab1 = st.columns(4)
+        fc1_tab1.metric("Filtered Onboardings", tot_filt_tab1 or "0")
+        fc2_tab1.metric("Filtered Success Rate", f"{sr_filt_tab1:.1f}%" if pd.notna(sr_filt_tab1) else "N/A")
+        fc3_tab1.metric("Filtered Avg Score", f"{score_filt_tab1:.2f}" if pd.notna(score_filt_tab1) else "N/A")
+        fc4_tab1.metric("Filtered Avg Days Confirm", f"{days_filt_tab1:.1f}" if pd.notna(days_filt_tab1) else "N/A")
+    else: st.info("No data matches current filters for Overview.")
 
-with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
+with tab2_main_content: 
     st.header("📋 Filtered Onboarding Data Table")
-    # Use a copy of df_filtered for display, reset index for selectbox compatibility.
     df_display_table_for_tab2_content = df_filtered.copy().reset_index(drop=True) 
     
-    # Define columns to show in the main table (excluding fullTranscript and summary).
     cols_to_try_for_main_table = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
                                   'clientSentiment', 'days_to_confirmation'] + ORDERED_KEY_CHECKLIST_ITEMS
     cols_for_main_table_display_final = [col for col in cols_to_try_for_main_table if col in df_display_table_for_tab2_content.columns]
     other_cols_for_main_table = [col for col in df_display_table_for_tab2_content.columns 
                                  if col not in cols_for_main_table_display_final and 
                                     not col.endswith(('_utc', '_str_original', '_dt')) and 
-                                    col not in ['fullTranscript', 'summary']] # Also exclude 'summary' here
+                                    col not in ['fullTranscript', 'summary']] 
     cols_for_main_table_display_final.extend(other_cols_for_main_table)
 
     if not df_display_table_for_tab2_content.empty:
-        # Function to apply conditional background styling to the DataFrame.
         def style_dataframe_for_tab2_display(df_to_style_in_tab2): 
             styled_df_in_tab2 = df_to_style_in_tab2.style
             if 'score' in df_to_style_in_tab2.columns: 
@@ -583,45 +537,33 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
                 if days_numeric_for_style_tab2.notna().any():
                     styled_df_in_tab2 = styled_df_in_tab2.background_gradient(subset=['days_to_confirmation'],cmap='RdYlGn_r', gmap=days_numeric_for_style_tab2)
             return styled_df_in_tab2
-        # Display the styled DataFrame.
         st.dataframe(style_dataframe_for_tab2_display(df_display_table_for_tab2_content[cols_for_main_table_display_final]), 
-                     use_container_width=True, height=300) # Set a fixed height
+                     use_container_width=True, height=300) 
         
-        # --- Transcript Viewer Section ---
-        st.markdown("---") # Visual separator
+        st.markdown("---") 
         st.subheader("🔍 View Full Onboarding Details & Transcript")
         
         if not df_display_table_for_tab2_content.empty and 'fullTranscript' in df_display_table_for_tab2_content.columns:
-            # Create options for the selectbox: "Idx X: Store Name (Date)"
             transcript_options_map_for_selectbox = {
                 f"Idx {idx_for_selectbox}: {row_for_selectbox.get('storeName', 'N/A')} ({row_for_selectbox.get('onboardingDate', 'N/A')})": idx_for_selectbox 
                 for idx_for_selectbox, row_for_selectbox in df_display_table_for_tab2_content.iterrows()
             }
-            if transcript_options_map_for_selectbox: # If there are rows to select from
-                # Use session state for the selectbox to remember the selection.
-                if 'selected_transcript_key' not in st.session_state: 
-                    st.session_state.selected_transcript_key = None # Initialize if not present
-
-                selected_key_from_transcript_selectbox = st.selectbox(
-                    "Select an onboarding to view its details and transcript:",
-                    options=[None] + list(transcript_options_map_for_selectbox.keys()), # Add a "None" option for placeholder
-                    index=0, # Default to the placeholder
-                    format_func=lambda x_select: "Choose an entry..." if x_select is None else x_select, # Display text for None
-                    key="transcript_selector_widget_main_tab2" 
-                )
-                
-                # Update session state if the widget's selection has changed.
+            if transcript_options_map_for_selectbox: 
+                if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
+                selected_key_from_transcript_selectbox = st.selectbox("Select onboarding to view details:",
+                    options=[None] + list(transcript_options_map_for_selectbox.keys()), index=0, 
+                    format_func=lambda x_select: "Choose an entry..." if x_select is None else x_select, 
+                    key="transcript_selector_widget_main_tab2")
                 if selected_key_from_transcript_selectbox != st.session_state.selected_transcript_key:
                     st.session_state.selected_transcript_key = selected_key_from_transcript_selectbox
                 
-                # If a valid entry (not None) is selected in session state:
                 if st.session_state.selected_transcript_key :
                     selected_row_index_for_transcript = transcript_options_map_for_selectbox[st.session_state.selected_transcript_key]
                     selected_onboarding_row_details = df_display_table_for_tab2_content.loc[selected_row_index_for_transcript]
                     
                     st.markdown("##### Onboarding Summary:")
                     summary_html_output_details = "<div class='transcript-summary-grid'>"
-                    summary_data_items_details = { # Key-value pairs for the summary grid
+                    summary_data_items_details = { 
                         "Store": selected_onboarding_row_details.get('storeName', 'N/A'), 
                         "Rep": selected_onboarding_row_details.get('repName', 'N/A'),
                         "Score": selected_onboarding_row_details.get('score', 'N/A'),
@@ -631,45 +573,39 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
                     for item_label_details, item_value_details in summary_data_items_details.items():
                         summary_html_output_details += f"<div class='transcript-summary-item'><strong>{item_label_details}:</strong> {item_value_details}</div>"
                     
-                    # Add the "summary" field from data, spanning full width
                     data_summary_text_from_sheet = selected_onboarding_row_details.get('summary', 'N/A') 
                     summary_html_output_details += f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>Call Summary (from data):</strong> {data_summary_text_from_sheet}</div>"
                     
-                    summary_html_output_details += "</div>" # Close grid
+                    summary_html_output_details += "</div>" 
                     st.markdown(summary_html_output_details, unsafe_allow_html=True)
 
                     st.markdown("##### Key Requirement Checks:")
-                    # Iterate using the predefined ordered list of checklist items.
                     for item_column_name_details in ORDERED_KEY_CHECKLIST_ITEMS:
-                        # Get the full description and type from the KEY_REQUIREMENT_DETAILS dictionary.
                         requirement_details_obj = KEY_REQUIREMENT_DETAILS.get(item_column_name_details)
-                        if requirement_details_obj: # If details exist for this item
+                        if requirement_details_obj: 
                             item_description_details = requirement_details_obj.get("description", item_column_name_details.replace('_',' ').title())
-                            item_type_details = requirement_details_obj.get("type", "") # Get Primary/Secondary/Bonus Criterion
+                            item_type_details = requirement_details_obj.get("type", "") 
                             
                             item_value_str_details = str(selected_onboarding_row_details.get(item_column_name_details, "")).lower()
                             is_requirement_met_details = item_value_str_details in ['true', '1', 'yes']
                             status_emoji_details = "✅" if is_requirement_met_details else "❌"
                             
-                            # Display each requirement with its type and full description.
                             type_tag_html = f"<span class='type'>[{item_type_details}]</span>" if item_type_details else ""
                             st.markdown(f"<div class='requirement-item'>{status_emoji_details} {item_description_details} {type_tag_html}</div>", unsafe_allow_html=True)
                     
-                    st.markdown("---") # Separator before transcript
+                    st.markdown("---") 
                     st.markdown("##### Full Transcript:")
                     transcript_content_details = selected_onboarding_row_details.get('fullTranscript', "")
                     if transcript_content_details:
                         html_transcript_output_details = "<div class='transcript-container'>"
-                        # Ensure both literal '\n' (escaped) and actual newlines are handled for HTML.
                         processed_transcript_content_details = transcript_content_details.replace('\\n', '\n') 
                         
                         for line_segment_from_transcript_details in processed_transcript_content_details.split('\n'):
                             current_line_details = line_segment_from_transcript_details.strip()
-                            if not current_line_details: continue # Skip empty lines
+                            if not current_line_details: continue 
                             
                             parts_of_line_details = current_line_details.split(":", 1)
                             speaker_html_part_details = f"<strong>{parts_of_line_details[0].strip()}:</strong>" if len(parts_of_line_details) == 2 else ""
-                            # Replace internal newlines within a message part with <br> for HTML.
                             message_html_part_details = parts_of_line_details[1].strip().replace('\n', '<br>') if len(parts_of_line_details) == 2 else current_line_details.replace('\n', '<br>')
                             
                             html_transcript_output_details += f"<p class='transcript-line'>{speaker_html_part_details} {message_html_part_details}</p>"
@@ -679,30 +615,28 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
                         st.info("No transcript available for this selection or the transcript is empty.")
         else: 
             st.info("No data in the filtered table to select a transcript from, or 'fullTranscript' column is missing.")
-        st.markdown("---") # Separator after transcript viewer
+        st.markdown("---") 
 
-        # Download button for the filtered data.
         csv_data_to_download_tab2_final = convert_df_to_csv(df_filtered)
         st.download_button("📥 Download Filtered Data as CSV", csv_data_to_download_tab2_final, 'filtered_onboarding_data.csv', 'text/csv', use_container_width=True)
     elif not df_original.empty: 
         st.info("No data matches current filter criteria for table display.")
     
-    # --- Key Visuals Section ---
     st.header("📊 Key Visuals (Based on Filtered Data)") 
     if not df_filtered.empty:
-        col_viz1_tab2_charts, col_viz2_tab2_charts = st.columns(2) # Create two columns for visuals
-        with col_viz1_tab2_charts: # Visuals in the first column
+        col_viz1_tab2_charts, col_viz2_tab2_charts = st.columns(2) 
+        with col_viz1_tab2_charts: 
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_fig_tab2_chart = px.bar(df_filtered['status'].value_counts().reset_index(), x='status', y='count', 
                                      color='status', title="Onboarding Status Distribution")
-                status_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig_tab2_chart, use_container_width=True)
+                status_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig_tab2_chart, use_container_width=True) # CORRECTED variable name
             
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_fig_tab2_chart = px.bar(df_filtered['repName'].value_counts().reset_index(), x='repName', y='count', 
                                      color='repName', title="Onboardings by Representative")
-                rep_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig_tab2_chart, use_container_width=True)
+                rep_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig_tab2_chart, use_container_width=True) # CORRECTED variable name
         
-        with col_viz2_tab2_charts: # Visuals in the second column
+        with col_viz2_tab2_charts: 
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sentiment_counts_tab2_chart = df_filtered['clientSentiment'].value_counts().reset_index()
                 sentiment_color_map_config_tab2 = {
@@ -714,9 +648,8 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
                 sentiment_fig_tab2_chart = px.pie(sentiment_counts_tab2_chart, names='clientSentiment', values='count', hole=0.4, 
                                      title="Client Sentiment Breakdown", color='clientSentiment', 
                                      color_discrete_map=sentiment_color_map_config_tab2)
-                sentiment_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(sentiment_fig_tab2_chart, use_container_width=True)
+                sentiment_fig_tab2_chart.update_layout(plotly_base_layout_settings); st.plotly_chart(sentiment_fig_tab2_chart, use_container_width=True) # CORRECTED variable name
 
-            # Checklist Item Completion chart (for 'confirmed' statuses)
             df_confirmed_tab2_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
             actual_key_cols_tab2_chart = [col_tab2_chart for col_tab2_chart in ORDERED_KEY_CHECKLIST_ITEMS if col_tab2_chart in df_confirmed_tab2_chart.columns]
             checklist_data_tab2_chart = []
@@ -740,7 +673,7 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
                                                      x="Completion (%)", y="Key Requirement", orientation='h', 
                                                      title="Key Requirement Completion (Confirmed Onboardings)", 
                                                      color_discrete_sequence=[GOLD_ACCENT_COLOR])
-                        checklist_fig_tab2_final.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'})
+                        checklist_fig_tab2_final.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}) # CORRECTED variable name
                         st.plotly_chart(checklist_fig_tab2_final, use_container_width=True)
                 else: 
                     st.info("No data available for key requirement completion chart (e.g., no confirmed onboardings with checklist data).")
@@ -752,7 +685,6 @@ with tab2_main_content: # Content for the "Detailed Analysis & Data" tab
 with tab3_main_content: # Content for "Trends & Distributions" tab
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
-        # Onboardings Over Time chart
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             df_trend_tab3_viz = df_filtered.copy()
             df_trend_tab3_viz['onboarding_date_only'] = pd.to_datetime(df_trend_tab3_viz['onboarding_date_only'], errors='coerce')
@@ -765,21 +697,20 @@ with tab3_main_content: # Content for "Trends & Distributions" tab
                 if not data_tab3_viz.empty:
                     fig_trend_tab3_viz = px.line(data_tab3_viz, x='onboarding_date_only', y='count', markers=True, 
                                       title="Onboardings Over Filtered Period")
-                    fig_trend_tab3_viz.update_layout(plotly_base_layout_settings)
+                    fig_trend_tab3_viz.update_layout(plotly_base_layout_settings) # CORRECTED variable name
                     st.plotly_chart(fig_trend_tab3_viz, use_container_width=True)
                 else: 
                     st.info("Not enough data points to plot onboarding trend after resampling.")
             else: 
                 st.info("No valid date data available in filtered set for onboarding trend chart.")
         
-        # Days to Confirmation Distribution chart
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             days_data_tab3_viz = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna()
             if not days_data_tab3_viz.empty:
                 nbins_tab3_viz = max(10, min(50, int(len(days_data_tab3_viz)/5))) if len(days_data_tab3_viz) > 20 else (len(days_data_tab3_viz.unique()) or 10)
                 fig_days_dist_tab3_viz = px.histogram(days_data_tab3_viz, nbins=nbins_tab3_viz, 
                                            title="Days to Confirmation Distribution")
-                fig_days_dist_tab3_viz.update_layout(plotly_base_layout_settings)
+                fig_days_dist_tab3_viz.update_layout(plotly_base_layout_settings) # CORRECTED variable name
                 st.plotly_chart(fig_days_dist_tab3_viz, use_container_width=True)
             else: 
                 st.info("No valid 'Days to Confirmation' data in filtered set to plot distribution.")

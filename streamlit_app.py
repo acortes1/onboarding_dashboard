@@ -12,7 +12,7 @@ import re
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.10", # Version updated in footer/sidebar info
+    page_title="Onboarding Performance Dashboard v3.11", # Incremented version
     page_icon="💎",
     layout="wide"
 )
@@ -493,6 +493,8 @@ if 'selected_transcript_key' not in st.session_state: st.session_state.selected_
 if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
 if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = initial_min_data_date
 if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = initial_max_data_date
+if 'date_filter_is_active' not in st.session_state: st.session_state.date_filter_is_active = False
+
 
 # --- Data Loading Trigger ---
 if not st.session_state.data_loaded:
@@ -504,6 +506,7 @@ if not st.session_state.data_loaded:
         st.session_state.date_range = (ds,de)
         st.session_state.min_data_date_for_filter = min_data_date
         st.session_state.max_data_date_for_filter = max_data_date
+        # Do not set date_filter_is_active to True on initial load
         st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
     else:
         st.session_state.df_original = pd.DataFrame()
@@ -538,16 +541,18 @@ st.sidebar.header("🔍 Filters")
 # --- Date Range Shortcuts ---
 st.sidebar.markdown("##### Date Shortcuts")
 s_col1, s_col2, s_col3 = st.sidebar.columns(3)
-today_for_shortcuts = date.today() # Use a separate 'today' for clarity
+today_for_shortcuts = date.today() 
 
 if s_col1.button("MTD", key="mtd_button_v3_10", use_container_width=True):
     start_mtd_shortcut = today_for_shortcuts.replace(day=1)
     st.session_state.date_range = (start_mtd_shortcut, today_for_shortcuts)
+    st.session_state.date_filter_is_active = True
     st.rerun()
 
 if s_col2.button("YTD", key="ytd_button_v3_10", use_container_width=True):
     start_ytd_shortcut = today_for_shortcuts.replace(month=1, day=1)
     st.session_state.date_range = (start_ytd_shortcut, today_for_shortcuts)
+    st.session_state.date_filter_is_active = True
     st.rerun()
 
 if s_col3.button("ALL", key="all_button_v3_10", use_container_width=True):
@@ -559,6 +564,7 @@ if s_col3.button("ALL", key="all_button_v3_10", use_container_width=True):
         start_ytd_fallback_shortcut = today_for_shortcuts.replace(month=1, day=1)
         st.session_state.date_range = (start_ytd_fallback_shortcut, today_for_shortcuts)
         st.sidebar.caption("Used YTD for 'ALL' (no data extent).")
+    st.session_state.date_filter_is_active = True
     st.rerun()
 st.sidebar.markdown("---") 
 
@@ -588,6 +594,7 @@ if isinstance(sel_range, tuple) and len(sel_range) == 2 and \
    isinstance(sel_range[0], date) and isinstance(sel_range[1], date):
     if sel_range != st.session_state.date_range:
         st.session_state.date_range = sel_range
+        st.session_state.date_filter_is_active = True # Set flag on manual change
         st.rerun()
 start_dt, end_dt = st.session_state.date_range
 
@@ -608,6 +615,7 @@ def clear_filters_cb():
     st.session_state.date_range = (ds_clear, de_clear)
     st.session_state.min_data_date_for_filter = min_d_clear
     st.session_state.max_data_date_for_filter = max_d_clear
+    st.session_state.date_filter_is_active = False # Reset date filter flag
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
     st.session_state.selected_transcript_key = None
@@ -622,14 +630,17 @@ if selected_tab != st.session_state.active_tab: st.session_state.active_tab = se
 
 # --- Active Filters Summary (Moved to be below tabs) ---
 active_filter_parts = []
-min_possible_date_for_summary = st.session_state.get('min_data_date_for_filter', default_s_init)
-max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter', default_e_init)
-if start_dt and end_dt:
-    is_default_date_range = (start_dt == min_possible_date_for_summary and end_dt == max_possible_date_for_summary)
-    if min_possible_date_for_summary is None and max_possible_date_for_summary is None:
-        is_default_date_range = (start_dt == default_s_init and end_dt == default_e_init)
-    if not is_default_date_range:
-         active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
+if st.session_state.get('date_filter_is_active', False) and start_dt and end_dt:
+    min_data_for_summary = st.session_state.get('min_data_date_for_filter')
+    max_data_for_summary = st.session_state.get('max_data_date_for_filter')
+    date_label = ""
+    if min_data_for_summary and max_data_for_summary and \
+       start_dt == min_data_for_summary and end_dt == max_data_for_summary:
+        date_label = "🗓️ Dates: ALL"
+    else:
+        date_label = f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}"
+    active_filter_parts.append(date_label)
+
 for k, lbl in search_cols_definition.items():
     if st.session_state[k+"_search"]: active_filter_parts.append(f"{lbl}: '{st.session_state[k+'_search']}'")
 for k, lbl in cat_filters_definition.items():
@@ -637,7 +648,7 @@ for k, lbl in cat_filters_definition.items():
 
 if active_filter_parts:
     st.markdown(f"<div class='active-filters-summary'>🔍 Active Filters: {'; '.join(active_filter_parts)}</div>", unsafe_allow_html=True)
-else: # Display a message if no filters are active, to occupy the space
+else: 
     st.markdown(f"<div class='active-filters-summary'>No active filters. Showing all data within default date range.</div>", unsafe_allow_html=True)
 
 

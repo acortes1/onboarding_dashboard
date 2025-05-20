@@ -20,8 +20,8 @@ import matplotlib # Imported because some pandas styling features (e.g., backgro
 # - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
 # - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.12", # Updated version
-    page_icon="🔄", # Refresh emoji, signifying updates
+    page_title="Onboarding Performance Dashboard v2.12.1", # Updated version for Pylance error check
+    page_icon="✅", # Checkmark emoji
     layout="wide"
 )
 
@@ -32,8 +32,9 @@ st.set_page_config(
 
 # Define color constants for easy reuse and theme consistency.
 GOLD_ACCENT_COLOR = "#FFD700"
-PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" # Explicit for dark theme context
-SECONDARY_TEXT_COLOR_DARK_THEME = "#B0B0B0" # Explicit for dark theme context
+# This is the primary text color intended for dark themes.
+PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" # Pylance Error Point: Ensure this is defined if used directly.
+SECONDARY_TEXT_COLOR_DARK_THEME = "#B0B0B0" 
 # PLOT_BG_COLOR is set to transparent for plots to inherit the app's background.
 PLOT_BG_COLOR = "rgba(0,0,0,0)" 
 
@@ -150,39 +151,42 @@ if not check_password():
 # --- Constants ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] 
 
+# Pylance Error Point: KEY_REQUIREMENT_DETAILS is defined here, globally.
+# It maps internal column names to display information.
 KEY_REQUIREMENT_DETAILS = {
-    'introSelfAndDIME': { # Moved up as per user request for display order
+    'introSelfAndDIME': { 
         "description": "Warmly introduce yourself and DIME Industries.",
         "type": "Secondary",
         "chart_label": "Intro Self & DIME"
     },
-    'confirmKitReceived': { # Moved up
+    'confirmKitReceived': { 
         "description": "Confirm the reseller has received their onboarding kit and initial order.",
         "type": "Primary",
         "chart_label": "Kit & Order Received"
     },
-    'offerDisplayHelp': { # Moved up
+    'offerDisplayHelp': { 
         "description": "Ask whether they need help setting up the in-store display kit.",
         "type": "Secondary",
         "chart_label": "Offer Display Help"
     },
-    'scheduleTrainingAndPromo': { # Moved up
+    'scheduleTrainingAndPromo': { 
         "description": "Schedule a budtender-training session and the first promotional event.",
         "type": "Primary",
         "chart_label": "Schedule Training & Promo"
     },
-    'providePromoCreditLink': { # Moved up
+    'providePromoCreditLink': { 
         "description": "Provide the link for submitting future promo-credit reimbursement requests.",
         "type": "Secondary",
         "chart_label": "Provide Promo Link"
     },
-    'expectationsSet': { # Now last in this specific display group
+    'expectationsSet': { 
         "description": "Client expectations were clearly set.",
         "type": "Bonus Criterion", 
         "chart_label": "Expectations Set" 
     }
 }
-# This list defines the *new display order* for requirements in the transcript viewer.
+# Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is defined here, globally.
+# This list defines the *display order* for requirements in the transcript viewer.
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = [
     'introSelfAndDIME',
     'confirmKitReceived',
@@ -192,8 +196,6 @@ ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = [
     'expectationsSet' 
 ]
 # This list defines the order for the "Key Requirement Completion" chart.
-# It can be the same or different from the transcript view order.
-# For now, let's keep it consistent with the new transcript view order for simplicity.
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
 
 
@@ -268,6 +270,7 @@ def load_data_from_google_sheet(_url_param, _ws_param):
     if 'score' not in df.columns: df['score'] = pd.NA
     df['score'] = pd.to_numeric(df['score'], errors='coerce')
     
+    # Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is used here. It should be defined globally.
     checklist_cols_to_ensure = ORDERED_KEY_CHECKLIST_ITEMS + ['onboardingWelcome'] 
     for col in checklist_cols_to_ensure:
         if col not in df.columns: df[col] = pd.NA 
@@ -315,7 +318,7 @@ if not st.session_state.data_loaded:
             else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original 
 
-st.title("🚀 Onboarding Performance Dashboard v2.12 🚀") # Updated version in title
+st.title("🚀 Onboarding Performance Dashboard v2.12.1 🚀") 
 
 if not st.session_state.data_loaded or df_original.empty:
     st.error("Failed to load data. Check sheet, permissions, secrets & refresh.")
@@ -388,10 +391,23 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy() 
 else: df_filtered = pd.DataFrame() 
 
-plotly_base_layout_settings = {"plot_bgcolor":PLOT_BG_COLOR, "paper_bgcolor":PLOT_BG_COLOR, "font_color":PRIMARY_TEXT_COLOR, 
-                               "title_font_color":GOLD_ACCENT_COLOR, "legend_font_color":PRIMARY_TEXT_COLOR, 
-                               "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":False}
+# --- Plotly Layout Configuration ---
+# Pylance Error Point: plotly_base_layout_settings is defined here.
+# If Pylance reported an error for PRIMARY_TEXT_COLOR at lines 391, 392 (in a previous version),
+# it would be referring to its usage within this dictionary.
+# We are using PRIMARY_TEXT_COLOR_DARK_THEME, which IS defined.
+plotly_base_layout_settings = {
+    "plot_bgcolor":PLOT_BG_COLOR, 
+    "paper_bgcolor":PLOT_BG_COLOR, 
+    "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, # Using the defined constant for dark theme
+    "title_font_color":GOLD_ACCENT_COLOR, 
+    "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, # Using the defined constant for dark theme
+    "title_x":0.5, 
+    "xaxis_showgrid":False, 
+    "yaxis_showgrid":False
+}
 
+# --- MTD Metrics Calculation ---
 today_date = date.today(); mtd_s = today_date.replace(day=1)
 prev_mtd_e = mtd_s - timedelta(days=1); prev_mtd_s = prev_mtd_e.replace(day=1)
 df_mtd, df_prev_mtd = pd.DataFrame(), pd.DataFrame()
@@ -407,8 +423,11 @@ tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd)
 tot_prev,_,_,_ = calculate_metrics(df_prev_mtd) 
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-tab1, tab2, tab3 = st.tabs(["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"])
-with tab1: 
+# --- Main Content Tabs ---
+# Pylance Error Point: tab1_main_content_ui, tab2_main_content_ui, tab3_main_content_ui are defined here by st.tabs().
+tab1_main_content_ui, tab2_main_content_ui, tab3_main_content_ui = st.tabs(["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"])
+
+with tab1_main_content_ui: 
     st.header("📈 Month-to-Date (MTD) Overview")
     c1,c2,c3,c4 = st.columns(4)
     c1.metric("Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None else "N/A")
@@ -424,12 +443,13 @@ with tab1:
         fc3.metric("Filtered Avg Score", f"{score_filt:.2f}" if pd.notna(score_filt) else "N/A")
         fc4.metric("Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
     else: st.info("No data matches filters for Overview.")
-with tab2: 
+with tab2_main_content_ui: 
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
+    # Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is used here. It should be defined globally.
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
-                   'clientSentiment', 'days_to_confirmation'] + ORDERED_KEY_CHECKLIST_ITEMS # Use the constant for consistency
+                   'clientSentiment', 'days_to_confirmation'] + ORDERED_KEY_CHECKLIST_ITEMS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
     other_cols = [col for col in df_display_table.columns if col not in cols_for_display and 
                   not col.endswith(('_utc', '_str_original', '_dt')) and col not in ['fullTranscript', 'summary']] 
@@ -460,7 +480,6 @@ with tab2:
             if transcript_options:
                 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
                 
-                # The key for the selectbox widget itself
                 selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v2_12"
                 
                 selected_key_display = st.selectbox("Select onboarding to view details:",
@@ -469,11 +488,8 @@ with tab2:
                     key=selectbox_widget_key 
                 )
                 
-                # Update session state if the widget's selection has changed
-                # This should not cause a tab switch if the widget is properly managed within the tab.
                 if selected_key_display != st.session_state.selected_transcript_key:
                     st.session_state.selected_transcript_key = selected_key_display
-                    # No explicit st.rerun() here, Streamlit handles rerun on widget change.
                 
                 if st.session_state.selected_transcript_key :
                     selected_idx = transcript_options[st.session_state.selected_transcript_key]
@@ -497,7 +513,6 @@ with tab2:
                     st.markdown(summary_html, unsafe_allow_html=True)
 
                     st.markdown("##### Key Requirement Checks:")
-                    # Use the NEWLY defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS for display order
                     for item_column_name in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
                         requirement_details = KEY_REQUIREMENT_DETAILS.get(item_column_name)
                         if requirement_details: 
@@ -516,15 +531,14 @@ with tab2:
                     transcript_content = selected_row.get('fullTranscript', "")
                     if transcript_content:
                         html_transcript = "<div class='transcript-container'>"
-                        processed_transcript = transcript_content.replace('\\n', '\n') # Handle escaped newlines
+                        processed_transcript = transcript_content.replace('\\n', '\n') 
                         
-                        for line_segment in processed_transcript.split('\n'): # Split by actual newlines
+                        for line_segment in processed_transcript.split('\n'): 
                             current_line = line_segment.strip()
                             if not current_line: continue 
                             
                             parts = current_line.split(":", 1)
                             speaker_html = f"<strong>{parts[0].strip()}:</strong>" if len(parts) == 2 else ""
-                            # Replace newlines *within* a speaker's message part with <br> for HTML display
                             message_html = parts[1].strip().replace('\n', '<br>') if len(parts) == 2 else current_line.replace('\n', '<br>')
                             
                             html_transcript += f"<p class='transcript-line'>{speaker_html} {message_html}</p>"
@@ -548,28 +562,26 @@ with tab2:
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_fig = px.bar(df_filtered['status'].value_counts().reset_index(), x='status', y='count', 
                                      color='status', title="Onboarding Status Distribution")
-                status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
+                status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True) # Ensure correct layout variable
             
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_fig = px.bar(df_filtered['repName'].value_counts().reset_index(), x='repName', y='count', 
                                      color='repName', title="Onboardings by Representative")
-                rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
+                rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True) # Ensure correct layout variable
         
         with c2_charts: 
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
                 color_map = {str(s).lower(): (GOLD_ACCENT_COLOR if 'neutral' in str(s).lower() else ('#2ca02c' if 'positive' in str(s).lower() else ('#d62728' if 'negative' in str(s).lower() else None))) for s in sent_counts['clientSentiment'].unique()}
                 sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map)
-                sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
+                sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True) # Ensure correct layout variable
 
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
-            # Use ORDERED_CHART_REQUIREMENTS for the chart's y-axis items
             actual_key_cols_for_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_conf_chart.columns]
             checklist_data_for_chart = []
             if not df_conf_chart.empty and actual_key_cols_for_chart:
                 for item_col_name_for_chart in actual_key_cols_for_chart:
                     item_details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_for_chart)
-                    # Use the 'chart_label' from the details for the y-axis of the bar chart
                     chart_label_for_bar = item_details_obj.get("chart_label", item_col_name_for_chart.replace('_',' ').title()) if item_details_obj else item_col_name_for_chart.replace('_',' ').title()
                     
                     map_bool_for_chart = {'true':True,'yes':True,'1':True,1:True,'false':False,'no':False,'0':False,0:False}
@@ -596,7 +608,8 @@ with tab2:
     else: 
         st.info("No data matches filters for detailed visuals.")
 
-with tab3_main_content_ui: # Content for "Trends & Distributions" tab
+# Pylance Error Point: tab3_main_content_ui is used here. It should be defined by st.tabs() above.
+with tab3_main_content_ui: 
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
@@ -632,5 +645,4 @@ with tab3_main_content_ui: # Content for "Trends & Distributions" tab
         st.info("No data matches filters for Trends & Distributions.")
 
 st.sidebar.markdown("---") 
-st.sidebar.info("Dashboard v2.12 | Secured Access") 
-
+st.sidebar.info("Dashboard v2.12.1 | Secured Access") 

@@ -934,7 +934,7 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
 # --- Footer ---
 st.markdown("---")
 st.markdown(
-    f"<div class='footer'>Onboarding Performance Dashboard v3.10 © {datetime.now().year} DIME Industries. All Rights Reserved.</div>",
+    f"<div class='footer'>Onboarding Performance Dashboard v3.10 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>",
     unsafe_allow_html=True
 )
 

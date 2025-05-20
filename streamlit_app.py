@@ -590,14 +590,14 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             if 'score' in df.columns:
                 styled_df = styled_df.bar(subset=['score'], align='mid', color=[ACTIVE_ACCENT_MUTED, ACTIVE_ACCENT_SECONDARY], vmin=0, vmax=10)
             if 'days_to_confirmation' in df.columns:
-                 # Ensure days_to_confirmation is numeric for bar styling
                 df_numeric_days = pd.to_numeric(df['days_to_confirmation'], errors='coerce')
                 min_days = df_numeric_days.min() if df_numeric_days.notna().any() else 0
-                max_days = df_numeric_days.max() if df_numeric_days.notna().any() else 30 # Sensible max if no data
-                styled_df = styled_df.bar(subset=['days_to_confirmation'], align='zero', color=[ACTIVE_ACCENT_HIGHLIGHT], vmin=min_days, vmax=max_days)
+                max_days = df_numeric_days.max() if df_numeric_days.notna().any() else 30
+                # Pass the single color string directly for 'days_to_confirmation'
+                styled_df = styled_df.bar(subset=['days_to_confirmation'], align='zero', color=ACTIVE_ACCENT_HIGHLIGHT, vmin=min_days, vmax=max_days)
             return styled_df
 
-        st.dataframe(style_table_with_bars(df_display_table[cols_for_display]), use_container_width=True, height=350) # Increased height slightly
+        st.dataframe(style_table_with_bars(df_display_table[cols_for_display]), use_container_width=True, height=350)
         st.markdown("---")
         st.subheader("🔍 View Full Onboarding Details & Transcript")
         if not df_display_table.empty and 'fullTranscript' in df_display_table.columns:
@@ -752,7 +752,7 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
 # --- Footer ---
 st.markdown("---")
 st.markdown(
-    f"<div class='footer'>Onboarding Performance Dashboard v3.8 © {datetime.now().year} DIME Industries. All Rights Reserved.</div>",
+    f"<div class='footer'>Onboarding Performance Dashboard v3.8 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>",
     unsafe_allow_html=True
 )
 

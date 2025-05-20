@@ -191,7 +191,7 @@ css_parts = [
     div[data-testid="stRadio"] {
         padding-bottom: 0px;
         border-bottom: 2px solid var(--app-accent-primary);
-        margin-bottom: 35px; /* More space after tabs */
+        margin-bottom: 15px; /* Reduced space after tabs to bring summary closer */
     }
     div[data-testid="stRadio"] > label > div:first-child { display: none; }
 
@@ -272,11 +272,13 @@ css_parts = [
         font-size: 0.9em;
         color: var(--text-color);
         opacity: 0.8;
-        margin-bottom: 15px;
-        padding: 8px;
+        margin-top: 0px; /* Adjusted to be right below tabs */
+        margin-bottom: 25px; /* Space before tab content */
+        padding: 10px; /* More padding */
         background-color: var(--secondary-background-color);
-        border-radius: 6px;
+        border-radius: 8px; /* More rounded */
         border: 1px solid var(--border-color, var(--border-color-fallback));
+        text-align: center; /* Center align text */
     }
     .no-data-message {
         text-align: center;
@@ -611,7 +613,14 @@ def clear_filters_cb():
     st.session_state.selected_transcript_key = None
 if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_10"): st.rerun()
 
-# --- Active Filters Summary ---
+
+# --- Tab Navigation ---
+tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
+selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
+                        horizontal=True, key="main_tab_selector_v3_10")
+if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
+
+# --- Active Filters Summary (Moved to be below tabs) ---
 active_filter_parts = []
 min_possible_date_for_summary = st.session_state.get('min_data_date_for_filter', default_s_init)
 max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter', default_e_init)
@@ -625,8 +634,12 @@ for k, lbl in search_cols_definition.items():
     if st.session_state[k+"_search"]: active_filter_parts.append(f"{lbl}: '{st.session_state[k+'_search']}'")
 for k, lbl in cat_filters_definition.items():
     if st.session_state[k+"_filter"]: active_filter_parts.append(f"{lbl}: {', '.join(st.session_state[k+'_filter'])}")
+
 if active_filter_parts:
     st.markdown(f"<div class='active-filters-summary'>🔍 Active Filters: {'; '.join(active_filter_parts)}</div>", unsafe_allow_html=True)
+else: # Display a message if no filters are active, to occupy the space
+    st.markdown(f"<div class='active-filters-summary'>No active filters. Showing all data within default date range.</div>", unsafe_allow_html=True)
+
 
 # --- Data Filtering Logic ---
 df_filtered = pd.DataFrame()
@@ -679,12 +692,6 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd)
 tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
-
-# --- Tab Navigation ---
-tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
-selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
-                        horizontal=True, key="main_tab_selector_v3_10")
-if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
 # --- Display Content ---
 if st.session_state.active_tab == "🌌 Overview":
@@ -903,6 +910,8 @@ st.markdown(
 
 st.sidebar.markdown("---")
 # Robustly display theme mode in sidebar info
-theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-info_string = "App Version: 3.10 (" + theme_display_name + " Mode)" # Updated version
+theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "" # Empty string if unknown
+info_string = f"App Version: 3.10"
+if theme_display_name: # Only add theme if known
+    info_string += f" ({theme_display_name} Mode)"
 st.sidebar.info(info_string)

@@ -4,18 +4,15 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
-# from dateutil.relativedelta import relativedelta # Not used
 import gspread
 from google.oauth2.service_account import Credentials
-# from collections.abc import Mapping # Not used
-import time
-import numpy as np
-import re
-# import matplotlib # Not used
+import time # Keep time if used, remove if not
+import numpy as np # Keep numpy if used, remove if not
+import re # Keep re if used, remove if not
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.3",
+    page_title="Onboarding Performance Dashboard v3.4", # Incremented version
     page_icon="💎",
     layout="wide"
 )
@@ -23,100 +20,94 @@ st.set_page_config(
 # --- Color Palette Definitions ---
 
 # Dark Theme (Original Basis)
-DARK_ICE_COLD = "#a0d2eb"        # Light Blue
-DARK_FREEZE_PURPLE = "#e5eaf5"   # Very Light, almost white purple/blue (for text or light elements)
-DARK_MEDIUM_PURPLE = "#d0bdf4"   # Light Lavender
-DARK_PURPLE_PAIN = "#8458B3"     # Medium-Dark Purple (Primary Accent)
-DARK_HEAVY_PURPLE = "#a28089"    # Muted, desaturated purplish-pink/mauve
-
+DARK_ICE_COLD = "#a0d2eb"
+DARK_FREEZE_PURPLE = "#e5eaf5"
+DARK_MEDIUM_PURPLE = "#d0bdf4"
+DARK_PURPLE_PAIN = "#8458B3"
+DARK_HEAVY_PURPLE = "#a28089"
 DARK_TEXT_ON_PRIMARY_ACCENT = DARK_FREEZE_PURPLE
-DARK_TEXT_ON_HIGHLIGHT_ACCENT = "#1A1F2B" # Dark text for light blue (ICE_COLD) button
+DARK_TEXT_ON_HIGHLIGHT_ACCENT = "#1A1F2B"
 
 # Light Theme
-LIGHT_ICE_COLD = "#5899b7" # Darker, more saturated version of ICE_COLD
-LIGHT_FREEZE_PURPLE = "#F0F2F6" # A very light color, like a secondary background
-LIGHT_MEDIUM_PURPLE = "#9b83c9" # Darker/more saturated than DARK_MEDIUM_PURPLE
-LIGHT_PURPLE_PAIN = "#603F8B"  # Darker/more saturated than DARK_PURPLE_PAIN
-LIGHT_HEAVY_PURPLE = "#896b73" # Darker/more saturated than DARK_HEAVY_PURPLE
+LIGHT_ICE_COLD = "#5899b7"
+LIGHT_FREEZE_PURPLE = "#F0F2F6"
+LIGHT_MEDIUM_PURPLE = "#9b83c9"
+LIGHT_PURPLE_PAIN = "#603F8B"
+LIGHT_HEAVY_PURPLE = "#896b73"
+LIGHT_TEXT_ON_PRIMARY_ACCENT = "#FFFFFF"
+LIGHT_TEXT_ON_HIGHLIGHT_ACCENT = "#FFFFFF"
 
-LIGHT_TEXT_ON_PRIMARY_ACCENT = "#FFFFFF" # White text for the darker purple button
-LIGHT_TEXT_ON_HIGHLIGHT_ACCENT = "#FFFFFF" # White text for the darker blue (ICE_COLD_LIGHT) button
+PLOT_BG_COLOR = "rgba(0,0,0,0)"
 
-PLOT_BG_COLOR = "rgba(0,0,0,0)" # Transparent for both themes
-
-# Fallbacks for Streamlit's own CSS variables (used in var(--variable, fallback))
-# Streamlit typically defines these, so fallbacks are for extreme cases.
-BASE_DARK_BACKGROUND_FALLBACK = "#0E1117" # Streamlit's default dark
-BASE_DARK_SECONDARY_BACKGROUND_FALLBACK = "#262730" # Streamlit's default secondary dark
-BASE_DARK_TEXT_FALLBACK = "#FAFAFA" # Streamlit's default dark theme text
-
+BASE_DARK_BACKGROUND_FALLBACK = "#0E1117"
+BASE_DARK_SECONDARY_BACKGROUND_FALLBACK = "#262730"
+BASE_DARK_TEXT_FALLBACK = "#FAFAFA"
 BASE_LIGHT_BACKGROUND_FALLBACK = "#FFFFFF"
 BASE_LIGHT_SECONDARY_BACKGROUND_FALLBACK = "#F0F2F6"
 BASE_LIGHT_TEXT_FALLBACK = "#31333F"
 
 # --- Custom Styling (CSS) ---
-st.markdown(f"""
-<style>
+# Build CSS string in parts to potentially avoid tokenizer issues with one giant f-string
+css_parts = [
+    "<style>",
+    # Root variables for Dark Theme (default)
+    f"""
     :root {{
-        /* Define fallbacks for Streamlit's main theme variables */
         --st-background-color: var(--background-color, {BASE_DARK_BACKGROUND_FALLBACK});
         --st-secondary-background-color: var(--secondary-background-color, {BASE_DARK_SECONDARY_BACKGROUND_FALLBACK});
         --st-text-color: var(--text-color, {BASE_DARK_TEXT_FALLBACK});
-        --st-border-color: var(--border-color, #3a3f4b); /* Custom fallback if Streamlit doesn't provide --border-color */
+        --st-border-color: var(--border-color, #3a3f4b);
 
-        /* Custom Accent Palette - Default to Dark Theme */
         --accent-primary: {DARK_PURPLE_PAIN};
         --accent-secondary: {DARK_MEDIUM_PURPLE};
         --accent-muted: {DARK_HEAVY_PURPLE};
         --accent-highlight: {DARK_ICE_COLD};
-        --accent-lightest: {DARK_FREEZE_PURPLE}; /* A very light color */
+        --accent-lightest: {DARK_FREEZE_PURPLE};
 
         --text-on-accent-primary: {DARK_TEXT_ON_PRIMARY_ACCENT};
         --text-on-accent-highlight: {DARK_TEXT_ON_HIGHLIGHT_ACCENT};
 
-        /* Download Button Specific Colors - Dark Theme */
         --dl-button-bg: {DARK_ICE_COLD};
         --dl-button-text: {DARK_TEXT_ON_HIGHLIGHT_ACCENT};
         --dl-button-hover-bg: {DARK_FREEZE_PURPLE};
         --dl-button-hover-text: {DARK_TEXT_ON_HIGHLIGHT_ACCENT};
     }}
-
-    /* Light Theme Overrides for OUR custom variables */
+    """,
+    # Light Theme Overrides
+    f"""
     @media (prefers-color-scheme: light) {{
         :root {{
-            /* Update fallbacks for Streamlit's main theme variables if needed,
-               but Streamlit should handle this. */
             --st-background-color: var(--background-color, {BASE_LIGHT_BACKGROUND_FALLBACK});
             --st-secondary-background-color: var(--secondary-background-color, {BASE_LIGHT_SECONDARY_BACKGROUND_FALLBACK});
             --st-text-color: var(--text-color, {BASE_LIGHT_TEXT_FALLBACK});
             --st-border-color: var(--border-color, #D0D0D0);
 
-            /* Custom Accent Palette - Light Theme */
             --accent-primary: {LIGHT_PURPLE_PAIN};
             --accent-secondary: {LIGHT_MEDIUM_PURPLE};
             --accent-muted: {LIGHT_HEAVY_PURPLE};
             --accent-highlight: {LIGHT_ICE_COLD};
-            --accent-lightest: {LIGHT_FREEZE_PURPLE}; /* A very light color */
+            --accent-lightest: {LIGHT_FREEZE_PURPLE};
 
             --text-on-accent-primary: {LIGHT_TEXT_ON_PRIMARY_ACCENT};
             --text-on-accent-highlight: {LIGHT_TEXT_ON_HIGHLIGHT_ACCENT};
 
-            /* Download Button Specific Colors - Light Theme */
             --dl-button-bg: {LIGHT_ICE_COLD};
             --dl-button-text: {LIGHT_TEXT_ON_HIGHLIGHT_ACCENT};
-            --dl-button-hover-bg: color-mix(in srgb, {LIGHT_ICE_COLD} 85%, #ffffff 15%); /* Slightly lighter */
+            --dl-button-hover-bg: color-mix(in srgb, {LIGHT_ICE_COLD} 85%, #ffffff 15%);
             --dl-button-hover-text: {LIGHT_TEXT_ON_HIGHLIGHT_ACCENT};
         }}
     }}
-
+    """,
+    # General App Styles (using raw strings for parts without f-string interpolation, and f-strings with {{}} for others)
+    """
     /* General App Styles */
-    .stApp {{
+    .stApp {
         background-color: var(--st-background-color);
-    }}
-    .stApp > header {{
+    }
+    .stApp > header {
         background-color: transparent !important;
-    }}
-    h1 {{
+    }
+    h1 {
         color: var(--accent-primary);
         text-align: center;
         padding-top: 1em;
@@ -124,81 +115,81 @@ st.markdown(f"""
         font-weight: 700;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-    }}
-    h2, h3 {{
+    }
+    h2, h3 {
         color: var(--accent-primary);
         border-bottom: 2px solid var(--accent-primary) !important;
         padding-bottom: 0.4em;
         margin-top: 2em;
         margin-bottom: 1.2em;
         font-weight: 600;
-    }}
-    h5 {{
+    }
+    h5 {
         color: var(--accent-primary);
         opacity: 0.95;
         margin-top: 1.2em;
         margin-bottom: 0.6em;
         font-weight: 600;
         letter-spacing: 0.5px;
-    }}
+    }
 
     /* Metric Widget Styles */
-    div[data-testid="stMetric"], .metric-card {{
+    div[data-testid="stMetric"], .metric-card {
         background-color: var(--st-secondary-background-color);
         padding: 1.5em;
         border-radius: 12px;
         border: 1px solid var(--st-border-color);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.07); /* Softer shadow */
+        box-shadow: 0 5px 15px rgba(0,0,0,0.07);
         transition: transform 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
-    }}
-    div[data-testid="stMetric"]:hover, .metric-card:hover {{
+    }
+    div[data-testid="stMetric"]:hover, .metric-card:hover {
          transform: translateY(-5px);
-         box-shadow: 0 8px 20px rgba(0,0,0,0.1); /* Softer shadow */
-    }}
-    div[data-testid="stMetricLabel"] > div {{
+         box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    div[data-testid="stMetricLabel"] > div {
         color: var(--st-text-color) !important;
-        opacity: 0.7; /* Make it appear secondary */
+        opacity: 0.7;
         font-weight: 500;
         font-size: 1em;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-    }}
-    div[data-testid="stMetricValue"] > div {{
+    }
+    div[data-testid="stMetricValue"] > div {
         color: var(--st-text-color) !important;
         font-size: 2.5rem !important;
         font-weight: 700;
         line-height: 1.1;
-    }}
-    div[data-testid="stMetricDelta"] > div {{
+    }
+    div[data-testid="stMetricDelta"] > div {
         color: var(--st-text-color) !important;
-        opacity: 0.7; /* Make it appear secondary */
+        opacity: 0.7;
         font-weight: 500;
         font-size: 0.9em;
-    }}
+    }
 
     /* Expander Styles */
-    .streamlit-expanderHeader {{
+    .streamlit-expanderHeader {
         color: var(--accent-primary) !important;
         font-weight: 600;
         font-size: 1.1em;
-    }}
-    .streamlit-expander {{
+    }
+    .streamlit-expander {
         border: 1px solid var(--st-border-color);
         border-radius: 10px;
         background-color: var(--st-secondary-background-color);
-    }}
-    .streamlit-expander > div > div > p {{ /* Target text inside expander */
+    }
+    .streamlit-expander > div > div > p {
         color: var(--st-text-color);
-    }}
+    }
 
     /* DataFrame Styles */
-    .stDataFrame {{
+    .stDataFrame {
         border: 1px solid var(--st-border-color);
         border-radius: 10px;
-    }}
+    }
 
     /* Custom Tab (Radio Button) Styles */
-    div[data-testid="stRadio"] label {{
+    div[data-testid="stRadio"] label {
         padding: 12px 20px;
         margin: 0 4px;
         border-radius: 10px 10px 0 0;
@@ -209,8 +200,8 @@ st.markdown(f"""
         opacity: 0.75;
         transition: background-color 0.3s ease, color 0.3s ease, opacity 0.3s ease, border-color 0.3s ease;
         font-weight: 500;
-    }}
-    div[data-testid="stRadio"] input:checked + div label {{
+    }
+    div[data-testid="stRadio"] input:checked + div label {
         background-color: var(--st-background-color);
         color: var(--accent-primary);
         font-weight: 600;
@@ -218,35 +209,35 @@ st.markdown(f"""
         border-top: 3px solid var(--accent-primary);
         border-left: 1px solid var(--st-border-color);
         border-right: 1px solid var(--st-border-color);
-    }}
-    div[data-testid="stRadio"] {{
+    }
+    div[data-testid="stRadio"] {
         padding-bottom: 0px;
         border-bottom: 2px solid var(--accent-primary);
         margin-bottom: 30px;
-    }}
-     div[data-testid="stRadio"] > label > div:first-child {{ /* Hide the actual radio button */
+    }
+     div[data-testid="stRadio"] > label > div:first-child {
         display: none;
-    }}
+    }
 
     /* Transcript Viewer Specific Styles */
-    .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; }}
-    .transcript-summary-item strong {{ color: var(--accent-primary); }}
-    .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 10px; }}
-    .requirement-item {{
+    .transcript-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-bottom: 25px; }
+    .transcript-summary-item strong { color: var(--accent-primary); }
+    .transcript-summary-item-fullwidth { grid-column: 1 / -1; margin-top: 10px; }
+    .requirement-item {
         margin-bottom: 12px;
         padding: 10px;
         border-left: 4px solid var(--accent-secondary);
-        background-color: color-mix(in srgb, var(--st-secondary-background-color) 95%, var(--st-text-color) 5%); /* Slightly different shade */
+        background-color: color-mix(in srgb, var(--st-secondary-background-color) 95%, var(--st-text-color) 5%);
         border-radius: 6px;
-    }}
-    .requirement-item .type {{
+    }
+    .requirement-item .type {
         font-weight: 500;
         color: var(--accent-muted);
         opacity: 0.8;
         font-size: 0.85em;
         margin-left: 8px;
-    }}
-    .transcript-container {{
+    }
+    .transcript-container {
         background-color: var(--st-secondary-background-color);
         color: var(--st-text-color);
         padding: 20px;
@@ -257,12 +248,12 @@ st.markdown(f"""
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
         font-size: 0.95em;
         line-height: 1.7;
-    }}
-    .transcript-line {{ margin-bottom: 10px; word-wrap: break-word; white-space: pre-wrap; }}
-    .transcript-line strong {{ color: var(--accent-primary); }} /* Speaker name */
+    }
+    .transcript-line { margin-bottom: 10px; word-wrap: break-word; white-space: pre-wrap; }
+    .transcript-line strong { color: var(--accent-primary); }
 
     /* Button styles */
-    div[data-testid="stButton"] > button {{
+    div[data-testid="stButton"] > button {
         background-color: var(--accent-primary);
         color: var(--text-on-accent-primary);
         border: none;
@@ -271,15 +262,14 @@ st.markdown(f"""
         font-weight: 600;
         transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
         box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    }}
-    div[data-testid="stButton"] > button:hover {{
-        background-color: color-mix(in srgb, var(--accent-primary) 80%, var(--st-text-color) 20%); /* Auto darken/lighten */
-        /* filter: brightness(1.15); Alternative simple hover */
+    }
+    div[data-testid="stButton"] > button:hover {
+        background-color: color-mix(in srgb, var(--accent-primary) 80%, var(--st-text-color) 20%);
         color: var(--text-on-accent-primary);
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.12);
-    }}
-    div[data-testid="stDownloadButton"] > button {{
+    }
+    div[data-testid="stDownloadButton"] > button {
         background-color: var(--dl-button-bg);
         color: var(--dl-button-text);
         border: none;
@@ -288,27 +278,31 @@ st.markdown(f"""
         font-weight: 600;
         transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
         box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    }}
-    div[data-testid="stDownloadButton"] > button:hover {{
+    }
+    div[data-testid="stDownloadButton"] > button:hover {
         background-color: var(--dl-button-hover-bg);
         color: var(--dl-button-hover-text);
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.12);
-    }}
+    }
 
     /* Sidebar styling */
-    div[data-testid="stSidebarUserContent"] {{
+    div[data-testid="stSidebarUserContent"] {
         background-color: var(--st-secondary-background-color);
         padding: 1.5em 1em;
         border-right: 1px solid var(--st-border-color);
-    }}
+    }
     div[data-testid="stSidebarUserContent"] h2,
-    div[data-testid="stSidebarUserContent"] h3 {{
-        color: var(--accent-highlight); /* Use highlight for sidebar headers */
+    div[data-testid="stSidebarUserContent"] h3 {
+        color: var(--accent-highlight);
         border-bottom-color: var(--accent-secondary);
-    }}
-</style>
-""", unsafe_allow_html=True)
+    }
+    """,
+    "</style>"
+]
+css_style = "\n".join(css_parts)
+st.markdown(css_style, unsafe_allow_html=True)
+
 
 # --- Application Access Control ---
 def check_password():
@@ -376,13 +370,12 @@ def robust_to_datetime(series):
     return dates
 
 @st.cache_data(ttl=600)
-def load_data_from_google_sheet(_gc_auth_result): # Parameter changed to ensure re-run on auth change if needed
+def load_data_from_google_sheet(_gc_auth_result):
     url = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"); ws_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
     if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame()
     if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame()
-    
-    gc = _gc_auth_result # Use the passed authenticated gspread client
-    if gc is None: return pd.DataFrame() # Already handled by authenticate_gspread, but good check
+    gc = _gc_auth_result
+    if gc is None: return pd.DataFrame()
 
     try:
         ss = gc.open_by_url(url) if "docs.google.com" in url else gc.open(url)
@@ -408,7 +401,7 @@ def load_data_from_google_sheet(_gc_auth_result): # Parameter changed to ensure 
         def to_utc(s):
             if pd.api.types.is_datetime64_any_dtype(s) and s.notna().any():
                 try: return s.dt.tz_localize('UTC') if s.dt.tz is None else s.dt.tz_convert('UTC')
-                except Exception: return s # Return original if tz conversion fails
+                except Exception: return s
             return s
         df_loaded_internal['days_to_confirmation'] = (to_utc(df_loaded_internal['confirmationTimestamp_dt']) - to_utc(df_loaded_internal['deliveryDate_dt'])).dt.days
     else: df_loaded_internal['days_to_confirmation'] = pd.NA
@@ -423,7 +416,6 @@ def load_data_from_google_sheet(_gc_auth_result): # Parameter changed to ensure 
     checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome']
     for col in checklist_cols_to_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
-
     return df_loaded_internal
 
 @st.cache_data
@@ -443,17 +435,12 @@ def get_default_date_range(series):
         dates = pd.to_datetime(series,errors='coerce').dt.date.dropna()
         if not dates.empty:
             min_d,max_d = dates.min(),dates.max();
-            # Ensure default start 's' is not before min_d from data
             s = max(s, min_d) if min_d else s
-            # Ensure default end 'e' is not after max_d from data
             e = min(e, max_d) if max_d else e
-            if s > e: # If calculated s is after e (e.g. MTD for future data), use data range
-                s,e = min_d,max_d
+            if s > e: s,e = min_d,max_d
     return s,e,min_d,max_d
 
-
-# --- Initialize Session State ---
-default_s, default_e, _, _ = get_default_date_range(None) # Initial default without data
+default_s, default_e, _, _ = get_default_date_range(None)
 session_state_defaults = {
     'data_loaded': False, 'df_original': pd.DataFrame(), 'date_range': (default_s, default_e),
     'active_tab': "🌌 Overview",
@@ -464,7 +451,6 @@ session_state_defaults = {
 for k, v in session_state_defaults.items():
     if k not in st.session_state: st.session_state[k] = v
 
-# --- Data Loading Trigger ---
 if st.session_state.gspread_auth_client is None:
     st.session_state.gspread_auth_client = authenticate_gspread()
 
@@ -478,12 +464,11 @@ if not st.session_state.data_loaded and st.session_state.gspread_auth_client:
             st.session_state.date_range = (ds,de) if ds and de else (default_s,default_e)
             st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
         else:
-            st.session_state.df_original = pd.DataFrame() # Ensure it's an empty DF
-            st.session_state.data_loaded = False # Explicitly set to false
+            st.session_state.df_original = pd.DataFrame()
+            st.session_state.data_loaded = False
             st.sidebar.error("Data loading failed or sheet is empty.")
 elif not st.session_state.gspread_auth_client:
     st.sidebar.error("Google Sheets authentication failed. Data cannot be loaded.")
-
 
 df_original = st.session_state.df_original
 
@@ -491,18 +476,17 @@ st.title("🌌 Onboarding Performance Dashboard 🌌")
 
 if not st.session_state.data_loaded or df_original.empty:
     if not (st.secrets.get("GOOGLE_SHEET_URL_OR_NAME") and st.secrets.get("GOOGLE_WORKSHEET_NAME")):
-        pass # Secrets not configured, error shown by load_data
+        pass
     elif not st.session_state.gspread_auth_client:
         st.warning("Authentication with Google Sheets failed. Please check app configuration and permissions.")
     else:
         st.error("Failed to load data. Check sheet content, permissions, secrets & try refreshing.")
     if st.sidebar.button("🔄 Force Refresh Data", key="refresh_fail_button"):
         st.cache_data.clear()
-        st.session_state.gspread_auth_client = None # Force re-auth
-        st.session_state.data_loaded = False       # Force reload
+        st.session_state.gspread_auth_client = None
+        st.session_state.data_loaded = False
         st.rerun()
 
-# --- Sidebar ---
 with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True):
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
@@ -513,8 +497,8 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
 st.sidebar.header("⚙️ Data Controls")
 if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button"):
     st.cache_data.clear()
-    st.session_state.gspread_auth_client = None # Force re-auth
-    st.session_state.data_loaded = False       # Force reload
+    st.session_state.gspread_auth_client = None
+    st.session_state.data_loaded = False
     st.rerun()
 
 st.sidebar.header("🔍 Filters")
@@ -524,20 +508,17 @@ def_s, def_e, min_dt, max_dt = get_default_date_range(dates_series)
 if 'date_range' not in st.session_state or not (isinstance(st.session_state.date_range,tuple) and len(st.session_state.date_range)==2 and st.session_state.date_range[0] is not None and st.session_state.date_range[1] is not None):
     st.session_state.date_range = (def_s,def_e) if def_s and def_e else (date.today().replace(day=1),date.today())
 
-if min_dt and max_dt and def_s and def_e:
+if min_dt and max_dt and def_s and def_e: # Ensure all date boundaries are valid
     val_s,val_e = st.session_state.date_range
-    # Ensure selected values are within the actual data range
-    current_start = max(min_dt, val_s) if val_s else min_dt
-    current_end = min(max_dt, val_e) if val_e else max_dt
-    if current_start > current_end: # Handle case where filter might make start > end
-        current_start, current_end = min_dt, max_dt
+    current_start = max(min_dt, val_s) if val_s and min_dt else (val_s or min_dt or date.today().replace(day=1))
+    current_end = min(max_dt, val_e) if val_e and max_dt else (val_e or max_dt or date.today())
+    if current_start > current_end: current_start, current_end = (min_dt or date.today().replace(day=1)), (max_dt or date.today())
 
     sel_range = st.sidebar.date_input("Date Range:",value=(current_start, current_end),
                                       min_value=min_dt,max_value=max_dt,key="date_sel")
     if sel_range != st.session_state.date_range: st.session_state.date_range = sel_range; st.rerun()
 else: st.sidebar.warning("Date data unavailable for filter.")
 start_dt,end_dt = st.session_state.date_range if isinstance(st.session_state.date_range,tuple) and len(st.session_state.date_range)==2 else (None,None)
-
 
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
@@ -550,7 +531,7 @@ for k,lbl in cat_filters_definition.items():
     if not df_original.empty and k in df_original.columns and df_original[k].notna().any():
         opts = sorted([v for v in df_original[k].astype(str).dropna().unique() if v.strip()])
         if k+"_filter" not in st.session_state: st.session_state[k+"_filter"]=[]
-        sel = [v for v in st.session_state[k+"_filter"] if v in opts] # Ensure selected are valid
+        sel = [v for v in st.session_state[k+"_filter"] if v in opts]
         new_sel = st.sidebar.multiselect(f"Filter by {lbl}:",opts,default=sel,key=f"{k}_widget")
         if new_sel != st.session_state[k+"_filter"]: st.session_state[k+"_filter"]=new_sel; st.rerun()
 
@@ -560,12 +541,9 @@ def clear_filters_cb():
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
     st.session_state.selected_transcript_key = None
-    # No st.rerun() here, it's handled by the button if on_click is used properly
 
 if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True): st.rerun()
 
-
-# --- Data Filtering Logic ---
 df_filtered = pd.DataFrame()
 if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_working = st.session_state.df_original.copy()
@@ -577,12 +555,9 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
         df_working = df_working[df_working['storeName'].astype(str).str.contains(store_search_term, case=False, na=False)]
 
     if start_dt and end_dt and 'onboarding_date_only' in df_working.columns and df_working['onboarding_date_only'].notna().any():
-        # Ensure dates are comparable
         date_objects_for_filtering = pd.to_datetime(df_working['onboarding_date_only'], errors='coerce').dt.date
         valid_dates_mask = date_objects_for_filtering.notna()
-        
-        # Apply date filter only on rows with valid dates
-        date_filter_mask = pd.Series([False] * len(df_working), index=df_working.index) # Default to False
+        date_filter_mask = pd.Series([False] * len(df_working), index=df_working.index)
         date_filter_mask[valid_dates_mask] = \
             (date_objects_for_filtering[valid_dates_mask] >= start_dt) & \
             (date_objects_for_filtering[valid_dates_mask] <= end_dt)
@@ -595,55 +570,41 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
     df_filtered = df_working.copy()
 else: df_filtered = pd.DataFrame()
 
-
-# --- Plotly Base Layout (Minimal, relies on Streamlit's theme for Plotly) ---
-# For Plotly charts, font colors, etc., will be largely determined by Streamlit's theme.
-# Explicit color sequences in charts (like for status_fig) will override this.
 plotly_base_layout_settings = {
-    "plot_bgcolor": PLOT_BG_COLOR, # Transparent
-    "paper_bgcolor": PLOT_BG_COLOR, # Transparent
+    "plot_bgcolor": PLOT_BG_COLOR,
+    "paper_bgcolor": PLOT_BG_COLOR,
     "title_x":0.5,
     "xaxis_showgrid":False, "yaxis_showgrid":False,
     "margin": dict(l=40, r=20, t=60, b=40)
-    # Font colors, title colors etc. will be inherited from Streamlit's Plotly template
 }
 
-# --- MTD Metrics Calculation ---
 today_date = date.today(); mtd_s = today_date.replace(day=1)
 prev_mtd_e = mtd_s - timedelta(days=1); prev_mtd_s = prev_mtd_e.replace(day=1)
 df_mtd, df_prev_mtd = pd.DataFrame(), pd.DataFrame()
-
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
-    dates_s = pd.to_datetime(df_original['onboarding_date_only'],errors='coerce').dt.date
-    valid_mask = dates_s.notna()
-    if valid_mask.any():
-        df_valid = df_original[valid_mask].copy(); valid_dates = dates_s[valid_mask]
-        mtd_mask = (valid_dates >= mtd_s) & (valid_dates <= today_date)
-        prev_mask = (valid_dates >= prev_mtd_s) & (valid_dates <= prev_mtd_e)
-        df_mtd = df_valid[mtd_mask.values]; df_prev_mtd = df_valid[prev_mask.values] # .values to align boolean mask if index differs
+    dates_s_orig = pd.to_datetime(df_original['onboarding_date_only'],errors='coerce').dt.date # Use df_original for MTD
+    valid_mask_orig = dates_s_orig.notna()
+    if valid_mask_orig.any():
+        df_valid_orig = df_original[valid_mask_orig].copy(); valid_dates_orig = dates_s_orig[valid_mask_orig]
+        mtd_mask = (valid_dates_orig >= mtd_s) & (valid_dates_orig <= today_date)
+        prev_mask = (valid_dates_orig >= prev_mtd_s) & (valid_dates_orig <= prev_mtd_e)
+        df_mtd = df_valid_orig[mtd_mask.values]; df_prev_mtd = df_valid_orig[prev_mask.values]
 
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd)
 tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-
-# --- Custom Tab Navigation ---
 tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
 if 'active_tab' not in st.session_state: st.session_state.active_tab = tab_names[0]
-
 selected_tab = st.radio(
-    "Navigation:",
-    tab_names,
+    "Navigation:", tab_names,
     index=tab_names.index(st.session_state.active_tab),
-    horizontal=True,
-    key="main_tab_selector_v3_themed" # Changed key to ensure it's fresh
+    horizontal=True, key="main_tab_selector_v3_themed_refactored"
 )
 if selected_tab != st.session_state.active_tab:
     st.session_state.active_tab = selected_tab
     st.rerun()
 
-
-# --- Display Content Based on Active Tab ---
 if st.session_state.active_tab == "🌌 Overview":
     with st.container():
         st.header("📈 Month-to-Date (MTD) Overview")
@@ -652,7 +613,6 @@ if st.session_state.active_tab == "🌌 Overview":
         with c2: st.metric("Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A")
         with c3: st.metric("Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A")
         with c4: st.metric("Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A")
-
     with st.container():
         st.header("📊 Filtered Data Overview")
         if not df_filtered.empty:
@@ -667,16 +627,13 @@ if st.session_state.active_tab == "🌌 Overview":
 elif st.session_state.active_tab == "📊 Analysis & Transcripts":
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True)
-
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score',
                    'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
     other_cols = [col for col in df_display_table.columns if col not in cols_for_display and
-                  not col.endswith(('_utc', '_str_original', '_dt')) and col not in ['fullTranscript', 'summary', 'onboarding_date_only']] # Hide helper columns
+                  not col.endswith(('_utc', '_str_original', '_dt')) and col not in ['fullTranscript', 'summary', 'onboarding_date_only']]
     cols_for_display.extend(other_cols)
-    # Ensure unique columns in order
     cols_for_display = list(dict.fromkeys(cols_for_display))
-
 
     if not df_display_table.empty:
         def style_df(df_to_style):
@@ -684,55 +641,43 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
             if 'score' in df_to_style.columns:
                 scores_num = pd.to_numeric(df_to_style['score'], errors='coerce')
                 if scores_num.notna().any():
-                    s = s.background_gradient(subset=['score'],cmap='PuBuGn',low=0.3,high=0.7, gmap=scores_num.fillna(scores_num.min())) # Fill NA for gmap
+                    s = s.background_gradient(subset=['score'],cmap='PuBuGn',low=0.3,high=0.7, gmap=scores_num.fillna(scores_num.min()))
             if 'days_to_confirmation' in df_to_style.columns:
                 days_num = pd.to_numeric(df_to_style['days_to_confirmation'], errors='coerce')
                 if days_num.notna().any():
-                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdPu_r', gmap=days_num.fillna(days_num.max())) # Fill NA for gmap
+                    s = s.background_gradient(subset=['days_to_confirmation'],cmap='RdPu_r', gmap=days_num.fillna(days_num.max()))
             return s
         st.dataframe(style_df(df_display_table[cols_for_display]), use_container_width=True, height=300)
-
         st.markdown("---")
         st.subheader("🔍 View Full Onboarding Details & Transcript")
-
         if not df_display_table.empty and 'fullTranscript' in df_display_table.columns:
-            # Create a unique identifier for each option if storeName and onboardingDate can be non-unique
             transcript_options = {
                 f"Idx {idx}: {row.get('storeName', 'N/A')} ({row.get('onboardingDate', 'N/A')})": idx
                 for idx, row in df_display_table.iterrows()
             }
             if transcript_options:
                 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
-
-                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v3_themed"
-
+                selectbox_widget_key = "transcript_selector_widget_main_tab2_ui_v4_refactored"
                 selected_key_display = st.selectbox("Select onboarding to view details:",
                     options=[None] + list(transcript_options.keys()), index=0,
                     format_func=lambda x: "Choose an entry..." if x is None else x,
-                    key=selectbox_widget_key
-                )
-
-                # No need to st.rerun() on selectbox change if logic is self-contained below
-                st.session_state.selected_transcript_key = selected_key_display # Update session state directly
-
+                    key=selectbox_widget_key)
+                st.session_state.selected_transcript_key = selected_key_display
                 if st.session_state.selected_transcript_key :
                     selected_idx = transcript_options[st.session_state.selected_transcript_key]
                     selected_row = df_display_table.loc[selected_idx]
-
                     st.markdown("##### Onboarding Summary:")
                     summary_html = "<div class='transcript-summary-grid'>"
                     summary_items = {
                         "Store": selected_row.get('storeName', 'N/A'), "Rep": selected_row.get('repName', 'N/A'),
                         "Score": selected_row.get('score', 'N/A'), "Status": selected_row.get('status', 'N/A'),
-                        "Sentiment": selected_row.get('clientSentiment', 'N/A')
-                    }
+                        "Sentiment": selected_row.get('clientSentiment', 'N/A')}
                     for item_label, item_value in summary_items.items():
                         summary_html += f"<div class='transcript-summary-item'><strong>{item_label}:</strong> {item_value}</div>"
                     data_summary_text = selected_row.get('summary', 'N/A')
                     summary_html += f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>Call Summary:</strong> {data_summary_text}</div>"
                     summary_html += "</div>"
                     st.markdown(summary_html, unsafe_allow_html=True)
-
                     st.markdown("##### Key Requirement Checks:")
                     for item_column_name in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
                         requirement_details = KEY_REQUIREMENT_DETAILS.get(item_column_name)
@@ -744,7 +689,6 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                             status_emoji = "✅" if is_requirement_met else "❌"
                             type_tag_html = f"<span class='type'>[{item_type}]</span>" if item_type else ""
                             st.markdown(f"<div class='requirement-item'>{status_emoji} {item_description} {type_tag_html}</div>", unsafe_allow_html=True)
-
                     st.markdown("---")
                     st.markdown("##### Full Transcript:")
                     transcript_content = selected_row.get('fullTranscript', "")
@@ -761,15 +705,13 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                         html_transcript += "</div>"
                         st.markdown(html_transcript, unsafe_allow_html=True)
                     else: st.info("No transcript available or empty.")
-            else: st.info("No entries in the filtered table to select for details.") # Changed message
+            else: st.info("No entries in the filtered table to select for details.")
         else: st.info("No data in table for transcript viewer, or 'fullTranscript' column missing.")
         st.markdown("---")
-
         csv_data = convert_df_to_csv(df_filtered)
         st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True)
     elif not df_original.empty: st.info("No data matches current filters for table display.")
     else: st.info("No data loaded to display.")
-
 
     st.header("📊 Key Visuals (Based on Filtered Data)")
     if not df_filtered.empty:
@@ -777,29 +719,23 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
         with c1_charts:
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_counts = df_filtered['status'].value_counts().reset_index()
-                status_fig = px.bar(status_counts, x='status', y='count',
-                                     color='status', title="Onboarding Status Distribution",
-                                     color_discrete_sequence=[DARK_PURPLE_PAIN, DARK_MEDIUM_PURPLE, DARK_ICE_COLD]) # Still uses dark theme colors
+                status_fig = px.bar(status_counts, x='status', y='count', color='status', title="Onboarding Status Distribution",
+                                     color_discrete_sequence=[DARK_PURPLE_PAIN, DARK_MEDIUM_PURPLE, DARK_ICE_COLD])
                 status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
-
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_counts = df_filtered['repName'].value_counts().reset_index()
-                rep_fig = px.bar(rep_counts, x='repName', y='count',
-                                     color='repName', title="Onboardings by Representative",
-                                     color_discrete_sequence=px.colors.qualitative.Pastel1) # Pastel1 might work on both themes
+                rep_fig = px.bar(rep_counts, x='repName', y='count', color='repName', title="Onboardings by Representative",
+                                     color_discrete_sequence=px.colors.qualitative.Pastel1)
                 rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
-
         with c2_charts:
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
-                # Define color map based on current (dark) palette for consistency until Plotly theming is tackled
                 color_map_s = {str(s).lower(): (DARK_ICE_COLD if 'positive' in str(s).lower() else
                                              (DARK_HEAVY_PURPLE if 'negative' in str(s).lower() else DARK_MEDIUM_PURPLE))
                              for s in sent_counts['clientSentiment'].unique()}
-                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5,
-                                  title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map_s)
+                sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.5, title="Client Sentiment Breakdown",
+                                  color='clientSentiment', color_discrete_map=color_map_s)
                 sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
-
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
             actual_key_cols_for_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_conf_chart.columns]
             checklist_data_for_chart = []
@@ -820,7 +756,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
                         checklist_bar_fig = px.bar(df_checklist_bar_chart.sort_values("Completion (%)",ascending=True),
                                                      x="Completion (%)", y="Key Requirement", orientation='h',
                                                      title="Key Requirement Completion (Confirmed Onboardings)",
-                                                     color_discrete_sequence=[DARK_PURPLE_PAIN]) # Still uses dark theme color
+                                                     color_discrete_sequence=[DARK_PURPLE_PAIN])
                         checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(checklist_bar_fig, use_container_width=True)
                 else: st.info("No data for key requirement chart (confirmed).")
@@ -836,11 +772,11 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
             df_trend_for_tab3.dropna(subset=['onboarding_date_only'], inplace=True)
             if not df_trend_for_tab3.empty:
                 span_for_trend_tab3 = (df_trend_for_tab3['onboarding_date_only'].max() - df_trend_for_tab3['onboarding_date_only'].min()).days
-                freq_for_trend_tab3 = 'D' if span_for_trend_tab3 <= 62 else ('W-MON' if span_for_trend_tab3 <= 365*1.5 else 'ME') # Changed from M to ME for month end
+                freq_for_trend_tab3 = 'D' if span_for_trend_tab3 <= 62 else ('W-MON' if span_for_trend_tab3 <= 365*1.5 else 'ME')
                 data_for_trend_tab3 = df_trend_for_tab3.set_index('onboarding_date_only').resample(freq_for_trend_tab3).size().reset_index(name='count')
                 if not data_for_trend_tab3.empty:
                     fig_for_trend_tab3 = px.line(data_for_trend_tab3, x='onboarding_date_only', y='count', markers=True,
-                                      title="Onboardings Over Filtered Period", color_discrete_sequence=[DARK_ICE_COLD]) # Still uses dark theme color
+                                      title="Onboardings Over Filtered Period", color_discrete_sequence=[DARK_ICE_COLD])
                     fig_for_trend_tab3.update_layout(plotly_base_layout_settings)
                     st.plotly_chart(fig_for_trend_tab3, use_container_width=True)
                 else: st.info("Not enough data for trend plot after resampling.")
@@ -852,7 +788,7 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
             if not days_data_for_hist_tab3.empty:
                 nbins_for_hist_tab3 = max(10, min(50, int(len(days_data_for_hist_tab3)/5))) if len(days_data_for_hist_tab3) > 20 else (len(days_data_for_hist_tab3.unique()) or 10)
                 fig_days_dist_hist_tab3 = px.histogram(days_data_for_hist_tab3, nbins=nbins_for_hist_tab3,
-                                           title="Days to Confirmation Distribution", color_discrete_sequence=[DARK_MEDIUM_PURPLE]) # Still uses dark theme color
+                                           title="Days to Confirmation Distribution", color_discrete_sequence=[DARK_MEDIUM_PURPLE])
                 fig_days_dist_hist_tab3.update_layout(plotly_base_layout_settings)
                 st.plotly_chart(fig_days_dist_hist_tab3, use_container_width=True)
             else: st.info("No valid 'Days to Confirmation' data for distribution plot.")
@@ -860,4 +796,4 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     else: st.info("No data matches current filters for Trends & Distributions.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("Dashboard v3.3 | Secured Access")
+st.sidebar.info("Dashboard v3.4 | Secured Access")

@@ -476,8 +476,15 @@ if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_cont
 
 # --- Active Filters Summary ---
 active_filter_parts = []
-if start_dt and end_dt and (start_dt != default_s_init or end_dt != default_e_init): # Check against initial defaults
-    active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
+# Check if date range is different from the absolute min/max possible if data exists, or initial defaults if no data
+min_possible_date = st.session_state.get('min_data_date_for_filter', default_s_init)
+max_possible_date = st.session_state.get('max_data_date_for_filter', default_e_init)
+
+if start_dt and end_dt:
+    is_default_date_range = (start_dt == min_possible_date and end_dt == max_possible_date)
+    if not is_default_date_range: # Only show if not the widest possible range
+         active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
+
 for k, lbl in search_cols_definition.items():
     if st.session_state[k+"_search"]: active_filter_parts.append(f"{lbl}: '{st.session_state[k+'_search']}'")
 for k, lbl in cat_filters_definition.items():
@@ -750,4 +757,6 @@ st.markdown(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info(f"App Version: 3.8 ({THEME.capitalize()} Mode)")
+# Robustly display theme mode in sidebar info
+theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
+st.sidebar.info(f"App Version: 3.8 ({theme_display_name} Mode)")

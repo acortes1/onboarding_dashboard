@@ -20,8 +20,8 @@ import matplotlib # Imported because some pandas styling features (e.g., backgro
 # - page_icon: The icon (favicon) for the browser tab (can be an emoji or a URL).
 # - layout: How the content is arranged on the page. "wide" uses the full width of the screen.
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v2.12.1", # Updated version for Pylance error check
-    page_icon="✅", # Checkmark emoji
+    page_title="Onboarding Performance Dashboard v2.12.2", # Updated version for this NameError fix
+    page_icon="🔧", # Wrench emoji for fixing
     layout="wide"
 )
 
@@ -33,7 +33,7 @@ st.set_page_config(
 # Define color constants for easy reuse and theme consistency.
 GOLD_ACCENT_COLOR = "#FFD700"
 # This is the primary text color intended for dark themes.
-PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" # Pylance Error Point: Ensure this is defined if used directly.
+PRIMARY_TEXT_COLOR_DARK_THEME = "#FFFFFF" 
 SECONDARY_TEXT_COLOR_DARK_THEME = "#B0B0B0" 
 # PLOT_BG_COLOR is set to transparent for plots to inherit the app's background.
 PLOT_BG_COLOR = "rgba(0,0,0,0)" 
@@ -151,8 +151,6 @@ if not check_password():
 # --- Constants ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] 
 
-# Pylance Error Point: KEY_REQUIREMENT_DETAILS is defined here, globally.
-# It maps internal column names to display information.
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': { 
         "description": "Warmly introduce yourself and DIME Industries.",
@@ -185,7 +183,6 @@ KEY_REQUIREMENT_DETAILS = {
         "chart_label": "Expectations Set" 
     }
 }
-# Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is defined here, globally.
 # This list defines the *display order* for requirements in the transcript viewer.
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = [
     'introSelfAndDIME',
@@ -270,8 +267,8 @@ def load_data_from_google_sheet(_url_param, _ws_param):
     if 'score' not in df.columns: df['score'] = pd.NA
     df['score'] = pd.to_numeric(df['score'], errors='coerce')
     
-    # Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is used here. It should be defined globally.
-    checklist_cols_to_ensure = ORDERED_KEY_CHECKLIST_ITEMS + ['onboardingWelcome'] 
+    # CORRECTED: Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or similar correct constant)
+    checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome'] 
     for col in checklist_cols_to_ensure:
         if col not in df.columns: df[col] = pd.NA 
             
@@ -392,16 +389,12 @@ if 'df_original' in st.session_state and not st.session_state.df_original.empty:
 else: df_filtered = pd.DataFrame() 
 
 # --- Plotly Layout Configuration ---
-# Pylance Error Point: plotly_base_layout_settings is defined here.
-# If Pylance reported an error for PRIMARY_TEXT_COLOR at lines 391, 392 (in a previous version),
-# it would be referring to its usage within this dictionary.
-# We are using PRIMARY_TEXT_COLOR_DARK_THEME, which IS defined.
 plotly_base_layout_settings = {
     "plot_bgcolor":PLOT_BG_COLOR, 
     "paper_bgcolor":PLOT_BG_COLOR, 
-    "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, # Using the defined constant for dark theme
+    "font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
     "title_font_color":GOLD_ACCENT_COLOR, 
-    "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, # Using the defined constant for dark theme
+    "legend_font_color":PRIMARY_TEXT_COLOR_DARK_THEME, 
     "title_x":0.5, 
     "xaxis_showgrid":False, 
     "yaxis_showgrid":False
@@ -424,7 +417,6 @@ tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
 # --- Main Content Tabs ---
-# Pylance Error Point: tab1_main_content_ui, tab2_main_content_ui, tab3_main_content_ui are defined here by st.tabs().
 tab1_main_content_ui, tab2_main_content_ui, tab3_main_content_ui = st.tabs(["📈 Overview", "📊 Detailed Analysis & Data", "💡 Trends & Distributions"])
 
 with tab1_main_content_ui: 
@@ -447,9 +439,9 @@ with tab2_main_content_ui:
     st.header("📋 Filtered Onboarding Data Table")
     df_display_table = df_filtered.copy().reset_index(drop=True) 
     
-    # Pylance Error Point: ORDERED_KEY_CHECKLIST_ITEMS is used here. It should be defined globally.
+    # CORRECTED: Use the globally defined ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS (or ORDERED_CHART_REQUIREMENTS)
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
-                   'clientSentiment', 'days_to_confirmation'] + ORDERED_KEY_CHECKLIST_ITEMS 
+                   'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS 
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
     other_cols = [col for col in df_display_table.columns if col not in cols_for_display and 
                   not col.endswith(('_utc', '_str_original', '_dt')) and col not in ['fullTranscript', 'summary']] 
@@ -562,19 +554,19 @@ with tab2_main_content_ui:
             if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
                 status_fig = px.bar(df_filtered['status'].value_counts().reset_index(), x='status', y='count', 
                                      color='status', title="Onboarding Status Distribution")
-                status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True) # Ensure correct layout variable
+                status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
             
             if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                 rep_fig = px.bar(df_filtered['repName'].value_counts().reset_index(), x='repName', y='count', 
                                      color='repName', title="Onboardings by Representative")
-                rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True) # Ensure correct layout variable
+                rep_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(rep_fig, use_container_width=True)
         
         with c2_charts: 
             if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                 sent_counts = df_filtered['clientSentiment'].value_counts().reset_index()
                 color_map = {str(s).lower(): (GOLD_ACCENT_COLOR if 'neutral' in str(s).lower() else ('#2ca02c' if 'positive' in str(s).lower() else ('#d62728' if 'negative' in str(s).lower() else None))) for s in sent_counts['clientSentiment'].unique()}
                 sent_fig = px.pie(sent_counts, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=color_map)
-                sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True) # Ensure correct layout variable
+                sent_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(sent_fig, use_container_width=True)
 
             df_conf_chart = df_filtered[df_filtered['status'].astype(str).str.lower() == 'confirmed']
             actual_key_cols_for_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_conf_chart.columns]
@@ -608,7 +600,6 @@ with tab2_main_content_ui:
     else: 
         st.info("No data matches filters for detailed visuals.")
 
-# Pylance Error Point: tab3_main_content_ui is used here. It should be defined by st.tabs() above.
 with tab3_main_content_ui: 
     st.header("💡 Trends & Distributions (Based on Filtered Data)")
     if not df_filtered.empty:
@@ -646,3 +637,4 @@ with tab3_main_content_ui:
 
 st.sidebar.markdown("---") 
 st.sidebar.info("Dashboard v2.12.1 | Secured Access") 
+

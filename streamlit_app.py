@@ -327,44 +327,72 @@ def load_data_from_google_sheet():
     except gspread.exceptions.WorksheetNotFound: st.error(f"Worksheet Not Found: '{ws_name}'."); return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); return pd.DataFrame()
 
-    df_loaded_internal.columns = df_loaded_internal.columns.str.strip()
-    # Standardize common column name variations to the names used in the code
+    # Standardize column names from sheet
+    df_loaded_internal.columns = [col.strip().lower().replace(" ", "") for col in df_loaded_internal.columns]
+
+    # Map standardized sheet names to internal code names
+    # Keys in this map should be the lowercased, space-removed version from the sheet
     column_name_map = {
-        "License Number": "licenseNumber",
-        "Store Name": "storeName",
-        "Rep Name": "repName",
-        "Onboarding Date": "onboardingDate",
-        "Delivery Date": "deliveryDate",
-        "Confirmation Timestamp": "confirmationTimestamp",
-        "Client Sentiment": "clientSentiment",
-        "Full Transcript": "fullTranscript",
-        # Add other potential variations from the sheet if needed
+        "licensenumber": "licenseNumber",
+        "storename": "storeName",
+        "repname": "repName",
+        "onboardingdate": "onboardingDate",
+        "deliverydate": "deliveryDate",
+        "confirmationtimestamp": "confirmationTimestamp",
+        "clientsentiment": "clientSentiment",
+        "fulltranscript": "fullTranscript",
+        "score": "score", # Ensure score is also mapped if it comes with different casing/spacing
+        "status": "status",
+        "summary": "summary"
+        # Add other potential variations if needed, ensure keys are lowercased and no spaces
     }
-    existing_cols_to_rename = {k: v for k, v in column_name_map.items() if k in df_loaded_internal.columns}
-    df_loaded_internal.rename(columns=existing_cols_to_rename, inplace=True)
+    # Add checklist items to the map, assuming they might also have variations
+    for req_key in KEY_REQUIREMENT_DETAILS.keys():
+        column_name_map[req_key.lower()] = req_key # e.g. "introselfanddime" -> "introSelfAndDIME"
+
+    cols_to_rename_standardized = {
+        std_sheet_col: code_col_name
+        for std_sheet_col, code_col_name in column_name_map.items()
+        if std_sheet_col in df_loaded_internal.columns and code_col_name not in df_loaded_internal.columns # Avoid renaming if target already exists
+    }
+    if cols_to_rename_standardized:
+        df_loaded_internal.rename(columns=cols_to_rename_standardized, inplace=True)
 
 
     date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
     for col, new_col in date_cols.items():
         if col in df_loaded_internal: df_loaded_internal[new_col] = robust_to_datetime(df_loaded_internal[col].astype(str).str.replace('\n','',regex=False).str.strip())
         else: df_loaded_internal[new_col] = pd.NaT
-        if col == 'onboardingDate': df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
+        if col == 'onboardingDate' and new_col in df_loaded_internal: # Check if new_col was created
+             df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
+        elif col == 'onboardingDate' and new_col not in df_loaded_internal: # If original date col didn't exist
+             df_loaded_internal['onboarding_date_only'] = pd.NaT
+
+
     if 'deliveryDate_dt' in df_loaded_internal and 'confirmationTimestamp_dt' in df_loaded_internal:
+        # Ensure these columns are datetime before subtraction
         df_loaded_internal['deliveryDate_dt'] = pd.to_datetime(df_loaded_internal['deliveryDate_dt'], errors='coerce')
         df_loaded_internal['confirmationTimestamp_dt'] = pd.to_datetime(df_loaded_internal['confirmationTimestamp_dt'], errors='coerce')
-        def to_utc(s):
+        def to_utc(s): # Ensure this function handles NaT gracefully
             if pd.api.types.is_datetime64_any_dtype(s) and s.notna().any():
                 try: return s.dt.tz_localize('UTC') if s.dt.tz is None else s.dt.tz_convert('UTC')
-                except Exception: return s
-            return s
-        df_loaded_internal['days_to_confirmation'] = (to_utc(df_loaded_internal['confirmationTimestamp_dt']) - to_utc(df_loaded_internal['deliveryDate_dt'])).dt.days
-    else: df_loaded_internal['days_to_confirmation'] = pd.NA
+                except Exception: return s # Return original if tz conversion fails (e.g. already localized)
+            return s # Return as is if not datetime or all NaT
+        # Apply only where both dates are valid
+        valid_dates_mask = df_loaded_internal['confirmationTimestamp_dt'].notna() & df_loaded_internal['deliveryDate_dt'].notna()
+        df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = \
+            (to_utc(df_loaded_internal.loc[valid_dates_mask, 'confirmationTimestamp_dt']) - \
+             to_utc(df_loaded_internal.loc[valid_dates_mask, 'deliveryDate_dt'])).dt.days
+        if 'days_to_confirmation' not in df_loaded_internal.columns: # Ensure column exists if no valid dates
+            df_loaded_internal['days_to_confirmation'] = pd.NA
+
 
     # Ensure core columns (using standardized names) exist, filling with empty strings or NA
     str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary']
     for col in str_cols_ensure:
         if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
         else: df_loaded_internal[col] = df_loaded_internal[col].astype(str).fillna("")
+
     if 'score' not in df_loaded_internal.columns: df_loaded_internal['score'] = pd.NA
     else: df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
 
@@ -385,22 +413,38 @@ def calculate_metrics(df_in):
     return total, sr, avg_s, avg_d
 
 def get_default_date_range(series):
-    today=date.today(); s=today.replace(day=1); e=today; min_d,max_d = None,None
+    today = date.today()
+    s_default = today.replace(day=1)
+    e_default = today
+    min_d_data, max_d_data = None, None
+
     if series is not None and not series.empty and series.notna().any():
-        dates = pd.to_datetime(series,errors='coerce').dt.date.dropna()
+        dates = pd.to_datetime(series, errors='coerce').dt.date.dropna()
         if not dates.empty:
-            min_d_series, max_d_series = dates.min(), dates.max()
-            min_d = min_d_series; max_d = max_d_series
-            s = max(s, min_d_series); e = min(e, max_d_series)
-            if s > e : s,e = min_d_series,max_d_series
-    return s,e,min_d,max_d
+            min_d_data = dates.min()
+            max_d_data = dates.max()
+            s_final = max(s_default, min_d_data)
+            e_final = min(e_default, max_d_data)
+            if s_final > e_final: # If calculated s is after e (e.g. MTD for future data), use data range
+                s_final = min_d_data
+                e_final = max_d_data
+            return s_final, e_final, min_d_data, max_d_data
+    return s_default, e_default, min_d_data, max_d_data
+
 
 # --- Initialize Session State ---
-default_s_init, default_e_init, _, _ = get_default_date_range(None)
+default_s_init, default_e_init, _, _ = get_default_date_range(None) # These are guaranteed date objects
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
-if 'date_range' not in st.session_state or not (isinstance(st.session_state.date_range, tuple) and len(st.session_state.date_range) == 2):
+
+# Ensure 'date_range' is always a 2-tuple of date objects
+if 'date_range' not in st.session_state or \
+   not (isinstance(st.session_state.date_range, tuple) and \
+        len(st.session_state.date_range) == 2 and \
+        isinstance(st.session_state.date_range[0], date) and \
+        isinstance(st.session_state.date_range[1], date)):
     st.session_state.date_range = (default_s_init, default_e_init)
+
 if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
@@ -408,6 +452,8 @@ for s_key_base in ['licenseNumber', 'storeName']:
     if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
 if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
 if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
+if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = None
+if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = None
 
 
 # --- Data Loading Trigger ---
@@ -417,9 +463,9 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = df_from_load_func
         st.session_state.data_loaded = True
         ds,de,min_data_date,max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
-        st.session_state.date_range = (ds,de) if ds and de else (default_s_init, default_e_init)
-        st.session_state.min_data_date_for_filter = min_data_date
-        st.session_state.max_data_date_for_filter = max_data_date
+        st.session_state.date_range = (ds,de) # ds, de are guaranteed dates by get_default_date_range
+        st.session_state.min_data_date_for_filter = min_data_date # Can be None
+        st.session_state.max_data_date_for_filter = max_data_date # Can be None
         st.sidebar.success(f"Data loaded: {len(df_from_load_func)} records.")
     else:
         st.session_state.df_original = pd.DataFrame()
@@ -430,7 +476,7 @@ st.title("🌌 Onboarding Performance Dashboard 🌌")
 
 if not st.session_state.data_loaded or df_original.empty:
     st.markdown("<div class='no-data-message'>🚧 No data loaded or data is empty. Check configurations or try refreshing. 🚧</div>", unsafe_allow_html=True)
-    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_9"): # Unique key
+    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_9"):
         st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 
 # --- Sidebar ---
@@ -442,7 +488,7 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 st.sidebar.header("⚙️ Data Controls")
-if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_9"): # Unique key
+if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_9"):
     st.cache_data.clear(); st.session_state.data_loaded = False; st.rerun()
 if st.session_state.last_data_refresh_time:
     st.sidebar.caption(f"Last refreshed: {st.session_state.last_data_refresh_time.strftime('%b %d, %Y %I:%M %p')}")
@@ -451,48 +497,37 @@ else:
 
 
 st.sidebar.header("🔍 Filters")
-# Robust handling of date_range from session state
-if not (isinstance(st.session_state.get('date_range'), tuple) and len(st.session_state.date_range) == 2 and
-        st.session_state.date_range[0] is not None and st.session_state.date_range[1] is not None):
-    # If corrupted or not initialized as expected, reset it
-    ds_reset, de_reset, _, _ = get_default_date_range(df_original.get('onboarding_date_only'))
-    st.session_state.date_range = (ds_reset if ds_reset else default_s_init, de_reset if de_reset else default_e_init)
 
-current_date_range_start, current_date_range_end = st.session_state.date_range
+# Retrieve current date range from session state (guaranteed to be 2-tuple of dates)
+current_session_start_dt, current_session_end_dt = st.session_state.date_range
 
-min_dt_filter = st.session_state.get('min_data_date_for_filter', default_s_init)
-max_dt_filter = st.session_state.get('max_data_date_for_filter', default_e_init)
+# Min/max for the widget from data, or None if no data
+min_dt_widget = st.session_state.get('min_data_date_for_filter')
+max_dt_widget = st.session_state.get('max_data_date_for_filter')
 
-# Ensure current range is valid against available data min/max, and default if necessary
-current_date_range_start = current_date_range_start or default_s_init
-current_date_range_end = current_date_range_end or default_e_init
-
-if min_dt_filter and current_date_range_start < min_dt_filter: current_date_range_start = min_dt_filter
-if max_dt_filter and current_date_range_end > max_dt_filter: current_date_range_end = max_dt_filter
-# Ensure start is not after end
-if current_date_range_start > current_date_range_end:
-    current_date_range_start = min_dt_filter if min_dt_filter else default_s_init # Reset to min possible or default
-    current_date_range_end = max_dt_filter if max_dt_filter else default_e_init   # Reset to max possible or default
-    if current_date_range_start > current_date_range_end : # Final fallback if defaults are also crossed
-        current_date_range_start = default_s_init
-        current_date_range_end = default_e_init
-
+# Prepare value for st.date_input. It must be concrete dates.
+# If session dates are outside widget's actual min/max (from data), date_input will clip.
+# If min/max_dt_widget is None, date_input won't restrict.
+value_for_widget_start = current_session_start_dt
+value_for_widget_end = current_session_end_dt
 
 sel_range = st.sidebar.date_input(
     "Date Range:",
-    value=(current_date_range_start, current_date_range_end),
-    min_value=min_dt_filter, # Can be None
-    max_value=max_dt_filter, # Can be None
-    key="date_sel_v3_9" # Unique key
+    value=(value_for_widget_start, value_for_widget_end),
+    min_value=min_dt_widget, # Ok if None
+    max_value=max_dt_widget, # Ok if None
+    key="date_sel_v3_9_final"
 )
 
-if isinstance(sel_range, tuple) and len(sel_range) == 2 and sel_range[0] is not None and sel_range[1] is not None:
+# st.date_input (range mode) returns a 2-tuple of date objects.
+if isinstance(sel_range, tuple) and len(sel_range) == 2 and \
+   isinstance(sel_range[0], date) and isinstance(sel_range[1], date):
     if sel_range != st.session_state.date_range:
         st.session_state.date_range = sel_range
         st.rerun()
-# else: date_input might have returned something unexpected (e.g. single date if one was cleared), ignore update to prevent error
+# No 'else' needed here, as st.date_input should always return valid tuple or handle internally.
 
-start_dt, end_dt = st.session_state.date_range # This should now be safe
+start_dt, end_dt = st.session_state.date_range # These are now the definitive start/end dates for filtering
 
 search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in search_cols_definition.items():
@@ -508,7 +543,7 @@ for k,lbl in cat_filters_definition.items():
 
 def clear_filters_cb():
     ds_clear, de_clear, min_d_clear, max_d_clear = get_default_date_range(st.session_state.df_original.get('onboarding_date_only'))
-    st.session_state.date_range = (ds_clear if ds_clear else default_s_init, de_clear if de_clear else default_e_init)
+    st.session_state.date_range = (ds_clear, de_clear) # ds_clear, de_clear are guaranteed dates
     st.session_state.min_data_date_for_filter = min_d_clear
     st.session_state.max_data_date_for_filter = max_d_clear
     for k_search in search_cols_definition: st.session_state[k_search+"_search"]=""
@@ -521,8 +556,12 @@ active_filter_parts = []
 min_possible_date_for_summary = st.session_state.get('min_data_date_for_filter', default_s_init)
 max_possible_date_for_summary = st.session_state.get('max_data_date_for_filter', default_e_init)
 
-if start_dt and end_dt: # Ensure start_dt and end_dt are not None
+if start_dt and end_dt:
     is_default_date_range = (start_dt == min_possible_date_for_summary and end_dt == max_possible_date_for_summary)
+    # Also check against system defaults if data min/max are None (i.e. no data loaded)
+    if min_possible_date_for_summary is None and max_possible_date_for_summary is None:
+        is_default_date_range = (start_dt == default_s_init and end_dt == default_e_init)
+
     if not is_default_date_range:
          active_filter_parts.append(f"🗓️ Dates: {start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d, %Y')}")
 
@@ -546,7 +585,6 @@ if not df_original.empty:
     if store_search_term and "storeName" in df_working.columns:
         df_working = df_working[df_working['storeName'].astype(str).str.contains(store_search_term, case=False, na=False)]
     
-    # Ensure start_dt and end_dt are valid date objects before filtering
     if isinstance(start_dt, date) and isinstance(end_dt, date) and \
        'onboarding_date_only' in df_working.columns and df_working['onboarding_date_only'].notna().any():
         date_objects_for_filtering = pd.to_datetime(df_working['onboarding_date_only'], errors='coerce').dt.date
@@ -594,7 +632,7 @@ delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else 
 # --- Tab Navigation ---
 tab_names = ["🌌 Overview", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab),
-                        horizontal=True, key="main_tab_selector_v3_9") # Unique key
+                        horizontal=True, key="main_tab_selector_v3_9")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
 # --- Display Content ---
@@ -653,7 +691,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
 
                 selected_key_display = st.selectbox("Select onboarding to view details:", options=options_list,
                                                     index=current_index, format_func=lambda x: "Choose an entry..." if x is None else x,
-                                                    key="transcript_selector_v3_9") # Unique key
+                                                    key="transcript_selector_v3_9")
                 if selected_key_display != st.session_state.selected_transcript_key :
                     st.session_state.selected_transcript_key = selected_key_display
                     st.rerun()
@@ -693,7 +731,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
         else: st.markdown("<div class='no-data-message'>📜 No data in table for transcript viewer, or 'fullTranscript' column missing. 📜</div>", unsafe_allow_html=True)
         st.markdown("---")
         csv_data = convert_df_to_csv(df_filtered)
-        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_9") # Unique key
+        st.download_button("📥 Download Filtered Data", csv_data, 'filtered_data.csv', 'text/csv', use_container_width=True, key="download_csv_v3_9")
     elif not df_original.empty: st.markdown("<div class='no-data-message'>📊 No data matches current filters for table display. Try different filter settings! 📊</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
@@ -795,11 +833,11 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
 # --- Footer ---
 st.markdown("---")
 st.markdown(
-    f"<div class='footer'>Onboarding Performance Dashboard v3.8 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>",
+    f"<div class='footer'>Onboarding Performance Dashboard v3.9 © {datetime.now().year} DIME Industries. All Rights Reserved.</div>",
     unsafe_allow_html=True
 )
 
 st.sidebar.markdown("---")
 # Robustly display theme mode in sidebar info
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-st.sidebar.info(f"App Version: 3.8 ({theme_display_name} Mode)")
+st.sidebar.info(f"App Version: 3.9 ({theme_display_name} Mode

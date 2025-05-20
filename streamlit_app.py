@@ -637,4 +637,3 @@ with tab3_main_content_ui:
 
 st.sidebar.markdown("---") 
 st.sidebar.info("Dashboard v2.12.1 | Secured Access") 
-

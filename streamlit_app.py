@@ -13,8 +13,8 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.3", # Updated Version
-    page_icon="📈", # Changed to a more generic analytics/dashboard icon
+    page_title="Onboarding Analytics Dashboard v4.3.1", # Updated Version
+    page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -24,23 +24,22 @@ def load_custom_css():
     """Loads and injects custom CSS for the application."""
     THEME = st.get_option("theme.base")
 
-    # Define color palettes for light and dark modes for cell styling
     if THEME == "light":
-        SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D"; # Success Green
-        SCORE_MEDIUM_BG = "#FCF8E3"; SCORE_MEDIUM_TEXT = "#8A6D3B"; # Warning Yellow
-        SCORE_BAD_BG = "#F2DEDE"; SCORE_BAD_TEXT = "#A94442";    # Danger Red
+        SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D";
+        SCORE_MEDIUM_BG = "#FCF8E3"; SCORE_MEDIUM_TEXT = "#8A6D3B";
+        SCORE_BAD_BG = "#F2DEDE"; SCORE_BAD_TEXT = "#A94442";
         SENTIMENT_POSITIVE_BG = SCORE_GOOD_BG; SENTIMENT_POSITIVE_TEXT = SCORE_GOOD_TEXT;
         SENTIMENT_NEUTRAL_BG = "#F0F2F6"; SENTIMENT_NEUTRAL_TEXT = "#4A5568";
         SENTIMENT_NEGATIVE_BG = SCORE_BAD_BG; SENTIMENT_NEGATIVE_TEXT = SCORE_BAD_TEXT;
         DAYS_GOOD_BG = SCORE_GOOD_BG; DAYS_GOOD_TEXT = SCORE_GOOD_TEXT;
         DAYS_MEDIUM_BG = SCORE_MEDIUM_BG; DAYS_MEDIUM_TEXT = SCORE_MEDIUM_TEXT;
         DAYS_BAD_BG = SCORE_BAD_BG; DAYS_BAD_TEXT = SCORE_BAD_TEXT;
-        REQ_MET_BG = "#E7F3E7"; REQ_MET_TEXT = "#256833"; # Slightly different green for met
-        REQ_NOT_MET_BG = "#F8EAEA"; REQ_NOT_MET_TEXT = "#9E3434"; # Slightly different red for not met
+        REQ_MET_BG = "#E7F3E7"; REQ_MET_TEXT = "#256833";
+        REQ_NOT_MET_BG = "#F8EAEA"; REQ_NOT_MET_TEXT = "#9E3434";
         REQ_NA_BG = "transparent"; REQ_NA_TEXT = "var(--text-color)";
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
-        TABLE_BORDER_COLOR = "var(--border-color)"; TABLE_CELL_PADDING = "0.65em 0.8em"; # Adjusted padding
-        TABLE_FONT_SIZE = "0.92rem"; # Slightly larger table font
+        TABLE_BORDER_COLOR = "var(--border-color)"; TABLE_CELL_PADDING = "0.65em 0.8em";
+        TABLE_FONT_SIZE = "0.92rem";
     else: # Dark Theme
         SCORE_GOOD_BG = "#1E4620"; SCORE_GOOD_TEXT = "#A8D5B0";
         SCORE_MEDIUM_BG = "#4A3F22"; SCORE_MEDIUM_TEXT = "#FFE0A2";
@@ -77,28 +76,27 @@ def load_custom_css():
             --table-border-color: {TABLE_BORDER_COLOR}; --table-cell-padding: {TABLE_CELL_PADDING};
             --table-font-size: {TABLE_FONT_SIZE};
         }}
-        body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }} /* Added Inter as preferred */
-        .stApp {{ padding: 0.5rem 1rem; }} /* Add some base padding to the app */
+        body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
+        .stApp {{ padding: 0.5rem 1rem; }}
 
         h1, h2, h3, h4, h5, h6 {{ font-weight: 600; color: var(--primary-color); }}
         h1 {{
             text-align: center; padding-top: 0.8em; padding-bottom: 0.8em; font-size: 2.4rem;
             letter-spacing: 0.5px; border-bottom: 2px solid var(--primary-color); margin-bottom: 1.5em;
-            font-weight: 700; /* Make main title bolder */
+            font-weight: 700;
         }}
-        h2 {{ /* Section headers */
+        h2 {{
             font-size: 1.8rem; margin-top: 2.2em; margin-bottom: 1.3em;
             padding-bottom: 0.5em; border-bottom: 1px solid var(--border-color); font-weight: 600;
         }}
-        h3 {{ /* Sub-section headers */
+        h3 {{
             font-size: 1.5rem; margin-top: 2em; margin-bottom: 1.1em; font-weight: 600;
             color: var(--text-color); opacity: 0.9;
         }}
-         h5 {{ /* Sidebar section titles */
+         h5 {{
             color: var(--text-color); opacity: 0.95; margin-top: 1.8em; margin-bottom: 0.9em;
             font-weight: 500; letter-spacing: 0.1px; font-size: 1.1rem;
         }}
-
 
         div[data-testid="stMetric"], .metric-card {{
             background-color: var(--secondary-background-color); padding: 1.4em 1.7em;
@@ -147,8 +145,7 @@ def load_custom_css():
         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button {{
             background-color: var(--secondary-background-color); color: var(--primary-color);
             border: 1px solid var(--border-color); font-weight: 500;
-            padding: 8px 12px; /* Smaller padding for sidebar quick buttons */
-            font-size: 0.85rem;
+            padding: 8px 12px; font-size: 0.85rem;
         }}
         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button:hover {{
             background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--primary-color) 10%);
@@ -177,7 +174,7 @@ def load_custom_css():
             box-shadow: 0 -3px 6px rgba(0,0,0,0.04);
         }}
         div[data-testid="stRadio"] {{
-            padding-bottom: 0px; border-bottom: 2px solid var(--primary-color); margin-bottom: 28px; /* Increased margin */
+            padding-bottom: 0px; border-bottom: 2px solid var(--primary-color); margin-bottom: 28px;
         }}
         div[data-testid="stRadio"] > label > div:first-child {{ display: none; }}
 
@@ -211,7 +208,7 @@ def load_custom_css():
             background-color: var(--secondary-background-color); color: var(--text-color);
             padding: 2em; border-radius: 10px; border: 1px solid var(--border-color);
             max-height: 580px; overflow-y: auto;
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; /* Kept for transcript */
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
             font-size: 0.9rem; line-height: 1.7; box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
         }}
         .transcript-line strong {{ color: var(--primary-color); font-weight: 600; }}
@@ -237,7 +234,7 @@ def load_custom_css():
         div[data-testid="stMultiSelect"] div[role="combobox"] {{
             border-radius: 6px !important; border: 1px solid var(--border-color) !important;
             padding-top: 0.65em !important; padding-bottom: 0.65em !important;
-            font-size: 0.95rem; /* Slightly larger input font */
+            font-size: 0.95rem;
         }}
         div[data-testid="stTextInput"] input:focus, div[data-testid="stDateInput"] input:focus,
         div[data-testid="stNumberInput"] input:focus,
@@ -248,7 +245,7 @@ def load_custom_css():
         }}
 
         div[data-testid="stModal"] > div {{
-            border-radius: 12px !important; box-shadow: 0 12px 30px rgba(0,0,0,0.2) !important; /* Deeper shadow for modals */
+            border-radius: 12px !important; box-shadow: 0 12px 30px rgba(0,0,0,0.2) !important;
         }}
         div[data-testid="stModalHeader"] {{
             font-size: 1.6rem; color: var(--primary-color); padding-bottom: 0.9em;
@@ -308,15 +305,13 @@ def check_password():
 
     st.title("🔐 Secure Access Required")
     st.markdown("---")
-    # Centering the form a bit more
     _, form_col, _ = st.columns([1,1.5,1], gap="large")
-
     with form_col:
         st.markdown("<div style='text-align: center; font-size: 60px; margin-bottom: 20px;'>🔑</div>", unsafe_allow_html=True)
-        with st.form("password_form_main_app_v4_3"): # Key updated
+        with st.form("password_form_main_app_v4_3_1"): # Key updated
             st.markdown("<h4 style='text-align: center;'>Enter Access Key</h4>", unsafe_allow_html=True)
-            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_3", placeholder="Enter your key", label_visibility="collapsed") # Key updated
-            st.markdown("") # Spacer
+            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_3_1", placeholder="Enter your key", label_visibility="collapsed") # Key updated
+            st.markdown("")
             submitted = st.form_submit_button("🔓 Unlock Dashboard", use_container_width=True)
             if submitted:
                 if password_attempt == app_password: st.session_state.password_entered = True; st.rerun()
@@ -454,10 +449,10 @@ def load_data_from_google_sheet():
             else: df[col] = df[col].astype(str).replace(['nan', 'NaN', 'None', 'NaT', '<NA>'], "", regex=False).fillna("")
         if 'score' not in df.columns: df['score'] = pd.NA
         else: df['score'] = pd.to_numeric(df['score'], errors='coerce')
-        checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome']
+        checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome'] # Keep onboardingWelcome here for ensure logic
         for col in checklist_cols_to_ensure:
             if col not in df.columns: df[col] = pd.NA
-        cols_to_drop_final = ['deliverydatets', 'onboardingwelcome']
+        cols_to_drop_final = ['deliverydatets', 'onboardingwelcome'] # Standardized lowercase for dropping
         for col_to_drop in cols_to_drop_final:
             if col_to_drop in df.columns: df = df.drop(columns=[col_to_drop])
         return df
@@ -504,7 +499,7 @@ for f_key in categorical_filter_keys:
 search_field_keys = ['licenseNumber_search', 'storeName_search']
 for s_key in search_field_keys:
     if s_key not in st.session_state: st.session_state[s_key] = ""
-TAB_OVERVIEW = "📊 Overview"; TAB_DETAILED_ANALYSIS = "🔎 Detailed Analysis"; TAB_TRENDS = "📈 Trends & Distributions" # Updated tab icons
+TAB_OVERVIEW = "📊 Overview"; TAB_DETAILED_ANALYSIS = "🔎 Detailed Analysis"; TAB_TRENDS = "📈 Trends & Distributions"
 ALL_TABS = [TAB_OVERVIEW, TAB_DETAILED_ANALYSIS, TAB_TRENDS]
 if 'active_tab' not in st.session_state: st.session_state.active_tab = TAB_OVERVIEW
 if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None
@@ -521,26 +516,26 @@ if not st.session_state.data_loaded and st.session_state.last_data_refresh_time 
     else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original
 
-st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---") # Simplified header
-st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.") # Standardized icon
+st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
+st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
 global_search_cols = {"licenseNumber": "License Number", "storeName": "Store Name"}
-ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_3", help="Enter license number part.") # Key updated
+ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_3_1", help="Enter license number part.")
 if ln_search_val != st.session_state["licenseNumber_search"]: st.session_state["licenseNumber_search"] = ln_search_val; st.session_state.show_global_search_dialog = bool(ln_search_val or st.session_state.get("storeName_search", "")); st.rerun()
 store_names_options = [""];
 if not df_original.empty and 'storeName' in df_original.columns: unique_stores = sorted(df_original['storeName'].astype(str).dropna().unique()); store_names_options.extend([name for name in unique_stores if str(name).strip()])
 current_store_search_val = st.session_state.get("storeName_search", "");
 try: current_store_idx = store_names_options.index(current_store_search_val) if current_store_search_val in store_names_options else 0
 except ValueError: current_store_idx = 0
-selected_store_val = st.sidebar.selectbox(f"Search {global_search_cols['storeName']}:", options=store_names_options, index=current_store_idx, key="storeName_global_search_widget_select_v4_3", help="Select or type store name.") # Key updated
+selected_store_val = st.sidebar.selectbox(f"Search {global_search_cols['storeName']}:", options=store_names_options, index=current_store_idx, key="storeName_global_search_widget_select_v4_3_1", help="Select or type store name.")
 if selected_store_val != st.session_state["storeName_search"]: st.session_state["storeName_search"] = selected_store_val; st.session_state.show_global_search_dialog = bool(selected_store_val or st.session_state.get("licenseNumber_search", "")); st.rerun()
 st.sidebar.markdown("---"); global_search_active = bool(st.session_state.get("licenseNumber_search", "") or st.session_state.get("storeName_search", ""))
-st.sidebar.subheader("📊 Filters"); filter_caption = "ℹ️ Filters overridden by Global Search." if global_search_active else "Apply filters to dashboard data."; st.sidebar.caption(filter_caption) # Standardized icon
+st.sidebar.subheader("📊 Filters"); filter_caption = "ℹ️ Filters overridden by Global Search." if global_search_active else "Apply filters to dashboard data."; st.sidebar.caption(filter_caption)
 st.sidebar.markdown("##### Quick Date Ranges"); s_col1, s_col2, s_col3 = st.sidebar.columns(3); today_for_shortcuts = date.today()
-if s_col1.button("MTD", key="mtd_button_v4_3", use_container_width=True, disabled=global_search_active): # Key updated
+if s_col1.button("MTD", key="mtd_button_v4_3_1", use_container_width=True, disabled=global_search_active):
     if not global_search_active: start_mtd = today_for_shortcuts.replace(day=1); st.session_state.date_range = (start_mtd, today_for_shortcuts); st.session_state.date_filter_is_active = True; st.rerun()
-if s_col2.button("YTD", key="ytd_button_v4_3", use_container_width=True, disabled=global_search_active): # Key updated
+if s_col2.button("YTD", key="ytd_button_v4_3_1", use_container_width=True, disabled=global_search_active):
     if not global_search_active: start_ytd = today_for_shortcuts.replace(month=1, day=1); st.session_state.date_range = (start_ytd, today_for_shortcuts); st.session_state.date_filter_is_active = True; st.rerun()
-if s_col3.button("ALL", key="all_button_v4_3", use_container_width=True, disabled=global_search_active): # Key updated
+if s_col3.button("ALL", key="all_button_v4_3_1", use_container_width=True, disabled=global_search_active):
     if not global_search_active:
         all_start = st.session_state.get('min_data_date_for_filter', today_for_shortcuts.replace(year=today_for_shortcuts.year-1)); all_end = st.session_state.get('max_data_date_for_filter', today_for_shortcuts)
         if all_start and all_end: st.session_state.date_range = (all_start, all_end); st.session_state.date_filter_is_active = True; st.rerun()
@@ -550,7 +545,7 @@ if min_dt_for_widget and current_session_start < min_dt_for_widget: val_start_wi
 val_end_widget = current_session_end;
 if max_dt_for_widget and current_session_end > max_dt_for_widget: val_end_widget = max_dt_for_widget
 if val_start_widget > val_end_widget : val_start_widget = val_end_widget
-selected_date_range_tuple = st.sidebar.date_input("Custom Date Range (Onboarding):", value=(val_start_widget, val_end_widget), min_value=min_dt_for_widget, max_value=max_dt_for_widget, key="date_selector_custom_v4_3", disabled=global_search_active, help="Select start/end dates.") # Key updated
+selected_date_range_tuple = st.sidebar.date_input("Custom Date Range (Onboarding):", value=(val_start_widget, val_end_widget), min_value=min_dt_for_widget, max_value=max_dt_for_widget, key="date_selector_custom_v4_3_1", disabled=global_search_active, help="Select start/end dates.")
 if not global_search_active and isinstance(selected_date_range_tuple, tuple) and len(selected_date_range_tuple) == 2:
     if selected_date_range_tuple != st.session_state.date_range: st.session_state.date_range = selected_date_range_tuple; st.session_state.date_filter_is_active = True; st.rerun()
 start_dt_filter, end_dt_filter = st.session_state.date_range
@@ -561,10 +556,10 @@ for col_key, label_text in category_filters_map.items():
         if col_key == 'status': options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().dropna().unique() if str(val).strip()])
         else: options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).dropna().unique() if str(val).strip()])
     current_selection_for_multiselect = st.session_state.get(f"{col_key}_filter", []); valid_current_selection = [s for s in current_selection_for_multiselect if s in options_for_multiselect]
-    new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_3", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.") # Key updated
+    new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_3_1", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.")
     if not global_search_active and new_selection_multiselect != valid_current_selection: st.session_state[f"{col_key}_filter"] = new_selection_multiselect; st.rerun()
     elif global_search_active and st.session_state.get(f"{col_key}_filter") != new_selection_multiselect: st.session_state[f"{col_key}_filter"] = new_selection_multiselect
-def clear_all_filters_and_search_v4_3(): # Renamed function
+def clear_all_filters_and_search_v4_3_1():
     ds_cleared, de_cleared, _, _ = get_default_date_range(st.session_state.df_original.get('onboarding_date_only')); st.session_state.date_range = (ds_cleared, de_cleared); st.session_state.date_filter_is_active = False
     st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""; st.session_state.show_global_search_dialog = False
     for cat_key in category_filters_map: st.session_state[f"{cat_key}_filter"]=[]
@@ -572,19 +567,19 @@ def clear_all_filters_and_search_v4_3(): # Renamed function
     if "dialog_global_search_auto_selected_once" in st.session_state: st.session_state.dialog_global_search_auto_selected_once = False
     if "filtered_analysis_auto_selected_once" in st.session_state: st.session_state.filtered_analysis_auto_selected_once = False
     st.session_state.active_tab = TAB_OVERVIEW
-if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_3, use_container_width=True, key="clear_filters_button_v4_3"): st.rerun() # Key, function, and text updated
-with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=False): # Updated icon and text
+if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_3_1, use_container_width=True, key="clear_filters_button_v4_3_1"): st.rerun()
+with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=False):
     st.markdown("""Score (0-10 pts):\n- **Primary (4 pts):** Kit Recv'd (2), Train/Promo Sched. (2).\n- **Secondary (3 pts):** Intro (1), Display Help (1), Promo Link (1).\n- **Bonuses (3 pts):** +1 Positive Sentiment, +1 Expectations Set, +1 Full Checklist Completion.""")
-st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management"); # Updated icon and text
-if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3", use_container_width=True): # Key and text updated
+st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management");
+if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3_1", use_container_width=True):
     st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None; st.session_state.df_original = pd.DataFrame()
-    clear_all_filters_and_search_v4_3(); st.rerun()
+    clear_all_filters_and_search_v4_3_1(); st.rerun()
 if st.session_state.get('last_data_refresh_time'):
     refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Onboarding Dashboard v4.3\n\n© {datetime.now().year} Nexus Workflow") # Simplified app info
+st.sidebar.caption(f"Onboarding Dashboard v4.3.1\n\n© {datetime.now().year} Nexus Workflow")
 
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
@@ -595,14 +590,14 @@ elif df_original.empty: st.markdown("<div class='no-data-message'>✅ Data sourc
 if st.session_state.active_tab not in ALL_TABS: st.session_state.active_tab = TAB_OVERVIEW
 try: current_tab_idx = ALL_TABS.index(st.session_state.active_tab)
 except ValueError: current_tab_idx = 0; st.session_state.active_tab = TAB_OVERVIEW
-selected_tab = st.radio("Navigation:", ALL_TABS, index=current_tab_idx, horizontal=True, key="main_tab_selector_v4_3") # Key updated
+selected_tab = st.radio("Navigation:", ALL_TABS, index=current_tab_idx, horizontal=True, key="main_tab_selector_v4_3_1")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 summary_parts = []
 if global_search_active:
     search_terms = [];
     if st.session_state.get("licenseNumber_search", ""): search_terms.append(f"License: '{st.session_state['licenseNumber_search']}'")
     if st.session_state.get("storeName_search", ""): search_terms.append(f"Store: '{st.session_state['storeName_search']}'")
-    summary_parts.append(f"🔍 Global Search: {'; '.join(search_terms)}"); summary_parts.append("(Filters overridden. Results in pop-up.)") # Updated icon
+    summary_parts.append(f"🔍 Global Search: {'; '.join(search_terms)}"); summary_parts.append("(Filters overridden. Results in pop-up.)")
 else:
     start_display, end_display = start_dt_filter.strftime('%b %d, %Y'), end_dt_filter.strftime('%b %d, %Y'); min_data_dt_summary, max_data_dt_summary = st.session_state.get('min_data_date_for_filter'), st.session_state.get('max_data_date_for_filter'); is_all_dates_active = False
     if min_data_dt_summary and max_data_dt_summary and start_dt_filter == min_data_dt_summary and end_dt_filter == max_data_dt_summary and st.session_state.get('date_filter_is_active', False): is_all_dates_active = True
@@ -617,7 +612,7 @@ else:
     if not any(st.session_state.get(f"{key}_filter") for key in category_filters_map) and not (st.session_state.get('date_filter_is_active', False) or (start_dt_filter != default_s_init or end_dt_filter != default_e_init)): summary_parts.append("No category filters.")
 final_summary_message = " | ".join(filter(None, summary_parts));
 if not final_summary_message: final_summary_message = "Displaying data (default date range)."
-st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True) # Updated icon
+st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
 df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
 if not df_original.empty:
     if global_search_active:
@@ -693,7 +688,7 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
     preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
     cols_present_in_df = df_display_copy.columns.tolist(); final_display_cols = [col for col in preferred_cols_order if col in cols_present_in_df]
     excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only', '_styled')
-    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not col.endswith(excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status']]
+    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not col.endswith(excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']] # onboardingWelcome excluded
     final_display_cols.extend(other_existing_cols_for_display); final_display_cols = list(dict.fromkeys(final_display_cols))
     if not final_display_cols or df_display_copy[final_display_cols].empty:
         context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No columns/data for {context_name_display}. 📋</div>", unsafe_allow_html=True); return
@@ -712,7 +707,7 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             html_table.append(f"<td class='{style_class}'>{cell_value}</td>")
         html_table.append("</tr>")
     html_table.append("</tbody></table></div>"); st.markdown("".join(html_table), unsafe_allow_html=True)
-    st.markdown("---"); st.subheader("📄 View Full Record Details") # Updated subheader
+    st.markdown("---"); st.subheader("📄 View Full Record Details")
     transcript_session_key_local = f"selected_transcript_key_{context_key_prefix}";
     if transcript_session_key_local not in st.session_state: st.session_state[transcript_session_key_local] = None
     auto_selected_this_run = False
@@ -728,11 +723,11 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             options_list_for_select = [None] + list(transcript_options_map.keys()); current_selection_for_select = st.session_state[transcript_session_key_local]
             try: current_index_for_select = options_list_for_select.index(current_selection_for_select)
             except ValueError: current_index_for_select = 0; st.session_state[transcript_session_key_local] = None
-            selected_key_from_display = st.selectbox("Select record to view details:", options=options_list_for_select, index=current_index_for_select, format_func=lambda x: "📄 Choose an entry..." if x is None else x, key=f"transcript_selector_{context_key_prefix}_widget_v4_3") # Key & icon Updated
+            selected_key_from_display = st.selectbox("Select record to view details:", options=options_list_for_select, index=current_index_for_select, format_func=lambda x: "📄 Choose an entry..." if x is None else x, key=f"transcript_selector_{context_key_prefix}_widget_v4_3_1")
             if selected_key_from_display != st.session_state[transcript_session_key_local]: st.session_state[transcript_session_key_local] = selected_key_from_display; st.session_state[auto_selected_once_key] = False; st.rerun()
             if st.session_state[transcript_session_key_local]:
                 selected_original_idx = transcript_options_map[st.session_state[transcript_session_key_local]]; selected_row_details = df_display_copy.loc[selected_original_idx]
-                st.markdown("<h5>📋 Onboarding Summary & Checks:</h5>", unsafe_allow_html=True); summary_html_parts_list = ["<div class='transcript-summary-grid'>"] # h5 for slightly smaller
+                st.markdown("<h5>📋 Onboarding Summary & Checks:</h5>", unsafe_allow_html=True); summary_html_parts_list = ["<div class='transcript-summary-grid'>"]
                 summary_items_to_display = {"Store": selected_row_details.get('storeName', "N/A"), "Rep": selected_row_details.get('repName', "N/A"), "Score": f"{selected_row_details.get('score', 'N/A'):.1f}" if pd.notna(selected_row_details.get('score')) else "N/A", "Status": selected_row_details.get('status_styled', "N/A"), "Sentiment": selected_row_details.get('clientSentiment', "N/A")}
                 for item_label, item_val in summary_items_to_display.items(): summary_html_parts_list.append(f"<div class='transcript-summary-item'><strong>{item_label}:</strong> {item_val}</div>")
                 call_summary_text = selected_row_details.get('summary', '').strip();
@@ -744,9 +739,9 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                     if details_obj:
                         desc_text = details_obj.get("description", item_col_name_req.replace('_',' ').title()); item_type_text = details_obj.get("type", ""); val_from_row = selected_row_details.get(item_col_name_req, pd.NA)
                         val_str_lower = str(val_from_row).strip().lower(); is_met = val_str_lower in ['true', '1', 'yes', 'x', 'completed', 'done']
-                        emoji_char = "✅" if is_met else ("❌" if pd.notna(val_from_row) and val_str_lower != "" else "➖"); type_tag_html = f"<span class='type'>[{item_type_text}]</span>" if item_type_text else ""; st.markdown(f"<div class='requirement-item'>{emoji_char} {desc_text} {type_tag_html}</div>", unsafe_allow_html=True) # Changed ❔ to ➖ for NA
+                        emoji_char = "✅" if is_met else ("❌" if pd.notna(val_from_row) and val_str_lower != "" else "➖"); type_tag_html = f"<span class='type'>[{item_type_text}]</span>" if item_type_text else ""; st.markdown(f"<div class='requirement-item'>{emoji_char} {desc_text} {type_tag_html}</div>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("---"); st.markdown("<h5>🎙️ Full Transcript:</h5>", unsafe_allow_html=True); transcript_content = selected_row_details.get('fullTranscript', "").strip() # h5 and icon
+                st.markdown("---"); st.markdown("<h5>🎙️ Full Transcript:</h5>", unsafe_allow_html=True); transcript_content = selected_row_details.get('fullTranscript', "").strip()
                 if transcript_content and transcript_content.lower() not in ['na', 'n/a', '']:
                     html_transcript_parts = ["<div class='transcript-container'>"]; processed_transcript_content = transcript_content.replace('\\n', '\n')
                     for line_item in processed_transcript_content.split('\n'):
@@ -758,16 +753,16 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 else: st.info("ℹ️ No transcript available or empty for this record.")
         else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No entries in table from {context_name_display} to select details. 📋</div>", unsafe_allow_html=True)
     else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📜 Necessary columns ('fullTranscript'/'summary') missing for details viewer in {context_name_display}. 📜</div>", unsafe_allow_html=True)
-    st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results" # Shortened label
-    st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3") # Key Updated
+    st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
+    st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3_1")
 
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
-    @st.dialog("🔍 Global Search Results", width="large") # Updated icon
+    @st.dialog("🔍 Global Search Results", width="large")
     def show_global_search_dialog_content():
         st.markdown("##### Records matching global search criteria:");
         if not df_global_search_results_display.empty: display_html_table_and_details(df_global_search_results_display, context_key_prefix="dialog_global_search")
         else: st.info("ℹ️ No results for global search. Try broadening terms.")
-        if st.button("Close & Clear Search", key="close_gs_dialog_clear_button_v4_3"): # Key Updated
+        if st.button("Close & Clear Search", key="close_gs_dialog_clear_button_v4_3_1"):
             st.session_state.show_global_search_dialog = False; st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""
             if 'selected_transcript_key_dialog_global_search' in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None
             if "dialog_global_search_auto_selected_once" in st.session_state: st.session_state.dialog_global_search_auto_selected_once = False
@@ -849,4 +844,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.3 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.3.1 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)

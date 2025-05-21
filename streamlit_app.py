@@ -10,7 +10,7 @@ import numpy as np
 import re
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.14", # Updated version
+    page_title="Onboarding Performance Dashboard v3.15", # Updated version
     page_icon="💎",
     layout="wide"
 )
@@ -22,9 +22,9 @@ DARK_APP_ACCENT_MUTED = "#a28089"
 DARK_APP_ACCENT_HIGHLIGHT = "#a0d2eb"
 DARK_APP_ACCENT_LIGHTEST = "#e5eaf5"
 DARK_APP_TEXT_ON_ACCENT = DARK_APP_ACCENT_LIGHTEST
-DARK_APP_TEXT_ON_HIGHLIGHT = "#0E1117"  # DEFINED HERE
+DARK_APP_TEXT_ON_HIGHLIGHT = "#0E1117"
 DARK_APP_DL_BUTTON_BG = DARK_APP_ACCENT_HIGHLIGHT
-DARK_APP_DL_BUTTON_TEXT = DARK_APP_TEXT_ON_HIGHLIGHT # USED HERE
+DARK_APP_DL_BUTTON_TEXT = DARK_APP_TEXT_ON_HIGHLIGHT
 DARK_APP_DL_BUTTON_HOVER_BG = DARK_APP_ACCENT_LIGHTEST
 DARK_PLOTLY_PRIMARY_SEQ = [DARK_APP_ACCENT_PRIMARY, DARK_APP_ACCENT_SECONDARY, DARK_APP_ACCENT_HIGHLIGHT, '#C39BD3', '#76D7C4']
 DARK_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel1
@@ -36,7 +36,7 @@ LIGHT_APP_ACCENT_MUTED = "#89B1F3"
 LIGHT_APP_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_PRIMARY
 LIGHT_APP_ACCENT_LIGHTEST = "#E8F0FE"
 LIGHT_APP_TEXT_ON_ACCENT = "#FFFFFF"
-LIGHT_APP_TEXT_ON_HIGHLIGHT = "#0E1117" # For consistency, though dark theme uses its own. Could be #000000 or a dark color.
+LIGHT_APP_TEXT_ON_HIGHLIGHT = "#0E1117"
 LIGHT_APP_DL_BUTTON_BG = LIGHT_APP_ACCENT_PRIMARY
 LIGHT_APP_DL_BUTTON_TEXT = LIGHT_APP_TEXT_ON_ACCENT
 LIGHT_APP_DL_BUTTON_HOVER_BG = "#1765CC"
@@ -234,7 +234,7 @@ if 'date_range' not in st.session_state or not (isinstance(st.session_state.date
 TAB_OVERVIEW = "🌌 Overview"
 TAB_DETAILED_ANALYSIS = "📊 Detailed Analysis (Filtered)"
 TAB_TRENDS = "📈 Trends & Distributions"
-ALL_TABS = [TAB_OVERVIEW, TAB_DETAILED_ANALYSIS, TAB_TRENDS] # No Global Search Results tab
+ALL_TABS = [TAB_OVERVIEW, TAB_DETAILED_ANALYSIS, TAB_TRENDS]
 
 if 'active_tab' not in st.session_state: st.session_state.active_tab = TAB_OVERVIEW
 
@@ -250,32 +250,44 @@ if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_
 if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = initial_min_data_date
 if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = initial_max_data_date
 if 'date_filter_is_active' not in st.session_state: st.session_state.date_filter_is_active = False
-if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False # For st.dialog
+if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
 
-if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None :
-    df_from_load_func = load_data_from_google_sheet()
+# Initial data load attempt
+if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None:
+    df_from_load_func = load_data_from_google_sheet() # This sets last_data_refresh_time
     if not df_from_load_func.empty:
-        st.session_state.df_original = df_from_load_func; st.session_state.data_loaded = True
-        ds,de,min_data_date,max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
-        st.session_state.date_range = (ds,de); st.session_state.min_data_date_for_filter = min_data_date; st.session_state.max_data_date_for_filter = max_data_date
-    else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
+        st.session_state.df_original = df_from_load_func
+        st.session_state.data_loaded = True
+        ds, de, min_data_date, max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
+        st.session_state.date_range = (ds, de)
+        st.session_state.min_data_date_for_filter = min_data_date
+        st.session_state.max_data_date_for_filter = max_data_date
+    else:
+        st.session_state.df_original = pd.DataFrame() # Ensure it's an empty DF
+        st.session_state.data_loaded = False
+# Assign to df_original for use in the app, ensuring it reflects the loaded state
 df_original = st.session_state.df_original
 
-if st.session_state.data_loaded and not df_original.empty: st.sidebar.success(f"Data loaded: {len(df_original)} records.")
-elif st.session_state.get('last_data_refresh_time') and not st.session_state.data_loaded: st.sidebar.warning("Data source read, but no data rows found or an error occurred.")
-elif not st.session_state.get('last_data_refresh_time'): st.sidebar.info("Initializing data load...")
+# Sidebar: Initial status messages
+if st.session_state.data_loaded and not df_original.empty:
+    st.sidebar.success(f"Data loaded: {len(df_original)} records.")
+elif st.session_state.get('last_data_refresh_time') and not st.session_state.data_loaded:
+    st.sidebar.warning("Data source read, but no data rows found or an error occurred.")
+elif not st.session_state.get('last_data_refresh_time'): # Only show if no refresh attempt has been made yet
+    st.sidebar.info("Initializing data load...")
+
 
 st.title("🌌 Onboarding Performance Dashboard 🌌")
 if not st.session_state.data_loaded and df_original.empty and st.session_state.get('last_data_refresh_time'):
     st.markdown("<div class='no-data-message'>🚧 No data loaded. Check configurations or Google Sheet. Attempted to refresh. 🚧</div>", unsafe_allow_html=True)
-elif not st.session_state.data_loaded and df_original.empty :
+elif not st.session_state.data_loaded and df_original.empty and not st.session_state.get('last_data_refresh_time') : # If no attempt yet
      st.markdown("<div class='no-data-message'>🚧 Data loading... please wait. 🚧</div>", unsafe_allow_html=True)
+
 
 st.sidebar.header("🌍 Global Search")
 st.sidebar.caption("Search across all data. Overrides filters below when active.")
 global_search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 
-# License Number Search (Text Input)
 ln_key = "licenseNumber"
 ln_label = global_search_cols_definition[ln_key]
 val_license = st.sidebar.text_input(f"Search {ln_label}:", value=st.session_state.get(ln_key+"_search", ""), key=f"{ln_key}_global_search_widget", help="Press Enter to search")
@@ -285,7 +297,6 @@ if val_license != st.session_state[ln_key+"_search"]:
     elif not st.session_state.get("storeName_search", ""): st.session_state.show_global_search_dialog = False
     st.rerun()
 
-# Store Name Search (Selectbox for Autocomplete-like behavior)
 sn_key = "storeName"
 sn_label = global_search_cols_definition[sn_key]
 store_names_options = [""]
@@ -363,7 +374,7 @@ def clear_all_filters_and_search():
     st.session_state.selected_transcript_key_filtered_analysis = None
     st.session_state.active_tab = TAB_OVERVIEW
 
-if st.sidebar.button("🧹 Clear All Filters & Search",on_click=clear_all_filters_and_search,use_container_width=True, key="clear_filters_v3_14"): st.rerun() # Key updated
+if st.sidebar.button("🧹 Clear All Filters & Search",on_click=clear_all_filters_and_search,use_container_width=True, key="clear_filters_v3_14"):st.rerun()
 
 with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=False):
     st.markdown("""
@@ -379,7 +390,7 @@ try:
 except ValueError:
     current_tab_index = 0; st.session_state.active_tab = TAB_OVERVIEW
 
-selected_tab_from_radio = st.radio("Navigation:", ALL_TABS, index=current_tab_index, horizontal=True, key="main_tab_selector_v3_14") # Key updated
+selected_tab_from_radio = st.radio("Navigation:", ALL_TABS, index=current_tab_index, horizontal=True, key="main_tab_selector_v3_14")
 if selected_tab_from_radio != st.session_state.active_tab:
     st.session_state.active_tab = selected_tab_from_radio; st.rerun()
 
@@ -540,11 +551,12 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
         else:
             st.info("No results found for your global search terms.")
 
-        if st.button("Close & Clear Search", key="close_gs_dialog_button_v14"): # Key updated
+        if st.button("Close & Clear Search", key="close_gs_dialog_button_v14"):
             st.session_state.show_global_search_dialog = False
             st.session_state.licenseNumber_search = ""
             st.session_state.storeName_search = ""
-            st.session_state.selected_transcript_key_dialog_global_search = None # Clear transcript selection for dialog
+            if 'selected_transcript_key_dialog_global_search' in st.session_state: # Also clear selection for dialog
+                st.session_state.selected_transcript_key_dialog_global_search = None
             st.rerun()
     show_gs_dialog_content()
 
@@ -629,28 +641,49 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.14 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True) # Updated version
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.15 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
+# Sidebar: Data Controls Section (Revised)
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
-if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_10_bottom"):
-    st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None
-    st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""
+
+if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v315"):
+    st.cache_data.clear()
+    st.session_state.data_loaded = False
+    st.session_state.last_data_refresh_time = None # Critical to trigger reload logic
+    st.session_state.df_original = pd.DataFrame()   # Clear data cache
+
+    # Reset filters and search
+    st.session_state.licenseNumber_search = ""
+    st.session_state.storeName_search = ""
     st.session_state.show_global_search_dialog = False
+    for f_key_clear in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
+        if f_key_clear in st.session_state: st.session_state[f_key_clear] = []
+    
+    ds_clear_refresh, de_clear_refresh, _, _ = get_default_date_range(None)
+    st.session_state.date_range = (ds_clear_refresh, de_clear_refresh)
+    st.session_state.date_filter_is_active = False
+    st.session_state.active_tab = TAB_OVERVIEW # Go to a neutral tab
+
+    # Clear transcript selections
+    if 'selected_transcript_key_dialog_global_search' in st.session_state:
+        st.session_state.selected_transcript_key_dialog_global_search = None
+    if 'selected_transcript_key_filtered_analysis' in st.session_state:
+        st.session_state.selected_transcript_key_filtered_analysis = None
     st.rerun()
 
+# Status display caption in Data Controls
 if st.session_state.get('last_data_refresh_time'):
     refresh_time_str = st.session_state.last_data_refresh_time.strftime('%b %d, %Y %I:%M %p')
-    st.sidebar.caption(f"Last refresh attempt: {refresh_time_str}")
-    if not st.session_state.data_loaded and not df_original.empty : st.sidebar.caption("(No data rows were found or an error occurred during processing.)")
-    elif not st.session_state.data_loaded and df_original.empty: st.sidebar.caption("(Source was empty or an error occurred.)")
+    st.sidebar.caption(f"Last data refresh attempt: {refresh_time_str}")
+    if not st.session_state.get('data_loaded', False):
+        st.sidebar.caption("⚠️ Data not loaded successfully during the last attempt.")
 else:
-    st.sidebar.caption("Data not yet loaded.")
-    if st.sidebar.button("🔄 Attempt Data Reload", key="refresh_fail_button_v3_10_bottom"):
-        st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None
-        st.rerun()
+    # This means last_data_refresh_time is None (before first auto-load or after user clicks "Refresh Data")
+    st.sidebar.caption("Data not yet loaded or refresh triggered. Automatic load initiated if applicable.")
+
 st.sidebar.markdown("---")
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-info_string = f"App Version: 3.14"; # Updated version
+info_string = f"App Version: 3.15";
 if theme_display_name: info_string += f" ({theme_display_name} Mode)"
 st.sidebar.info(info_string)

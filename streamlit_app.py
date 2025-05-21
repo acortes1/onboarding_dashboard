@@ -11,7 +11,7 @@ import re
 from dateutil import tz # For PST conversion
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.18",
+    page_title="Onboarding Performance Dashboard v3.20", # Updated version
     page_icon="💎",
     layout="wide"
 )
@@ -45,12 +45,12 @@ LIGHT_PLOTLY_PRIMARY_SEQ = ['#1A73E8', '#4285F4', '#89B1F3', '#ADC6F7', '#D2E3FC
 LIGHT_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set2
 LIGHT_PLOTLY_SENTIMENT_MAP = { 'positive': '#1A73E8', 'negative': '#D93025', 'neutral': '#78909C' }
 
-THEME = st.get_option("theme.base")
+THEME = st.get_option("theme.base") # This gets the current theme, e.g., "light" or "dark"
 if THEME == "light":
     ACTIVE_ACCENT_PRIMARY = LIGHT_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = LIGHT_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = LIGHT_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = LIGHT_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = LIGHT_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = LIGHT_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = LIGHT_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = LIGHT_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = LIGHT_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = LIGHT_PLOTLY_SENTIMENT_MAP
     DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
     DEFAULT_TEXT_COLOR_ON_DARK_BG = "#FFFFFF"
-else:
+else: # Default to dark theme styling if theme is not explicitly "light" (covers "dark" and potentially system default if it resolves to dark)
     ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
     DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
     DEFAULT_TEXT_COLOR_ON_DARK_BG = "#E1E1E1"
@@ -64,6 +64,7 @@ def get_contrasting_text_color(hex_bg_color):
         luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
         return DEFAULT_TEXT_COLOR_ON_DARK_BG if luminance < 0.5 else DEFAULT_TEXT_COLOR_ON_LIGHT_BG
     except:
+        # Fallback based on the active theme if hex conversion fails
         return DEFAULT_TEXT_COLOR_ON_LIGHT_BG if THEME == "light" else DEFAULT_TEXT_COLOR_ON_DARK_BG
 
 css_parts = [
@@ -296,10 +297,11 @@ def load_data_from_google_sheet():
         for col in checklist_cols_to_ensure:
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
         
-        # Explicitly drop deliveryDateTs (standardized name) if it was loaded
-        if 'deliverydatets' in df_loaded_internal.columns:
-            df_loaded_internal = df_loaded_internal.drop(columns=['deliverydatets'])
-
+        cols_to_drop_final = ['deliverydatets', 'onboardingwelcome'] # Standardized names
+        for col_drop in cols_to_drop_final:
+            if col_drop in df_loaded_internal.columns:
+                df_loaded_internal = df_loaded_internal.drop(columns=[col_drop])
+        
         return df_loaded_internal
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"Google Sheets Error: {e}. Check URL, name & permissions."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     except Exception as e: st.error(f"Error Loading Data: {e}"); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
@@ -555,47 +557,6 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-def style_boolean_cell(val):
-    val_str = str(val).strip().lower()
-    if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300"
-    elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000"
-    else: return f'color: {"var(--text-color)"};'
-    return f'background-color: {bg_color}; color: {text_color};'
-
-def style_sentiment_cell(val):
-    val_str = str(val).strip().lower()
-    bg_color = ""; text_color_override = None
-    if val_str == 'positive': bg_color = '#D4EFDF'; text_color_override = "#003300"
-    elif val_str == 'negative': bg_color = '#FADBD8'; text_color_override = "#500000"
-    elif val_str == 'neutral': bg_color = '#F0F0F0'; text_color_override = "#333333"
-    else: return f'color: {"var(--text-color)"};'
-    text_color = text_color_override if text_color_override else get_contrasting_text_color(bg_color)
-    return f'background-color: {bg_color}; color: {text_color};'
-
-def style_score_cell(val):
-    try:
-        score = float(val)
-        if pd.isna(score): return f'color: {"var(--text-color)"};'
-        if score >= 8: bg_color = '#C8E6C9'
-        elif score >= 4: bg_color = '#FFF9C4'
-        else: bg_color = '#FFCDD2'
-        text_color = get_contrasting_text_color(bg_color)
-        return f'background-color: {bg_color}; color: {text_color};'
-    except (ValueError, TypeError):
-        return f'color: {"var(--text-color)"};'
-
-def style_days_to_confirmation_cell(val):
-    try:
-        days = float(val)
-        if pd.isna(days): return f'color: {"var(--text-color)"};'
-        if days <= 7: bg_color = '#C8E6C9'
-        elif days <= 14: bg_color = '#FFF9C4'
-        else: bg_color = '#FFCDD2'
-        text_color = get_contrasting_text_color(bg_color)
-        return f'background-color: {bg_color}; color: {text_color};'
-    except (ValueError, TypeError):
-        return f'color: {"var(--text-color)"};'
-
 def display_data_table_and_details(df_to_display, context_key_prefix=""):
     if df_to_display is None or df_to_display.empty:
         context_name = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
@@ -607,57 +568,83 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
 
     df_display_table = df_to_display.copy().reset_index(drop=True)
     
-    cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
-                   'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 
-                   'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
+    preferred_cols_ordered = [
+        'onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 
+        'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 
+        'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'
+    ] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
     
-    cols_for_display_intermediate = [col for col in cols_to_try if col in df_display_table.columns]
+    cols_for_display_intermediate = [col for col in preferred_cols_ordered if col in df_display_table.columns]
     
     excluded_cols = ['onboardingWelcome', 'deliveryDateTs'] + \
                     [col for col in df_display_table.columns if col.endswith(('_dt', '_utc', '_str_original'))] + \
                     ['fullTranscript', 'summary', 'onboarding_date_only'] 
 
-    # Start with main columns, then add others not excluded
     final_cols_for_display = [col for col in cols_for_display_intermediate if col not in excluded_cols]
-    
     other_existing_cols = [col for col in df_display_table.columns if col not in final_cols_for_display and col not in excluded_cols]
     final_cols_for_display.extend(other_existing_cols)
-    final_cols_for_display = list(dict.fromkeys(final_cols_for_display)) # Remove duplicates, preserve order
-
-    # Ensure the final list of columns actually exist in the dataframe before trying to select
+    final_cols_for_display = list(dict.fromkeys(final_cols_for_display))
     cols_for_display = [col for col in final_cols_for_display if col in df_display_table.columns]
-
 
     if not cols_for_display or df_display_table[cols_for_display].empty:
         context_name = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
         st.markdown(f"<div class='no-data-message'>📋 No relevant columns to display for the {context_name} data. 📋</div>", unsafe_allow_html=True)
         return
 
+    num_rows = len(df_display_table)
+    if num_rows == 0: table_height = 100
+    elif num_rows < 9: table_height = (num_rows + 1) * 35 + 20; table_height = max(100, table_height)
+    else: table_height = 350
+
     def style_table_customized(df_to_style):
         styled_df = df_to_style.style
-        if 'clientSentiment' in df_to_style.columns:
-            styled_df = styled_df.applymap(style_sentiment_cell, subset=['clientSentiment'])
-        if 'score' in df_to_style.columns:
-            styled_df = styled_df.applymap(style_score_cell, subset=['score'])
-        if 'days_to_confirmation' in df_to_style.columns:
-            styled_df = styled_df.applymap(style_days_to_confirmation_cell, subset=['days_to_confirmation'])
+        if 'clientSentiment' in df_to_style.columns: styled_df = styled_df.applymap(style_sentiment_cell, subset=['clientSentiment'])
+        if 'score' in df_to_style.columns: styled_df = styled_df.applymap(style_score_cell, subset=['score'])
+        if 'days_to_confirmation' in df_to_style.columns: styled_df = styled_df.applymap(style_days_to_confirmation_cell, subset=['days_to_confirmation'])
         boolean_like_cols = [col for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS if col in df_to_style.columns and col != 'score']
-        for col_name_bool in boolean_like_cols:
-            styled_df = styled_df.applymap(style_boolean_cell, subset=[col_name_bool])
+        for col_name_bool in boolean_like_cols: styled_df = styled_df.applymap(style_boolean_cell, subset=[col_name_bool])
         return styled_df
 
-    st.dataframe(style_table_customized(df_display_table[cols_for_display]), use_container_width=True, height=350)
+    st.dataframe(style_table_customized(df_display_table[cols_for_display]), use_container_width=True, height=table_height)
+    
     st.markdown("---"); st.subheader("🔍 View Full Onboarding Details & Transcript")
+    
+    transcript_session_key = f"selected_transcript_key_{context_key_prefix}"
+    if transcript_session_key not in st.session_state: 
+        st.session_state[transcript_session_key] = None
+
+    rerun_for_auto_select = False
+    if len(df_display_table) == 1:
+        first_row = df_display_table.iloc[0]
+        auto_select_key = f"Idx 0: {first_row.get('storeName', 'N/A')} ({first_row.get('onboardingDate', 'N/A')})"
+        if st.session_state[transcript_session_key] != auto_select_key:
+            st.session_state[transcript_session_key] = auto_select_key
+            rerun_for_auto_select = True 
+
+    if rerun_for_auto_select and not st.session_state.get(f"{context_key_prefix}_auto_selected_once", False):
+        st.session_state[f"{context_key_prefix}_auto_selected_once"] = True # Mark that auto-selection happened for this context
+        st.rerun()
+    elif len(df_display_table) != 1: # Reset if no longer single row
+         st.session_state[f"{context_key_prefix}_auto_selected_once"] = False
+
+
     if 'fullTranscript' in df_display_table.columns:
         transcript_options = { f"Idx {idx}: {row.get('storeName', 'N/A')} ({row.get('onboardingDate', 'N/A')})": idx for idx, row in df_display_table.iterrows() }
+        
         if transcript_options:
-            transcript_session_key = f"selected_transcript_key_{context_key_prefix}"
-            if transcript_session_key not in st.session_state: st.session_state[transcript_session_key] = None
-            current_selection_val = st.session_state[transcript_session_key]; options_list_val = [None] + list(transcript_options.keys())
+            options_list_val = [None] + list(transcript_options.keys())
+            current_selection_val = st.session_state[transcript_session_key]
+            
             try: current_index_val = options_list_val.index(current_selection_val)
-            except ValueError: current_index_val = 0
+            except ValueError: current_index_val = 0; st.session_state[transcript_session_key] = None
+
             selected_key_display = st.selectbox("Select onboarding to view details:", options=options_list_val, index=current_index_val, format_func=lambda x: "Choose an entry..." if x is None else x, key=f"transcript_selector_{context_key_prefix}")
-            if selected_key_display != st.session_state[transcript_session_key] : st.session_state[transcript_session_key] = selected_key_display; st.rerun()
+            
+            if selected_key_display != st.session_state[transcript_session_key] : 
+                st.session_state[transcript_session_key] = selected_key_display
+                st.session_state[f"{context_key_prefix}_auto_selected_once"] = False # User made a manual selection
+                st.rerun()
+
             if st.session_state[transcript_session_key] :
                 selected_idx = transcript_options[st.session_state[transcript_session_key]]; selected_row = df_display_table.loc[selected_idx]
                 st.markdown("##### Onboarding Summary:"); summary_html_parts = []
@@ -706,6 +693,7 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             st.session_state.storeName_search = ""
             if 'selected_transcript_key_dialog_global_search' in st.session_state:
                 st.session_state.selected_transcript_key_dialog_global_search = None
+            st.session_state["dialog_global_search_auto_selected_once"] = False # Reset auto-select flag for dialog
             st.rerun()
     show_gs_dialog_content()
 
@@ -790,12 +778,12 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.18 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.19 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
 
-if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v318"):
+if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v319"):
     st.cache_data.clear()
     st.session_state.data_loaded = False
     st.session_state.last_data_refresh_time = None
@@ -813,6 +801,8 @@ if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v318"):
         st.session_state.selected_transcript_key_dialog_global_search = None
     if 'selected_transcript_key_filtered_analysis' in st.session_state:
         st.session_state.selected_transcript_key_filtered_analysis = None
+    st.session_state["dialog_global_search_auto_selected_once"] = False # Reset auto-select flag
+    st.session_state["filtered_analysis_auto_selected_once"] = False # Reset auto-select flag
     st.rerun()
 
 if st.session_state.get('last_data_refresh_time'):
@@ -824,7 +814,13 @@ else:
     st.sidebar.caption("Data not yet loaded or refresh triggered. Automatic load initiated if applicable.")
 
 st.sidebar.markdown("---")
-theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-info_string = f"App Version: 3.18";
-if theme_display_name: info_string += f" ({theme_display_name} Mode)"
+# Refined theme display string
+current_theme_from_streamlit = st.get_option("theme.base")
+theme_display_name_str = ""
+if current_theme_from_streamlit and isinstance(current_theme_from_streamlit, str) and current_theme_from_streamlit.lower() in ["light", "dark"]:
+    theme_display_name_str = current_theme_from_streamlit.capitalize()
+
+info_string = f"App Version: 3.19"
+if theme_display_name_str: # Only add if it's a recognized theme
+    info_string += f" ({theme_display_name_str} Mode)"
 st.sidebar.info(info_string)

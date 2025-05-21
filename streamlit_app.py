@@ -11,7 +11,7 @@ import re
 from dateutil import tz # For PST conversion
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.20", # Updated version
+    page_title="Onboarding Performance Dashboard v3.20",
     page_icon="💎",
     layout="wide"
 )
@@ -45,12 +45,12 @@ LIGHT_PLOTLY_PRIMARY_SEQ = ['#1A73E8', '#4285F4', '#89B1F3', '#ADC6F7', '#D2E3FC
 LIGHT_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set2
 LIGHT_PLOTLY_SENTIMENT_MAP = { 'positive': '#1A73E8', 'negative': '#D93025', 'neutral': '#78909C' }
 
-THEME = st.get_option("theme.base") # This gets the current theme, e.g., "light" or "dark"
+THEME = st.get_option("theme.base")
 if THEME == "light":
     ACTIVE_ACCENT_PRIMARY = LIGHT_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = LIGHT_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = LIGHT_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = LIGHT_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = LIGHT_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = LIGHT_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = LIGHT_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = LIGHT_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = LIGHT_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = LIGHT_PLOTLY_SENTIMENT_MAP
     DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
     DEFAULT_TEXT_COLOR_ON_DARK_BG = "#FFFFFF"
-else: # Default to dark theme styling if theme is not explicitly "light" (covers "dark" and potentially system default if it resolves to dark)
+else:
     ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
     DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
     DEFAULT_TEXT_COLOR_ON_DARK_BG = "#E1E1E1"
@@ -64,7 +64,6 @@ def get_contrasting_text_color(hex_bg_color):
         luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
         return DEFAULT_TEXT_COLOR_ON_DARK_BG if luminance < 0.5 else DEFAULT_TEXT_COLOR_ON_LIGHT_BG
     except:
-        # Fallback based on the active theme if hex conversion fails
         return DEFAULT_TEXT_COLOR_ON_LIGHT_BG if THEME == "light" else DEFAULT_TEXT_COLOR_ON_DARK_BG
 
 css_parts = [
@@ -297,7 +296,7 @@ def load_data_from_google_sheet():
         for col in checklist_cols_to_ensure:
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
         
-        cols_to_drop_final = ['deliverydatets', 'onboardingwelcome'] # Standardized names
+        cols_to_drop_final = ['deliverydatets', 'onboardingwelcome']
         for col_drop in cols_to_drop_final:
             if col_drop in df_loaded_internal.columns:
                 df_loaded_internal = df_loaded_internal.drop(columns=[col_drop])
@@ -557,7 +556,52 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
+
 def display_data_table_and_details(df_to_display, context_key_prefix=""):
+    # --- Styling Functions for DataFrame ---
+    # Moved inside to ensure they are in scope, especially for st.dialog
+    def style_boolean_cell(val):
+        val_str = str(val).strip().lower()
+        if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300"
+        elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000"
+        else: return f'color: {"var(--text-color)"};'
+        return f'background-color: {bg_color}; color: {text_color};'
+
+    def style_sentiment_cell(val):
+        val_str = str(val).strip().lower()
+        bg_color = ""; text_color_override = None
+        if val_str == 'positive': bg_color = '#D4EFDF'; text_color_override = "#003300"
+        elif val_str == 'negative': bg_color = '#FADBD8'; text_color_override = "#500000"
+        elif val_str == 'neutral': bg_color = '#F0F0F0'; text_color_override = "#333333"
+        else: return f'color: {"var(--text-color)"};'
+        text_color = text_color_override if text_color_override else get_contrasting_text_color(bg_color)
+        return f'background-color: {bg_color}; color: {text_color};'
+
+    def style_score_cell(val):
+        try:
+            score = float(val)
+            if pd.isna(score): return f'color: {"var(--text-color)"};'
+            if score >= 8: bg_color = '#C8E6C9'
+            elif score >= 4: bg_color = '#FFF9C4'
+            else: bg_color = '#FFCDD2'
+            text_color = get_contrasting_text_color(bg_color)
+            return f'background-color: {bg_color}; color: {text_color};'
+        except (ValueError, TypeError):
+            return f'color: {"var(--text-color)"};'
+
+    def style_days_to_confirmation_cell(val):
+        try:
+            days = float(val)
+            if pd.isna(days): return f'color: {"var(--text-color)"};'
+            if days <= 7: bg_color = '#C8E6C9'
+            elif days <= 14: bg_color = '#FFF9C4'
+            else: bg_color = '#FFCDD2'
+            text_color = get_contrasting_text_color(bg_color)
+            return f'background-color: {bg_color}; color: {text_color};'
+        except (ValueError, TypeError):
+            return f'color: {"var(--text-color)"};'
+    # --- End of Styling Functions ---
+
     if df_to_display is None or df_to_display.empty:
         context_name = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
         if not df_original.empty:
@@ -622,9 +666,9 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
             rerun_for_auto_select = True 
 
     if rerun_for_auto_select and not st.session_state.get(f"{context_key_prefix}_auto_selected_once", False):
-        st.session_state[f"{context_key_prefix}_auto_selected_once"] = True # Mark that auto-selection happened for this context
+        st.session_state[f"{context_key_prefix}_auto_selected_once"] = True
         st.rerun()
-    elif len(df_display_table) != 1: # Reset if no longer single row
+    elif len(df_display_table) != 1:
          st.session_state[f"{context_key_prefix}_auto_selected_once"] = False
 
 
@@ -642,7 +686,7 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
             
             if selected_key_display != st.session_state[transcript_session_key] : 
                 st.session_state[transcript_session_key] = selected_key_display
-                st.session_state[f"{context_key_prefix}_auto_selected_once"] = False # User made a manual selection
+                st.session_state[f"{context_key_prefix}_auto_selected_once"] = False
                 st.rerun()
 
             if st.session_state[transcript_session_key] :
@@ -693,7 +737,7 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             st.session_state.storeName_search = ""
             if 'selected_transcript_key_dialog_global_search' in st.session_state:
                 st.session_state.selected_transcript_key_dialog_global_search = None
-            st.session_state["dialog_global_search_auto_selected_once"] = False # Reset auto-select flag for dialog
+            st.session_state["dialog_global_search_auto_selected_once"] = False
             st.rerun()
     show_gs_dialog_content()
 
@@ -778,7 +822,7 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.19 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.20 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
@@ -801,8 +845,8 @@ if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v319"):
         st.session_state.selected_transcript_key_dialog_global_search = None
     if 'selected_transcript_key_filtered_analysis' in st.session_state:
         st.session_state.selected_transcript_key_filtered_analysis = None
-    st.session_state["dialog_global_search_auto_selected_once"] = False # Reset auto-select flag
-    st.session_state["filtered_analysis_auto_selected_once"] = False # Reset auto-select flag
+    st.session_state["dialog_global_search_auto_selected_once"] = False
+    st.session_state["filtered_analysis_auto_selected_once"] = False
     st.rerun()
 
 if st.session_state.get('last_data_refresh_time'):
@@ -814,13 +858,12 @@ else:
     st.sidebar.caption("Data not yet loaded or refresh triggered. Automatic load initiated if applicable.")
 
 st.sidebar.markdown("---")
-# Refined theme display string
 current_theme_from_streamlit = st.get_option("theme.base")
 theme_display_name_str = ""
 if current_theme_from_streamlit and isinstance(current_theme_from_streamlit, str) and current_theme_from_streamlit.lower() in ["light", "dark"]:
     theme_display_name_str = current_theme_from_streamlit.capitalize()
 
-info_string = f"App Version: 3.19"
-if theme_display_name_str: # Only add if it's a recognized theme
+info_string = f"App Version: 3.20"
+if theme_display_name_str:
     info_string += f" ({theme_display_name_str} Mode)"
 st.sidebar.info(info_string)

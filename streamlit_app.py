@@ -8,9 +8,10 @@ from google.oauth2.service_account import Credentials
 import time
 import numpy as np
 import re
+from dateutil import tz # For PST conversion
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.16", # Updated version
+    page_title="Onboarding Performance Dashboard v3.18", # Updated version
     page_icon="💎",
     layout="wide"
 )
@@ -47,25 +48,23 @@ LIGHT_PLOTLY_SENTIMENT_MAP = { 'positive': '#1A73E8', 'negative': '#D93025', 'ne
 THEME = st.get_option("theme.base")
 if THEME == "light":
     ACTIVE_ACCENT_PRIMARY = LIGHT_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = LIGHT_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = LIGHT_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = LIGHT_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = LIGHT_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = LIGHT_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = LIGHT_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = LIGHT_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = LIGHT_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = LIGHT_PLOTLY_SENTIMENT_MAP
-    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529" # Dark text for light backgrounds
-    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#FFFFFF"  # Light text for dark backgrounds
+    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
+    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#FFFFFF"
 else:
     ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
-    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529" # Dark text for light backgrounds
-    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#E1E1E1"  # Light text for dark backgrounds (slightly off-white for better feel)
+    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529"
+    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#E1E1E1"
 
 PLOT_BG_COLOR = "rgba(0,0,0,0)"
 
-# Helper function to get contrasting text color
 def get_contrasting_text_color(hex_bg_color):
     try:
         hex_bg_color = hex_bg_color.lstrip('#')
         r, g, b = tuple(int(hex_bg_color[i:i+2], 16) for i in (0, 2, 4))
         luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
         return DEFAULT_TEXT_COLOR_ON_DARK_BG if luminance < 0.5 else DEFAULT_TEXT_COLOR_ON_LIGHT_BG
-    except: # Fallback in case of invalid hex or other error
+    except:
         return DEFAULT_TEXT_COLOR_ON_LIGHT_BG if THEME == "light" else DEFAULT_TEXT_COLOR_ON_DARK_BG
-
 
 css_parts = [
     "<style>",
@@ -147,6 +146,9 @@ KEY_REQUIREMENT_DETAILS = {
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 
+PST_TIMEZONE = tz.gettz('America/Los_Angeles')
+UTC_TIMEZONE = tz.tzutc()
+
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets = st.secrets.get("gcp_service_account")
@@ -160,68 +162,172 @@ def authenticate_gspread_cached():
 
 def robust_to_datetime(series):
     dates = pd.to_datetime(series, errors='coerce', infer_datetime_format=True)
-    common_formats = ['%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y %H:%M:%S', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %I:%M:%S %p', '%m/%d/%Y %I:%M:%S %p', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y']
-    if not series.empty and dates.isnull().sum() > len(series)*0.7 and not series.astype(str).str.lower().isin(['','none','nan','nat','null']).all():
-        for fmt in common_formats:
-            try:
-                temp_dates = pd.to_datetime(series, format=fmt, errors='coerce')
-                if temp_dates.notnull().sum() > dates.notnull().sum(): dates = temp_dates
-                if dates.notnull().all(): break
-            except ValueError: continue
+    if not series.empty and dates.isnull().sum() > len(series) * 0.7 and not series.astype(str).str.lower().isin(['','none','nan','nat','null']).all():
+        common_formats = [
+            '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', 
+            '%m/%d/%Y %H:%M:%S', '%d/%m/%Y %H:%M:%S',
+            '%Y-%m-%d %I:%M:%S %p', '%m/%d/%Y %I:%M:%S %p',
+            '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y'
+        ]
+        for dayfirst_setting in [False, True]: # Try both interpretations for ambiguous formats
+            for fmt in common_formats:
+                try:
+                    use_dayfirst = ('%m' in fmt and '%d' in fmt) # Only for formats where m/d order is ambiguous
+                    temp_dates = pd.to_datetime(series, format=fmt, errors='coerce', dayfirst=dayfirst_setting if use_dayfirst else None)
+                    if temp_dates.notnull().sum() > dates.notnull().sum(): dates = temp_dates
+                    if dates.notnull().all(): break
+                except ValueError: continue
+            if dates.notnull().all(): break
     return dates
+
+def format_datetime_to_pst_str(dt_series):
+    if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all():
+        return dt_series 
+    
+    # Helper to apply to each element if direct dt accessor fails
+    def convert_element_to_pst(element):
+        if pd.isna(element):
+            return None # Or pd.NaT, or "" depending on desired output for nulls
+        try:
+            if element.tzinfo is None:
+                aware_element = element.replace(tzinfo=UTC_TIMEZONE)
+            else:
+                aware_element = element.astimezone(UTC_TIMEZONE)
+            pst_element = aware_element.astimezone(PST_TIMEZONE)
+            return pst_element.strftime('%Y-%m-%d %I:%M %p PST')
+        except Exception:
+            return str(element) # Fallback to string representation if conversion fails
+
+    try:
+        if dt_series.dt.tz is None:
+            utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+        else:
+            utc_series = dt_series.dt.tz_convert(UTC_TIMEZONE)
+        pst_series = utc_series.dt.tz_convert(PST_TIMEZONE)
+        # Format, handling NaT explicitly to avoid errors with strftime
+        return pst_series.apply(lambda x: x.strftime('%Y-%m-%d %I:%M %p PST') if pd.notnull(x) else None)
+    except AttributeError: # If .dt accessor fails (e.g. series contains non-datetime objects)
+        return dt_series.apply(convert_element_to_pst)
+    except Exception: # Catch-all for other timezone issues
+         return dt_series.apply(convert_element_to_pst)
+
+
+def format_phone_number(number_str):
+    if pd.isna(number_str) or number_str == "":
+        return ""
+    # Remove non-digit characters
+    digits = re.sub(r'\D', '', str(number_str))
+    if len(digits) == 10:
+        return f"({digits[0:3]}) {digits[3:6]}-{digits[6:10]}"
+    elif len(digits) == 11 and digits.startswith('1'): # Handle +1 country code
+        return f"+1 ({digits[1:4]}) {digits[4:7]}-{digits[7:11]}"
+    return str(number_str) # Return original if not a standard US number format
+
+def capitalize_name(name_str):
+    if pd.isna(name_str) or name_str == "":
+        return ""
+    return str(name_str).title()
+
 
 @st.cache_data(ttl=600)
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
-    if gc is None: st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
+    current_time = datetime.now()
+    if gc is None: st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     url = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"); ws_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
-    if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
-    if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
+    if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
+    if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     try:
         ss = gc.open_by_url(url) if "docs.google.com" in url else gc.open(url); ws = ss.worksheet(ws_name)
-        st.session_state.last_data_refresh_time = datetime.now(); data = ws.get_all_records(head=1, expected_headers=None)
+        data = ws.get_all_records(head=1, expected_headers=None)
+        st.session_state.last_data_refresh_time = current_time
         if not data: st.warning("Source sheet has no data rows (headers may exist)."); return pd.DataFrame()
         df_loaded_internal = pd.DataFrame(data)
-        standardized_column_names = []
-        for col in df_loaded_internal.columns: col_str = str(col).strip().lower(); col_str = "".join(col_str.split()); standardized_column_names.append(col_str)
-        df_loaded_internal.columns = standardized_column_names
-        column_name_map_to_code = { "licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "storename": "storeName", "repname": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "clientsentiment": "clientSentiment", "fulltranscript": "fullTranscript", "score": "score", "status": "status", "summary": "summary" }
-        for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): std_req_key = req_key_internal.lower(); column_name_map_to_code[std_req_key] = req_key_internal
-        cols_to_rename_standardized = {}; current_df_columns = list(df_loaded_internal.columns)
-        for std_sheet_col in current_df_columns:
+        
+        # Standardize column names (lowercase, no spaces)
+        standardized_column_names_map = {col: "".join(str(col).strip().lower().split()) for col in df_loaded_internal.columns}
+        df_loaded_internal.rename(columns=standardized_column_names_map, inplace=True)
+
+        # Define mapping from standardized sheet names to desired code names
+        column_name_map_to_code = {
+            "licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "storename": "storeName",
+            "repname": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate",
+            "confirmationtimestamp": "confirmationTimestamp", "clientsentiment": "clientSentiment",
+            "fulltranscript": "fullTranscript", "score": "score", "status": "status", "summary": "summary",
+            "contactnumber": "contactNumber", "confirmednumber": "confirmedNumber", "contactname": "contactName"
+        }
+        for req_key_internal in KEY_REQUIREMENT_DETAILS.keys():
+            std_req_key = req_key_internal.lower() # Already lowercase in KEY_REQUIREMENT_DETAILS keys is good practice
+            column_name_map_to_code[std_req_key] = req_key_internal
+        
+        cols_to_rename_standardized = {}
+        current_df_columns_std = list(df_loaded_internal.columns)
+        for std_sheet_col in current_df_columns_std:
             if std_sheet_col in column_name_map_to_code:
                 target_code_name = column_name_map_to_code[std_sheet_col]
-                if std_sheet_col != target_code_name and target_code_name not in cols_to_rename_standardized.values() and target_code_name not in current_df_columns: cols_to_rename_standardized[std_sheet_col] = target_code_name
-        if cols_to_rename_standardized: df_loaded_internal.rename(columns=cols_to_rename_standardized, inplace=True)
-        date_cols = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
-        for col, new_col in date_cols.items():
-            if col in df_loaded_internal: df_loaded_internal[new_col] = robust_to_datetime(df_loaded_internal[col].astype(str).str.replace('\n','',regex=False).str.strip())
-            else: df_loaded_internal[new_col] = pd.NaT
-            if col == 'onboardingDate':
-                if new_col in df_loaded_internal and df_loaded_internal[new_col].notna().any(): df_loaded_internal['onboarding_date_only'] = df_loaded_internal[new_col].dt.date
-                else: df_loaded_internal['onboarding_date_only'] = pd.NaT
+                # Ensure target name isn't already a column and not renaming to itself if case is different but content is same
+                if std_sheet_col != target_code_name and target_code_name not in cols_to_rename_standardized.values() and target_code_name not in current_df_columns_std:
+                    cols_to_rename_standardized[std_sheet_col] = target_code_name
+        if cols_to_rename_standardized:
+            df_loaded_internal.rename(columns=cols_to_rename_standardized, inplace=True)
+
+        date_cols_map = {'onboardingDate':'onboardingDate_dt', 'deliveryDate':'deliveryDate_dt', 'confirmationTimestamp':'confirmationTimestamp_dt'}
+        for original_col, dt_col in date_cols_map.items():
+            if original_col in df_loaded_internal:
+                df_loaded_internal[dt_col] = robust_to_datetime(df_loaded_internal[original_col].astype(str).str.replace('\n','',regex=False).str.strip())
+                df_loaded_internal[original_col] = format_datetime_to_pst_str(df_loaded_internal[dt_col])
+            else:
+                df_loaded_internal[dt_col] = pd.NaT
+            if original_col == 'onboardingDate':
+                if dt_col in df_loaded_internal and df_loaded_internal[dt_col].notna().any():
+                    df_loaded_internal['onboarding_date_only'] = df_loaded_internal[dt_col].dt.date
+                else:
+                    df_loaded_internal['onboarding_date_only'] = pd.NaT
+        
         if 'deliveryDate_dt' in df_loaded_internal and 'confirmationTimestamp_dt' in df_loaded_internal:
-            df_loaded_internal['deliveryDate_dt'] = pd.to_datetime(df_loaded_internal['deliveryDate_dt'], errors='coerce'); df_loaded_internal['confirmationTimestamp_dt'] = pd.to_datetime(df_loaded_internal['confirmationTimestamp_dt'], errors='coerce')
-            def to_utc(s):
-                if pd.api.types.is_datetime64_any_dtype(s) and s.notna().any():
-                    try: return s.dt.tz_localize('UTC') if s.dt.tz is None else s.dt.tz_convert('UTC')
-                    except Exception: return s
-                return s
-            valid_dates_mask = df_loaded_internal['confirmationTimestamp_dt'].notna() & df_loaded_internal['deliveryDate_dt'].notna()
+            delivery_dt_for_calc = df_loaded_internal['deliveryDate_dt']
+            confirmation_dt_for_calc = df_loaded_internal['confirmationTimestamp_dt']
+            def ensure_utc_for_calc(series_dt):
+                if pd.api.types.is_datetime64_any_dtype(series_dt) and series_dt.notna().any():
+                    if series_dt.dt.tz is None: return series_dt.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+                    else: return series_dt.dt.tz_convert(UTC_TIMEZONE)
+                return series_dt
+            delivery_utc = ensure_utc_for_calc(delivery_dt_for_calc)
+            confirmation_utc = ensure_utc_for_calc(confirmation_dt_for_calc)
+            valid_dates_mask = delivery_utc.notna() & confirmation_utc.notna()
             df_loaded_internal['days_to_confirmation'] = pd.NA
-            if valid_dates_mask.any(): df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = (to_utc(df_loaded_internal.loc[valid_dates_mask, 'confirmationTimestamp_dt']) - to_utc(df_loaded_internal.loc[valid_dates_mask, 'deliveryDate_dt'])).dt.days
-        str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary']
-        for col in str_cols_ensure:
+            if valid_dates_mask.any():
+                df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = (confirmation_utc[valid_dates_mask] - delivery_utc[valid_dates_mask]).dt.days
+
+        # Format phone numbers
+        for phone_col in ['contactNumber', 'confirmedNumber']:
+            if phone_col in df_loaded_internal.columns:
+                df_loaded_internal[phone_col] = df_loaded_internal[phone_col].astype(str).apply(format_phone_number)
+        
+        # Capitalize names
+        for name_col in ['repName', 'contactName']:
+            if name_col in df_loaded_internal.columns:
+                df_loaded_internal[name_col] = df_loaded_internal[name_col].astype(str).apply(capitalize_name)
+
+        str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber']
+        for col in str_cols_ensure: # Ensure all potentially formatted columns are string
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
             else: df_loaded_internal[col] = df_loaded_internal[col].astype(str).fillna("")
+        
         if 'score' not in df_loaded_internal.columns: df_loaded_internal['score'] = pd.NA
         else: df_loaded_internal['score'] = pd.to_numeric(df_loaded_internal['score'], errors='coerce')
+        
         checklist_cols_to_ensure = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS + ['onboardingWelcome']
         for col in checklist_cols_to_ensure:
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
+        
+        # Explicitly drop deliveryDateTs if it exists from sheet naming variations
+        if 'deliverydatets' in df_loaded_internal.columns: # Check for standardized lowercase name
+            df_loaded_internal = df_loaded_internal.drop(columns=['deliverydatets'])
+
         return df_loaded_internal
-    except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"Google Sheets Error: {e}. Check URL, name & permissions."); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
-    except Exception as e: st.error(f"Error Loading Data: {e}"); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
+    except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"Google Sheets Error: {e}. Check URL, name & permissions."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
+    except Exception as e: st.error(f"Error Loading Data: {e}"); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
 
 @st.cache_data
 def convert_df_to_csv(df): return df.to_csv(index=False).encode('utf-8')
@@ -269,6 +375,8 @@ if 'show_global_search_dialog' not in st.session_state: st.session_state.show_gl
 
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None:
     df_from_load_func = load_data_from_google_sheet()
+    if st.session_state.last_data_refresh_time is None: 
+        st.session_state.last_data_refresh_time = datetime.now()
     if not df_from_load_func.empty:
         st.session_state.df_original = df_from_load_func
         st.session_state.data_loaded = True
@@ -472,49 +580,42 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-# --- Styling Functions for DataFrame ---
 def style_boolean_cell(val):
     val_str = str(val).strip().lower()
-    if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300" # Light Green BG, Dark Green text
-    elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000" # Light Pink/Red BG, Dark Red text
-    else: return f'color: {"var(--text-color)"};' # Theme-aware default text color
+    if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300"
+    elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000"
+    else: return f'color: {"var(--text-color)"};'
     return f'background-color: {bg_color}; color: {text_color};'
 
 def style_sentiment_cell(val):
     val_str = str(val).strip().lower()
-    bg_color = ""
-    if val_str == 'positive': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('positive', '#D4EFDF') # Light Green as default
-    elif val_str == 'negative': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('negative', '#FADBD8') # Light Red
-    elif val_str == 'neutral': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('neutral', '#EAEAEA')    # Light Gray
+    bg_color = ""; text_color_override = None
+    if val_str == 'positive': bg_color = '#D4EFDF'; text_color_override = "#003300"
+    elif val_str == 'negative': bg_color = '#FADBD8'; text_color_override = "#500000"
+    elif val_str == 'neutral': bg_color = '#F0F0F0'; text_color_override = "#333333"
     else: return f'color: {"var(--text-color)"};'
-
-    # Make background lighter for cell, map can provide darker colors for charts
-    if val_str == 'positive': bg_color = '#D4EFDF'
-    elif val_str == 'negative': bg_color = '#FADBD8'
-    elif val_str == 'neutral': bg_color = '#F0F0F0' # Lighter gray
-
-    text_color = get_contrasting_text_color(bg_color)
+    text_color = text_color_override if text_color_override else get_contrasting_text_color(bg_color)
     return f'background-color: {bg_color}; color: {text_color};'
 
 def style_score_cell(val):
     try:
         score = float(val)
         if pd.isna(score): return f'color: {"var(--text-color)"};'
-        if score >= 8: bg_color = '#C8E6C9'    # Light Green (High)
-        elif score >= 4: bg_color = '#FFF9C4'  # Light Yellow (Medium)
-        else: bg_color = '#FFCDD2'             # Light Red (Low)
+        if score >= 8: bg_color = '#C8E6C9'
+        elif score >= 4: bg_color = '#FFF9C4'
+        else: bg_color = '#FFCDD2'
         text_color = get_contrasting_text_color(bg_color)
         return f'background-color: {bg_color}; color: {text_color};'
     except (ValueError, TypeError):
-        return f'color: {"var(--text-color)"};' # Default for non-numeric/NaN
+        return f'color: {"var(--text-color)"};'
 
 def style_days_to_confirmation_cell(val):
     try:
         days = float(val)
         if pd.isna(days): return f'color: {"var(--text-color)"};'
-        if days <= 7: bg_color = '#C8E6C9'      # Light Green (Fast)
-        elif days <= 14: bg_color = '#FFF9C4'   # Light Yellow (Moderate)
-        else: bg_color = '#FFCDD2'              # Light Red (Slow)
+        if days <= 7: bg_color = '#C8E6C9'
+        elif days <= 14: bg_color = '#FFF9C4'
+        else: bg_color = '#FFCDD2'
         text_color = get_contrasting_text_color(bg_color)
         return f'background-color: {bg_color}; color: {text_color};'
     except (ValueError, TypeError):
@@ -530,9 +631,18 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
         return
 
     df_display_table = df_to_display.copy().reset_index(drop=True)
-    cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
-    cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
-    other_cols = [col for col in df_display_table.columns if col not in cols_for_display and not col.endswith(('_utc', '_str_original', '_dt')) and col not in ['fullTranscript', 'summary', 'onboarding_date_only']]
+    
+    cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
+    
+    cols_to_exclude_from_try = ['onboardingWelcome', 'deliveryDateTs'] # 'deliveryDate_dt' is handled by endswith _dt
+    cols_to_try_filtered = [col for col in cols_to_try if col not in cols_to_exclude_from_try]
+
+    cols_for_display = [col for col in cols_to_try_filtered if col in df_display_table.columns]
+    
+    excluded_technical_cols = ['fullTranscript', 'summary', 'onboarding_date_only', 'onboardingWelcome', 'deliveryDateTs'] + \
+                              [col for col in df_display_table.columns if col.endswith(('_dt', '_utc', '_str_original'))]
+                              
+    other_cols = [col for col in df_display_table.columns if col not in cols_for_display and col not in excluded_technical_cols]
     cols_for_display = list(dict.fromkeys(cols_for_display + other_cols))
 
     if not cols_for_display or df_display_table[cols_for_display].empty:
@@ -542,15 +652,12 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
 
     def style_table_customized(df_to_style):
         styled_df = df_to_style.style
-        
-        # Apply new styling functions
         if 'clientSentiment' in df_to_style.columns:
             styled_df = styled_df.applymap(style_sentiment_cell, subset=['clientSentiment'])
         if 'score' in df_to_style.columns:
             styled_df = styled_df.applymap(style_score_cell, subset=['score'])
         if 'days_to_confirmation' in df_to_style.columns:
             styled_df = styled_df.applymap(style_days_to_confirmation_cell, subset=['days_to_confirmation'])
-            
         boolean_like_cols = [col for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS if col in df_to_style.columns and col != 'score']
         for col_name_bool in boolean_like_cols:
             styled_df = styled_df.applymap(style_boolean_cell, subset=[col_name_bool])
@@ -700,12 +807,12 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.16 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.18 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
 
-if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v316"): # Updated key
+if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v318"):
     st.cache_data.clear()
     st.session_state.data_loaded = False
     st.session_state.last_data_refresh_time = None
@@ -735,6 +842,6 @@ else:
 
 st.sidebar.markdown("---")
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-info_string = f"App Version: 3.16";
+info_string = f"App Version: 3.18";
 if theme_display_name: info_string += f" ({theme_display_name} Mode)"
 st.sidebar.info(info_string)

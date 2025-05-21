@@ -752,6 +752,10 @@ if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_4_3
     st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None; st.session_state.df_original = pd.DataFrame()
     clear_all_filters_and_search_v4_4_3(); st.rerun()
 
+# Define preferred_cols_order before it's used in export logic
+preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
+preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
+
 # CSV Export Button
 csv_button_disabled = global_search_active or df_filtered_for_export.empty
 csv_help_text = "Download the currently filtered data table as a CSV file."
@@ -760,10 +764,6 @@ if global_search_active:
 elif df_filtered_for_export.empty:
     csv_help_text = "No filtered data available to download."
 
-# Define preferred_cols_order before it's used in export logic
-preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
-preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
-
 
 if not csv_button_disabled:
     export_columns_csv = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled'] 
@@ -771,7 +771,11 @@ if not csv_button_disabled:
     other_cols_csv = [col for col in df_filtered_for_export.columns if col not in export_columns_csv and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
     final_export_cols_csv = list(dict.fromkeys(export_columns_csv + other_cols_csv))
     
-    df_to_export_csv = df_filtered_for_export[final_export_cols_csv] if all(col in df_filtered_for_export.columns for col in final_export_cols_csv) else df_filtered_for_export.copy()
+    # Ensure all columns in final_export_cols_csv actually exist in df_filtered_for_export
+    # This prevents KeyError if a column in preferred_cols_order (like 'status_styled') isn't in df_filtered_for_export
+    valid_final_export_cols_csv = [col for col in final_export_cols_csv if col in df_filtered_for_export.columns]
+    df_to_export_csv = df_filtered_for_export[valid_final_export_cols_csv].copy() if valid_final_export_cols_csv else df_filtered_for_export.copy()
+
     
     csv_export_data = convert_df_to_csv(df_to_export_csv)
     st.sidebar.download_button(
@@ -781,7 +785,7 @@ if not csv_button_disabled:
         mime="text/csv",
         key="download_filtered_csv_button_sidebar_v4_4_3", 
         use_container_width=True,
-        help=csv_help_text # Removed disabled=csv_button_disabled as it's covered by the if not csv_button_disabled
+        help=csv_help_text 
     )
 else:
      st.sidebar.download_button(
@@ -797,12 +801,12 @@ else:
 
 # MTD Calculations for PDF (ensure df_original is used for a consistent MTD baseline)
 today_mtd_calc_pdf = date.today(); mtd_start_calc_pdf = today_mtd_calc_pdf.replace(day=1); prev_month_end_calc_pdf = mtd_start_calc_pdf - timedelta(days=1); prev_month_start_calc_pdf = prev_month_end_calc_pdf.replace(day=1)
-df_mtd_data_pdf, df_prev_mtd_data_pdf = pd.DataFrame(), pd.DataFrame()
+df_mtd_data_pdf = pd.DataFrame() # Initialize to empty
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
     dates_original_for_calc_pdf = pd.to_datetime(df_original['onboarding_date_only'], errors='coerce').dt.date; valid_mask_original_calc_pdf = dates_original_for_calc_pdf.notna()
     if valid_mask_original_calc_pdf.any():
         df_valid_dates_original_pdf = df_original[valid_mask_original_calc_pdf].copy(); valid_dates_series_original_pdf = dates_original_for_calc_pdf[valid_mask_original_calc_pdf]
-        mtd_mask_pdf = (valid_dates_series_original_pdf >= mtd_start_calc_pdf) & (valid_dates_series_original_pdf <= today_mtd_calc_pdf); prev_mtd_mask_pdf = (valid_dates_series_original_pdf >= prev_month_start_calc_pdf) & (valid_dates_series_original_pdf <= prev_month_end_calc_pdf)
+        mtd_mask_pdf = (valid_dates_series_original_pdf >= mtd_start_calc_pdf) & (valid_dates_series_original_pdf <= today_mtd_calc_pdf)
         df_mtd_data_pdf = df_valid_dates_original_pdf[mtd_mask_pdf.values if len(mtd_mask_pdf) == len(df_valid_dates_original_pdf) else mtd_mask_pdf[df_valid_dates_original_pdf.index]]
 
 mtd_metrics_for_pdf = calculate_metrics(df_mtd_data_pdf) 
@@ -883,7 +887,6 @@ if not final_summary_message: final_summary_message = "Displaying data (default 
 st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
 
 # MTD Calculations for Overview Tab (ensure df_original is used for a consistent MTD baseline)
-# This block is distinct from mtd_metrics_for_pdf to avoid confusion if their sources differ.
 total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = (0,0,0,0) # Initialize
 delta_onboardings_mtd = None
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any(): # Check df_original specifically for MTD baseline
@@ -1120,4 +1123,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Dashboard v4.4.3 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=Tr
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Dashboard v4.4.3 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)

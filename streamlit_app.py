@@ -310,9 +310,9 @@ def check_password():
     _, form_col, _ = st.columns([1,1.5,1], gap="large")
     with form_col:
         st.markdown("<div style='text-align: center; font-size: 60px; margin-bottom: 20px;'>🔑</div>", unsafe_allow_html=True)
-        with st.form("password_form_main_app_v4_4_3"): # Key updated
+        with st.form("password_form_main_app_v4_4_4"): # Key updated
             st.markdown("<h4 style='text-align: center;'>Enter Access Key</h4>", unsafe_allow_html=True)
-            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_4_3", placeholder="Enter your key", label_visibility="collapsed") # Key updated
+            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_4_4", placeholder="Enter your key", label_visibility="collapsed") # Key updated
             st.markdown("")
             submitted = st.form_submit_button("🔓 Unlock Dashboard", use_container_width=True)
             if submitted:
@@ -477,19 +477,22 @@ def load_data_from_google_sheet():
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     except Exception as e: st.error(f"🌪️ Error loading data: {e}"); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
 
-# Remove @st.cache_data for debugging, can be added back if performance is an issue
-# @st.cache_data
+# Removed @st.cache_data for debugging, can be added back if performance is an issue
 def convert_df_to_csv(df_to_convert):
     """Converts a Pandas DataFrame to CSV bytes, with error handling."""
     if not isinstance(df_to_convert, pd.DataFrame):
-        st.error(f"Debug: convert_df_to_csv received non-DataFrame: {type(df_to_convert)}")
-        return b"Error: Invalid data type for CSV conversion." # Return bytes
+        # Using st.warning for less intrusive debugging in deployed app
+        st.warning(f"Debug (convert_df_to_csv): Received non-DataFrame. Type: {type(df_to_convert)}")
+        return b"Error: Invalid data type for CSV conversion." 
     try:
+        if df_to_convert.empty and len(df_to_convert.columns) == 0:
+             # Handle DataFrame with no columns and no rows: to_csv would be empty string.
+            return b"" # Empty bytes is valid for download button
         csv_string = df_to_convert.to_csv(index=False)
         return csv_string.encode('utf-8')
     except Exception as e:
-        st.error(f"Debug: Error in convert_df_to_csv during to_csv() or encode(): {e}")
-        return b"Error converting DataFrame to CSV." # Return bytes
+        st.warning(f"Debug (convert_df_to_csv): Error during to_csv() or encode(). Error: {e}")
+        return b"Error: Could not convert DataFrame to CSV."
 
 def calculate_metrics(df_input):
     if df_input.empty: return 0, 0.0, pd.NA, pd.NA
@@ -633,7 +636,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        return pdf.output(dest='S') # Removed .encode('latin1')
+        return pdf.output(dest='S')
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -653,7 +656,6 @@ if not st.session_state.data_loaded and st.session_state.last_data_refresh_time 
 df_original = st.session_state.df_original 
 
 # Initialize df_filtered and df_filtered_for_export to empty DataFrames
-# This ensures they always exist, even if subsequent logic fails or df_original is empty.
 df_filtered = pd.DataFrame()
 df_filtered_for_export = pd.DataFrame()
 df_global_search_results_display = pd.DataFrame()
@@ -775,39 +777,42 @@ if global_search_active:
 elif df_filtered_for_export.empty:
     csv_help_text = "No filtered data available to download."
 
-csv_export_data = b"" # Initialize with empty bytes
-
-if not csv_button_disabled:
-    export_columns_csv = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled'] 
-    export_columns_csv.append('status') 
-    other_cols_csv = [col for col in df_filtered_for_export.columns if col not in export_columns_csv and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
-    final_export_cols_csv = list(dict.fromkeys(export_columns_csv + other_cols_csv))
+data_for_csv_download_widget: bytes
+if csv_button_disabled:
+    data_for_csv_download_widget = b""
+else:
+    # This block only runs if data should be available and exportable
+    # df_filtered_for_export is guaranteed not empty here
     
-    valid_final_export_cols_csv = [col for col in final_export_cols_csv if col in df_filtered_for_export.columns]
+    export_cols = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled']
+    if 'status' not in export_cols and 'status' in df_filtered_for_export.columns: # Ensure original status is included
+        export_cols.append('status') 
     
-    if valid_final_export_cols_csv and not df_filtered_for_export.empty:
-        df_to_export_csv = df_filtered_for_export[valid_final_export_cols_csv].copy()
-        if isinstance(df_to_export_csv, pd.DataFrame):
-            csv_export_data = convert_df_to_csv(df_to_export_csv)
-        else:
-            st.error(f"Error: df_to_export_csv is not a DataFrame. Type: {type(df_to_export_csv)}")
-            # csv_export_data remains b""
-    elif not df_filtered_for_export.empty: # Has rows but no valid columns selected (edge case)
-        df_to_export_csv = df_filtered_for_export.copy() # Export all available if column selection fails
-        csv_export_data = convert_df_to_csv(df_to_export_csv)
-    # If df_filtered_for_export is empty, csv_export_data remains b""
+    other_valid_cols = [col for col in df_filtered_for_export.columns if col not in export_cols and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
+    final_cols_for_csv = list(dict.fromkeys(export_cols + other_valid_cols))
+    
+    actual_cols_to_export = [col for col in final_cols_for_csv if col in df_filtered_for_export.columns]
 
-# Final check for csv_export_data type before passing to download_button
-if not isinstance(csv_export_data, bytes):
-    st.warning(f"Warning: csv_export_data is not bytes before download. Type: {type(csv_export_data)}. Will provide empty bytes.")
-    csv_export_data = b""
+    df_for_this_export: pd.DataFrame
+    if actual_cols_to_export:
+        df_for_this_export = df_filtered_for_export[actual_cols_to_export].copy()
+    else: 
+        df_for_this_export = df_filtered_for_export.copy() # Fallback to all columns if selection is empty
+    
+    data_for_csv_download_widget = convert_df_to_csv(df_for_this_export)
+
+# Final safeguard, though convert_df_to_csv should always return bytes
+if not isinstance(data_for_csv_download_widget, bytes):
+    st.warning(f"Data for CSV download button was not bytes. Type: {type(data_for_csv_download_widget)}. Using empty bytes as fallback.")
+    data_for_csv_download_widget = b""
+
 
 st.sidebar.download_button(
     label="📥 Download Filtered Data (CSV)",
-    data=csv_export_data, 
+    data=data_for_csv_download_widget, 
     file_name=f"filtered_onboarding_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
     mime="text/csv",
-    key="download_filtered_csv_button_sidebar_v4_4_3", 
+    key="download_filtered_csv_button_sidebar_v4_4_4", # Key updated for new version
     use_container_width=True,
     help=csv_help_text,
     disabled=csv_button_disabled 
@@ -835,7 +840,7 @@ elif df_filtered_for_export.empty:
     pdf_help_text = "No filtered data to generate PDF. Adjust filters."
 
 
-if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf_main_button_v4_4_3", use_container_width=True, help=pdf_help_text, disabled=pdf_button_disabled): 
+if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf_main_button_v4_4_4", use_container_width=True, help=pdf_help_text, disabled=pdf_button_disabled): # Key updated
     pdf_bytes = generate_executive_snapshot_pdf(
         df_filtered_for_export, 
         mtd_metrics_for_pdf, 
@@ -844,7 +849,7 @@ if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf
         PST_TIMEZONE
     )
     if pdf_bytes:
-        download_key = f"download_exec_snapshot_pdf_final_button_v4_4_3_{int(time.time())}"
+        download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
         st.sidebar.download_button(
             label="✅ Click to Download PDF",
             data=pdf_bytes,
@@ -863,7 +868,7 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Onboarding Dashboard v4.4.3\n\n© {datetime.now().year} Nexus Workflow") 
+st.sidebar.caption(f"Onboarding Dashboard v4.4.4\n\n© {datetime.now().year} Nexus Workflow") # Version updated
 
 # --- Main Page Content ---
 st.title("📈 Onboarding Analytics Dashboard")
@@ -902,7 +907,7 @@ if not final_summary_message: final_summary_message = "Displaying data (default 
 st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
 
 # MTD Calculations for Overview Tab (ensure df_original is used for a consistent MTD baseline)
-total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = (0,0,0,0) # Initialize
+total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = (0.0,0.0,pd.NA,pd.NA) # Initialize with appropriate types
 delta_onboardings_mtd = None
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any(): # Check df_original specifically for MTD baseline
     temp_df_mtd_data, temp_df_prev_mtd_data = pd.DataFrame(), pd.DataFrame() # Temp vars for this block
@@ -920,8 +925,9 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
         temp_df_prev_mtd_data = df_valid_dates_original_overview[prev_mtd_mask_overview.values if len(prev_mtd_mask_overview) == len(df_valid_dates_original_overview) else prev_mtd_mask_overview[df_valid_dates_original_overview.index]]
     
     total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = calculate_metrics(temp_df_mtd_data)
-    total_prev_mtd, _, _, _ = calculate_metrics(temp_df_prev_mtd_data) # Only need total for delta
-    delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and pd.notna(total_prev_mtd) else None
+    total_prev_mtd_calc, _, _, _ = calculate_metrics(temp_df_prev_mtd_data) # Renamed to avoid conflict
+    if pd.notna(total_mtd) and pd.notna(total_prev_mtd_calc):
+      delta_onboardings_mtd = total_mtd - total_prev_mtd_calc
 
 
 def get_cell_style_class(column_name, value):

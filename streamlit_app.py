@@ -11,7 +11,7 @@ import re
 from dateutil import tz # For PST conversion
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.18", # Updated version
+    page_title="Onboarding Performance Dashboard v3.18",
     page_icon="💎",
     layout="wide"
 )
@@ -169,10 +169,10 @@ def robust_to_datetime(series):
             '%Y-%m-%d %I:%M:%S %p', '%m/%d/%Y %I:%M:%S %p',
             '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y'
         ]
-        for dayfirst_setting in [False, True]: # Try both interpretations for ambiguous formats
+        for dayfirst_setting in [False, True]:
             for fmt in common_formats:
                 try:
-                    use_dayfirst = ('%m' in fmt and '%d' in fmt) # Only for formats where m/d order is ambiguous
+                    use_dayfirst = ('%m' in fmt and '%d' in fmt)
                     temp_dates = pd.to_datetime(series, format=fmt, errors='coerce', dayfirst=dayfirst_setting if use_dayfirst else None)
                     if temp_dates.notnull().sum() > dates.notnull().sum(): dates = temp_dates
                     if dates.notnull().all(): break
@@ -183,51 +183,32 @@ def robust_to_datetime(series):
 def format_datetime_to_pst_str(dt_series):
     if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all():
         return dt_series 
-    
-    # Helper to apply to each element if direct dt accessor fails
     def convert_element_to_pst(element):
-        if pd.isna(element):
-            return None # Or pd.NaT, or "" depending on desired output for nulls
+        if pd.isna(element): return None
         try:
-            if element.tzinfo is None:
-                aware_element = element.replace(tzinfo=UTC_TIMEZONE)
-            else:
-                aware_element = element.astimezone(UTC_TIMEZONE)
+            if element.tzinfo is None: aware_element = element.replace(tzinfo=UTC_TIMEZONE)
+            else: aware_element = element.astimezone(UTC_TIMEZONE)
             pst_element = aware_element.astimezone(PST_TIMEZONE)
             return pst_element.strftime('%Y-%m-%d %I:%M %p PST')
-        except Exception:
-            return str(element) # Fallback to string representation if conversion fails
-
+        except Exception: return str(element)
     try:
-        if dt_series.dt.tz is None:
-            utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
-        else:
-            utc_series = dt_series.dt.tz_convert(UTC_TIMEZONE)
+        if dt_series.dt.tz is None: utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+        else: utc_series = dt_series.dt.tz_convert(UTC_TIMEZONE)
         pst_series = utc_series.dt.tz_convert(PST_TIMEZONE)
-        # Format, handling NaT explicitly to avoid errors with strftime
         return pst_series.apply(lambda x: x.strftime('%Y-%m-%d %I:%M %p PST') if pd.notnull(x) else None)
-    except AttributeError: # If .dt accessor fails (e.g. series contains non-datetime objects)
-        return dt_series.apply(convert_element_to_pst)
-    except Exception: # Catch-all for other timezone issues
-         return dt_series.apply(convert_element_to_pst)
-
+    except AttributeError: return dt_series.apply(convert_element_to_pst)
+    except Exception: return dt_series.apply(convert_element_to_pst)
 
 def format_phone_number(number_str):
-    if pd.isna(number_str) or number_str == "":
-        return ""
-    # Remove non-digit characters
+    if pd.isna(number_str) or number_str == "": return ""
     digits = re.sub(r'\D', '', str(number_str))
-    if len(digits) == 10:
-        return f"({digits[0:3]}) {digits[3:6]}-{digits[6:10]}"
-    elif len(digits) == 11 and digits.startswith('1'): # Handle +1 country code
-        return f"+1 ({digits[1:4]}) {digits[4:7]}-{digits[7:11]}"
-    return str(number_str) # Return original if not a standard US number format
+    if len(digits) == 10: return f"({digits[0:3]}) {digits[3:6]}-{digits[6:10]}"
+    elif len(digits) == 11 and digits.startswith('1'): return f"+1 ({digits[1:4]}) {digits[4:7]}-{digits[7:11]}"
+    return str(number_str)
 
 def capitalize_name(name_str):
-    if pd.isna(name_str) or name_str == "":
-        return ""
+    if pd.isna(name_str) or name_str == "": return ""
     return str(name_str).title()
-
 
 @st.cache_data(ttl=600)
 def load_data_from_google_sheet():
@@ -244,11 +225,9 @@ def load_data_from_google_sheet():
         if not data: st.warning("Source sheet has no data rows (headers may exist)."); return pd.DataFrame()
         df_loaded_internal = pd.DataFrame(data)
         
-        # Standardize column names (lowercase, no spaces)
         standardized_column_names_map = {col: "".join(str(col).strip().lower().split()) for col in df_loaded_internal.columns}
         df_loaded_internal.rename(columns=standardized_column_names_map, inplace=True)
 
-        # Define mapping from standardized sheet names to desired code names
         column_name_map_to_code = {
             "licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "storename": "storeName",
             "repname": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate",
@@ -257,7 +236,7 @@ def load_data_from_google_sheet():
             "contactnumber": "contactNumber", "confirmednumber": "confirmedNumber", "contactname": "contactName"
         }
         for req_key_internal in KEY_REQUIREMENT_DETAILS.keys():
-            std_req_key = req_key_internal.lower() # Already lowercase in KEY_REQUIREMENT_DETAILS keys is good practice
+            std_req_key = req_key_internal.lower()
             column_name_map_to_code[std_req_key] = req_key_internal
         
         cols_to_rename_standardized = {}
@@ -265,7 +244,6 @@ def load_data_from_google_sheet():
         for std_sheet_col in current_df_columns_std:
             if std_sheet_col in column_name_map_to_code:
                 target_code_name = column_name_map_to_code[std_sheet_col]
-                # Ensure target name isn't already a column and not renaming to itself if case is different but content is same
                 if std_sheet_col != target_code_name and target_code_name not in cols_to_rename_standardized.values() and target_code_name not in current_df_columns_std:
                     cols_to_rename_standardized[std_sheet_col] = target_code_name
         if cols_to_rename_standardized:
@@ -299,18 +277,15 @@ def load_data_from_google_sheet():
             if valid_dates_mask.any():
                 df_loaded_internal.loc[valid_dates_mask, 'days_to_confirmation'] = (confirmation_utc[valid_dates_mask] - delivery_utc[valid_dates_mask]).dt.days
 
-        # Format phone numbers
         for phone_col in ['contactNumber', 'confirmedNumber']:
             if phone_col in df_loaded_internal.columns:
                 df_loaded_internal[phone_col] = df_loaded_internal[phone_col].astype(str).apply(format_phone_number)
-        
-        # Capitalize names
         for name_col in ['repName', 'contactName']:
             if name_col in df_loaded_internal.columns:
                 df_loaded_internal[name_col] = df_loaded_internal[name_col].astype(str).apply(capitalize_name)
 
-        str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber']
-        for col in str_cols_ensure: # Ensure all potentially formatted columns are string
+        str_cols_ensure = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber', 'onboardingDate', 'deliveryDate', 'confirmationTimestamp']
+        for col in str_cols_ensure:
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = ""
             else: df_loaded_internal[col] = df_loaded_internal[col].astype(str).fillna("")
         
@@ -321,8 +296,8 @@ def load_data_from_google_sheet():
         for col in checklist_cols_to_ensure:
             if col not in df_loaded_internal.columns: df_loaded_internal[col] = pd.NA
         
-        # Explicitly drop deliveryDateTs if it exists from sheet naming variations
-        if 'deliverydatets' in df_loaded_internal.columns: # Check for standardized lowercase name
+        # Explicitly drop deliveryDateTs (standardized name) if it was loaded
+        if 'deliverydatets' in df_loaded_internal.columns:
             df_loaded_internal = df_loaded_internal.drop(columns=['deliverydatets'])
 
         return df_loaded_internal
@@ -632,18 +607,26 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
 
     df_display_table = df_to_display.copy().reset_index(drop=True)
     
-    cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
+    cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 
+                   'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 
+                   'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
     
-    cols_to_exclude_from_try = ['onboardingWelcome', 'deliveryDateTs'] # 'deliveryDate_dt' is handled by endswith _dt
-    cols_to_try_filtered = [col for col in cols_to_try if col not in cols_to_exclude_from_try]
+    cols_for_display_intermediate = [col for col in cols_to_try if col in df_display_table.columns]
+    
+    excluded_cols = ['onboardingWelcome', 'deliveryDateTs'] + \
+                    [col for col in df_display_table.columns if col.endswith(('_dt', '_utc', '_str_original'))] + \
+                    ['fullTranscript', 'summary', 'onboarding_date_only'] 
 
-    cols_for_display = [col for col in cols_to_try_filtered if col in df_display_table.columns]
+    # Start with main columns, then add others not excluded
+    final_cols_for_display = [col for col in cols_for_display_intermediate if col not in excluded_cols]
     
-    excluded_technical_cols = ['fullTranscript', 'summary', 'onboarding_date_only', 'onboardingWelcome', 'deliveryDateTs'] + \
-                              [col for col in df_display_table.columns if col.endswith(('_dt', '_utc', '_str_original'))]
-                              
-    other_cols = [col for col in df_display_table.columns if col not in cols_for_display and col not in excluded_technical_cols]
-    cols_for_display = list(dict.fromkeys(cols_for_display + other_cols))
+    other_existing_cols = [col for col in df_display_table.columns if col not in final_cols_for_display and col not in excluded_cols]
+    final_cols_for_display.extend(other_existing_cols)
+    final_cols_for_display = list(dict.fromkeys(final_cols_for_display)) # Remove duplicates, preserve order
+
+    # Ensure the final list of columns actually exist in the dataframe before trying to select
+    cols_for_display = [col for col in final_cols_for_display if col in df_display_table.columns]
+
 
     if not cols_for_display or df_display_table[cols_for_display].empty:
         context_name = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')

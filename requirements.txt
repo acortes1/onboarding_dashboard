@@ -1,4 +1,5 @@
-streamlit>=1.28.0
+# acortes1/onboarding_dashboard/onboarding_dashboard-main/requirements.txt
+streamlit>=1.30.0 # Updated to a more recent version for latest features
 pandas
 numpy
 plotly
@@ -7,4 +8,4 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 python-dateutil
-matplotlib
+matplotlib # Kept if any other part of a larger system might use it, but not directly by this script

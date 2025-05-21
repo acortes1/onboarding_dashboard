@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.3", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.4", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -622,7 +622,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        return pdf.output(dest='S').encode('latin1') 
+        return pdf.output(dest='S') # Removed .encode('latin1')
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -771,8 +771,6 @@ if not csv_button_disabled:
     other_cols_csv = [col for col in df_filtered_for_export.columns if col not in export_columns_csv and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
     final_export_cols_csv = list(dict.fromkeys(export_columns_csv + other_cols_csv))
     
-    # Ensure all columns in final_export_cols_csv actually exist in df_filtered_for_export
-    # This prevents KeyError if a column in preferred_cols_order (like 'status_styled') isn't in df_filtered_for_export
     valid_final_export_cols_csv = [col for col in final_export_cols_csv if col in df_filtered_for_export.columns]
     df_to_export_csv = df_filtered_for_export[valid_final_export_cols_csv].copy() if valid_final_export_cols_csv else df_filtered_for_export.copy()
 

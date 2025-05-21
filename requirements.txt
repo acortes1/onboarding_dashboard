@@ -1,4 +1,3 @@
-# acortes1/onboarding_dashboard/onboarding_dashboard-main/requirements.txt
 streamlit>=1.30.0 # Updated to a more recent version for latest features
 pandas
 numpy
@@ -9,3 +8,5 @@ google-auth-oauthlib
 google-auth-httplib2
 python-dateutil
 matplotlib # Kept if any other part of a larger system might use it, but not directly by this script
+fpdf2 # For PDF generation
+kaleido # For exporting Plotly charts to static images (needed for PDF)

@@ -10,10 +10,12 @@ import time
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
+from fpdf import FPDF # For PDF generation
+import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.3.1", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.0", # Updated Version for exports
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -308,9 +310,9 @@ def check_password():
     _, form_col, _ = st.columns([1,1.5,1], gap="large")
     with form_col:
         st.markdown("<div style='text-align: center; font-size: 60px; margin-bottom: 20px;'>🔑</div>", unsafe_allow_html=True)
-        with st.form("password_form_main_app_v4_3_1"): # Key updated
+        with st.form("password_form_main_app_v4_4_0"): # Key updated
             st.markdown("<h4 style='text-align: center;'>Enter Access Key</h4>", unsafe_allow_html=True)
-            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_3_1", placeholder="Enter your key", label_visibility="collapsed") # Key updated
+            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_4_0", placeholder="Enter your key", label_visibility="collapsed") # Key updated
             st.markdown("")
             submitted = st.form_submit_button("🔓 Unlock Dashboard", use_container_width=True)
             if submitted:
@@ -321,7 +323,7 @@ def check_password():
 if not check_password(): st.stop()
 
 # --- Constants & Configuration ---
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+SCOPES = ['[https://www.googleapis.com/auth/spreadsheets](https://www.googleapis.com/auth/spreadsheets)', '[https://www.googleapis.com/auth/drive](https://www.googleapis.com/auth/drive)']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and DIME Industries.", "type": "Secondary", "chart_label": "Intro Self & DIME"},
     'confirmKitReceived': {"description": "Confirm kit and initial order received.", "type": "Primary", "chart_label": "Kit & Order Recv'd"},
@@ -506,6 +508,125 @@ if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.se
 if 'selected_transcript_key_filtered_analysis' not in st.session_state: st.session_state.selected_transcript_key_filtered_analysis = None
 if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
 
+# --- PDF Generation Functions ---
+def plotly_fig_to_image_bytes(fig):
+    """Converts a Plotly figure to PNG image bytes."""
+    try:
+        img_bytes = fig.to_image(format="png", engine="kaleido")
+        return img_bytes
+    except Exception as e:
+        st.warning(f"Could not convert chart to image: {e}. Ensure 'kaleido' is installed.")
+        return None
+
+def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last_refresh_dt, pst_tz):
+    """Generates an Executive Snapshot PDF."""
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_font("Helvetica", "B", 16)
+
+        # Header
+        pdf.cell(0, 10, "DIME Industries - Executive Snapshot", 0, 1, "C")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 6, "[LOGO Placeholder]", 0, 1, "C") # Simple placeholder
+        pdf.ln(5)
+
+        # Last Refresh Time
+        pdf.set_font("Helvetica", "I", 9)
+        if last_refresh_dt:
+            refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", 0, 1, "R")
+        else:
+            pdf.cell(0, 5, "Data refresh time not available.", 0, 1, "R")
+        pdf.ln(5)
+
+        # KPIs Section
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 10, "Key Performance Indicators", 0, 1, "L")
+        pdf.set_font("Helvetica", "", 10)
+
+        # MTD Metrics
+        total_mtd_pdf, sr_mtd_pdf, score_mtd_pdf, days_mtd_pdf = mtd_metrics
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 7, "Month-to-Date (MTD) Performance:", 0, 1, "L")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 5, f"  - Total Onboardings MTD: {total_mtd_pdf:.0f}" if pd.notna(total_mtd_pdf) else "  - Total Onboardings MTD: N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Success Rate MTD: {sr_mtd_pdf:.1f}%" if pd.notna(sr_mtd_pdf) else "  - Success Rate MTD: N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Average Score MTD: {score_mtd_pdf:.2f}" if pd.notna(score_mtd_pdf) else "  - Average Score MTD: N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Avg. Days to Confirmation MTD: {days_mtd_pdf:.1f}" if pd.notna(days_mtd_pdf) else "  - Avg. Days to Confirmation MTD: N/A", 0, 1)
+        pdf.ln(3)
+
+        # Filtered Data Metrics
+        total_filt_pdf, sr_filt_pdf, score_filt_pdf, days_filt_pdf = filtered_metrics
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 7, "Filtered Data Snapshot:", 0, 1, "L")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 5, f"  - Total Onboardings (Filtered): {total_filt_pdf:.0f}" if pd.notna(total_filt_pdf) else "  - Total Onboardings (Filtered): N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Success Rate (Filtered): {sr_filt_pdf:.1f}%" if pd.notna(sr_filt_pdf) else "  - Success Rate (Filtered): N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Average Score (Filtered): {score_filt_pdf:.2f}" if pd.notna(score_filt_pdf) else "  - Average Score (Filtered): N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Avg. Days to Confirmation (Filtered): {days_filt_pdf:.1f}" if pd.notna(days_filt_pdf) else "  - Avg. Days to Confirmation (Filtered): N/A", 0, 1)
+        pdf.ln(7)
+
+        # Charts Section
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 10, "Key Charts (from Filtered Data)", 0, 1, "L")
+        
+        chart_img_width = 170 # A4 width is 210mm, margins 15+15 = 30, so available width ~180.
+        
+        # Chart 1: Onboarding Status Distribution
+        if not df_data.empty and 'status' in df_data.columns and df_data['status'].notna().any():
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 7, "1. Onboarding Status Distribution:", 0, 1, "L")
+            status_counts_df_pdf = df_data['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index()
+            status_counts_df_pdf.columns = ['status', 'count']
+            status_fig_pdf = px.bar(status_counts_df_pdf, x='status', y='count', color='status', title="", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
+            status_fig_pdf.update_layout(plotly_base_layout_settings, title_text="Onboarding Status", height=300, width=500, margin=dict(l=40, r=20, t=40, b=40)) # Smaller for PDF
+            img_bytes = plotly_fig_to_image_bytes(status_fig_pdf)
+            if img_bytes:
+                pdf.image(io.BytesIO(img_bytes), x=pdf.get_x() + 10, w=chart_img_width * 0.7, type='PNG') # Smaller width for side-by-side or smaller footprint
+                pdf.ln(2) # Adjust spacing based on actual image height
+            else:
+                pdf.set_font("Helvetica", "", 9)
+                pdf.cell(0,5, "    (Chart could not be generated)", 0, 1)
+            pdf.ln(5)
+
+        # Chart 2: Client Sentiment Breakdown
+        if not df_data.empty and 'clientSentiment' in df_data.columns and df_data['clientSentiment'].notna().any():
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 7, "2. Client Sentiment Breakdown:", 0, 1, "L")
+            sent_counts_df_pdf = df_data['clientSentiment'].value_counts().reset_index()
+            sent_counts_df_pdf.columns = ['clientSentiment', 'count']
+            current_sentiment_map_plot_pdf = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent_counts_df_pdf['clientSentiment'].unique()}
+            sent_fig_pdf = px.pie(sent_counts_df_pdf, names='clientSentiment', values='count', hole=0.4, title="", color='clientSentiment', color_discrete_map=current_sentiment_map_plot_pdf)
+            sent_fig_pdf.update_layout(plotly_base_layout_settings, title_text="Client Sentiment", height=300, width=500, margin=dict(l=20, r=20, t=40, b=20), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            sent_fig_pdf.update_traces(textinfo='percent+label', textfont_size=10)
+            img_bytes_sent = plotly_fig_to_image_bytes(sent_fig_pdf)
+            if img_bytes_sent:
+                # Check if there is enough space on the page, otherwise add a new page
+                if pdf.get_y() + 70 > pdf.page_break_trigger: # Estimate chart height
+                     pdf.add_page()
+                pdf.image(io.BytesIO(img_bytes_sent), x=pdf.get_x() + 10, w=chart_img_width * 0.7, type='PNG')
+            else:
+                pdf.set_font("Helvetica", "", 9)
+                pdf.cell(0,5, "    (Chart could not be generated)", 0, 1)
+            pdf.ln(5)
+
+        if df_data.empty:
+            pdf.set_font("Helvetica", "I", 10)
+            pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
+
+        return pdf.output(dest='S').encode('latin1') # Output as bytes
+
+    except Exception as e:
+        st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
+        # For kaleido issues, ensure it's in PATH or a compatible version is installed.
+        # For Community Cloud, kaleido might need to be included in packages.txt if it's a binary not self-contained by pip.
+        # However, `pip install kaleido` should typically suffice.
+        return None
+# --- End PDF Generation ---
+
+
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None:
     df_loaded = load_data_from_google_sheet()
     if st.session_state.last_data_refresh_time is None: st.session_state.last_data_refresh_time = datetime.now(UTC_TIMEZONE)
@@ -519,23 +640,23 @@ df_original = st.session_state.df_original
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
 global_search_cols = {"licenseNumber": "License Number", "storeName": "Store Name"}
-ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_3_1", help="Enter license number part.")
+ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_4_0", help="Enter license number part.") # Key updated
 if ln_search_val != st.session_state["licenseNumber_search"]: st.session_state["licenseNumber_search"] = ln_search_val; st.session_state.show_global_search_dialog = bool(ln_search_val or st.session_state.get("storeName_search", "")); st.rerun()
 store_names_options = [""];
 if not df_original.empty and 'storeName' in df_original.columns: unique_stores = sorted(df_original['storeName'].astype(str).dropna().unique()); store_names_options.extend([name for name in unique_stores if str(name).strip()])
 current_store_search_val = st.session_state.get("storeName_search", "");
 try: current_store_idx = store_names_options.index(current_store_search_val) if current_store_search_val in store_names_options else 0
 except ValueError: current_store_idx = 0
-selected_store_val = st.sidebar.selectbox(f"Search {global_search_cols['storeName']}:", options=store_names_options, index=current_store_idx, key="storeName_global_search_widget_select_v4_3_1", help="Select or type store name.")
+selected_store_val = st.sidebar.selectbox(f"Search {global_search_cols['storeName']}:", options=store_names_options, index=current_store_idx, key="storeName_global_search_widget_select_v4_4_0", help="Select or type store name.") # Key updated
 if selected_store_val != st.session_state["storeName_search"]: st.session_state["storeName_search"] = selected_store_val; st.session_state.show_global_search_dialog = bool(selected_store_val or st.session_state.get("licenseNumber_search", "")); st.rerun()
 st.sidebar.markdown("---"); global_search_active = bool(st.session_state.get("licenseNumber_search", "") or st.session_state.get("storeName_search", ""))
 st.sidebar.subheader("📊 Filters"); filter_caption = "ℹ️ Filters overridden by Global Search." if global_search_active else "Apply filters to dashboard data."; st.sidebar.caption(filter_caption)
 st.sidebar.markdown("##### Quick Date Ranges"); s_col1, s_col2, s_col3 = st.sidebar.columns(3); today_for_shortcuts = date.today()
-if s_col1.button("MTD", key="mtd_button_v4_3_1", use_container_width=True, disabled=global_search_active):
+if s_col1.button("MTD", key="mtd_button_v4_4_0", use_container_width=True, disabled=global_search_active): # Key updated
     if not global_search_active: start_mtd = today_for_shortcuts.replace(day=1); st.session_state.date_range = (start_mtd, today_for_shortcuts); st.session_state.date_filter_is_active = True; st.rerun()
-if s_col2.button("YTD", key="ytd_button_v4_3_1", use_container_width=True, disabled=global_search_active):
+if s_col2.button("YTD", key="ytd_button_v4_4_0", use_container_width=True, disabled=global_search_active): # Key updated
     if not global_search_active: start_ytd = today_for_shortcuts.replace(month=1, day=1); st.session_state.date_range = (start_ytd, today_for_shortcuts); st.session_state.date_filter_is_active = True; st.rerun()
-if s_col3.button("ALL", key="all_button_v4_3_1", use_container_width=True, disabled=global_search_active):
+if s_col3.button("ALL", key="all_button_v4_4_0", use_container_width=True, disabled=global_search_active): # Key updated
     if not global_search_active:
         all_start = st.session_state.get('min_data_date_for_filter', today_for_shortcuts.replace(year=today_for_shortcuts.year-1)); all_end = st.session_state.get('max_data_date_for_filter', today_for_shortcuts)
         if all_start and all_end: st.session_state.date_range = (all_start, all_end); st.session_state.date_filter_is_active = True; st.rerun()
@@ -545,7 +666,7 @@ if min_dt_for_widget and current_session_start < min_dt_for_widget: val_start_wi
 val_end_widget = current_session_end;
 if max_dt_for_widget and current_session_end > max_dt_for_widget: val_end_widget = max_dt_for_widget
 if val_start_widget > val_end_widget : val_start_widget = val_end_widget
-selected_date_range_tuple = st.sidebar.date_input("Custom Date Range (Onboarding):", value=(val_start_widget, val_end_widget), min_value=min_dt_for_widget, max_value=max_dt_for_widget, key="date_selector_custom_v4_3_1", disabled=global_search_active, help="Select start/end dates.")
+selected_date_range_tuple = st.sidebar.date_input("Custom Date Range (Onboarding):", value=(val_start_widget, val_end_widget), min_value=min_dt_for_widget, max_value=max_dt_for_widget, key="date_selector_custom_v4_4_0", disabled=global_search_active, help="Select start/end dates.") # Key updated
 if not global_search_active and isinstance(selected_date_range_tuple, tuple) and len(selected_date_range_tuple) == 2:
     if selected_date_range_tuple != st.session_state.date_range: st.session_state.date_range = selected_date_range_tuple; st.session_state.date_filter_is_active = True; st.rerun()
 start_dt_filter, end_dt_filter = st.session_state.date_range
@@ -556,10 +677,10 @@ for col_key, label_text in category_filters_map.items():
         if col_key == 'status': options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().dropna().unique() if str(val).strip()])
         else: options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).dropna().unique() if str(val).strip()])
     current_selection_for_multiselect = st.session_state.get(f"{col_key}_filter", []); valid_current_selection = [s for s in current_selection_for_multiselect if s in options_for_multiselect]
-    new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_3_1", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.")
+    new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_4_0", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.") # Key updated
     if not global_search_active and new_selection_multiselect != valid_current_selection: st.session_state[f"{col_key}_filter"] = new_selection_multiselect; st.rerun()
     elif global_search_active and st.session_state.get(f"{col_key}_filter") != new_selection_multiselect: st.session_state[f"{col_key}_filter"] = new_selection_multiselect
-def clear_all_filters_and_search_v4_3_1():
+def clear_all_filters_and_search_v4_4_0(): # Renamed function
     ds_cleared, de_cleared, _, _ = get_default_date_range(st.session_state.df_original.get('onboarding_date_only')); st.session_state.date_range = (ds_cleared, de_cleared); st.session_state.date_filter_is_active = False
     st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""; st.session_state.show_global_search_dialog = False
     for cat_key in category_filters_map: st.session_state[f"{cat_key}_filter"]=[]
@@ -567,19 +688,101 @@ def clear_all_filters_and_search_v4_3_1():
     if "dialog_global_search_auto_selected_once" in st.session_state: st.session_state.dialog_global_search_auto_selected_once = False
     if "filtered_analysis_auto_selected_once" in st.session_state: st.session_state.filtered_analysis_auto_selected_once = False
     st.session_state.active_tab = TAB_OVERVIEW
-if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_3_1, use_container_width=True, key="clear_filters_button_v4_3_1"): st.rerun()
+if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_4_0, use_container_width=True, key="clear_filters_button_v4_4_0"): st.rerun() # Key updated
 with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=False):
     st.markdown("""Score (0-10 pts):\n- **Primary (4 pts):** Kit Recv'd (2), Train/Promo Sched. (2).\n- **Secondary (3 pts):** Intro (1), Display Help (1), Promo Link (1).\n- **Bonuses (3 pts):** +1 Positive Sentiment, +1 Expectations Set, +1 Full Checklist Completion.""")
-st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management");
-if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3_1", use_container_width=True):
+st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management & Exports"); # Header updated
+if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_4_0", use_container_width=True): # Key updated
     st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None; st.session_state.df_original = pd.DataFrame()
-    clear_all_filters_and_search_v4_3_1(); st.rerun()
+    clear_all_filters_and_search_v4_4_0(); st.rerun()
+
+# Export Buttons - Placed under Data Management
+df_filtered_for_export = pd.DataFrame() # Initialize, will be populated later
+if not global_search_active and 'df_filtered' in locals() and not df_filtered.empty: # Check if df_filtered is defined and not empty
+    df_filtered_for_export = df_filtered.copy()
+    # Select and reorder columns for CSV export to be more user-friendly if desired
+    export_columns = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled'] # Use original status
+    export_columns.append('status') # Add original status
+    other_cols = [col for col in df_filtered_for_export.columns if col not in export_columns and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
+    final_export_cols = export_columns + other_cols
+    final_export_cols = list(dict.fromkeys(final_export_cols)) # Keep unique and order
+    
+    # Ensure all desired columns exist, otherwise take all available
+    if all(col in df_filtered_for_export.columns for col in final_export_cols):
+        df_to_export_csv = df_filtered_for_export[final_export_cols]
+    else:
+        df_to_export_csv = df_filtered_for_export.copy()
+
+
+    csv_export_data = convert_df_to_csv(df_to_export_csv)
+    st.sidebar.download_button(
+        label="📥 Download Filtered Data (CSV)",
+        data=csv_export_data,
+        file_name=f"filtered_onboarding_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv",
+        key="download_filtered_csv_button_sidebar_v4_4_0", # Key updated
+        use_container_width=True,
+        help="Download the currently filtered data table as a CSV file."
+    )
+else:
+    st.sidebar.download_button(
+        label="📥 Download Filtered Data (CSV)",
+        data="", # Empty data
+        file_name="filtered_onboarding_data.csv",
+        mime="text/csv",
+        key="download_filtered_csv_button_sidebar_disabled_v4_4_0", # Key updated
+        use_container_width=True,
+        disabled=True,
+        help="No filtered data available to download. Apply filters or clear global search."
+    )
+
+# PDF Export Button
+mtd_metrics_for_pdf = (0,0,0,0) # Placeholder
+filtered_metrics_for_pdf = (0,0,0,0) # Placeholder
+
+if 'total_mtd' in locals() and 'sr_mtd' in locals() and 'score_mtd' in locals() and 'days_to_confirm_mtd' in locals():
+    mtd_metrics_for_pdf = (total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd)
+
+if not global_search_active and 'df_filtered' in locals() and not df_filtered.empty:
+    tf_pdf, sr_pdf, sc_pdf, d_pdf = calculate_metrics(df_filtered)
+    filtered_metrics_for_pdf = (tf_pdf, sr_pdf, sc_pdf, d_pdf)
+
+if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf_button_v4_4_0", use_container_width=True, help="Generate and download a PDF summary of key metrics and charts.", disabled=global_search_active and df_filtered_for_export.empty): # Key updated / disabled logic improved
+    if not global_search_active and not df_filtered_for_export.empty:
+        pdf_bytes = generate_executive_snapshot_pdf(
+            df_filtered_for_export, 
+            mtd_metrics_for_pdf, 
+            filtered_metrics_for_pdf, 
+            st.session_state.get('last_data_refresh_time'),
+            PST_TIMEZONE
+        )
+        if pdf_bytes:
+            st.sidebar.download_button(
+                label="✅ Click to Download PDF",
+                data=pdf_bytes,
+                file_name=f"executive_snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                key="download_exec_snapshot_pdf_button_v4_4_0", # Key updated
+                use_container_width=True
+            )
+            # This is a bit of a hack to make the download button appear after click.
+            # Streamlit reruns on button click, so the download button needs to be part of the immediate rerun logic.
+            # For a cleaner UX, the PDF generation could be on main page, or use st.spinner.
+            st.toast("PDF prepared! Click '✅ Click to Download PDF' in the sidebar.", icon="📄")
+        else:
+            st.sidebar.error("PDF generation failed. See main panel for details.")
+    elif global_search_active:
+        st.sidebar.warning("PDF Snapshot is based on filtered data. Clear global search to enable.")
+    else:
+        st.sidebar.warning("No filtered data to generate PDF. Adjust filters.")
+
+
 if st.session_state.get('last_data_refresh_time'):
     refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Onboarding Dashboard v4.3.1\n\n© {datetime.now().year} Nexus Workflow")
+st.sidebar.caption(f"Onboarding Dashboard v4.4.0\n\n© {datetime.now().year} Nexus Workflow") # Version updated
 
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
@@ -590,7 +793,7 @@ elif df_original.empty: st.markdown("<div class='no-data-message'>✅ Data sourc
 if st.session_state.active_tab not in ALL_TABS: st.session_state.active_tab = TAB_OVERVIEW
 try: current_tab_idx = ALL_TABS.index(st.session_state.active_tab)
 except ValueError: current_tab_idx = 0; st.session_state.active_tab = TAB_OVERVIEW
-selected_tab = st.radio("Navigation:", ALL_TABS, index=current_tab_idx, horizontal=True, key="main_tab_selector_v4_3_1")
+selected_tab = st.radio("Navigation:", ALL_TABS, index=current_tab_idx, horizontal=True, key="main_tab_selector_v4_4_0") # Key updated
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 summary_parts = []
 if global_search_active:
@@ -613,13 +816,13 @@ else:
 final_summary_message = " | ".join(filter(None, summary_parts));
 if not final_summary_message: final_summary_message = "Displaying data (default date range)."
 st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
-df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
+df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame() # df_filtered declared here
 if not df_original.empty:
     if global_search_active:
         df_temp_gs = df_original.copy(); ln_term = st.session_state.get("licenseNumber_search", "").strip().lower(); sn_term = st.session_state.get("storeName_search", "").strip()
         if ln_term and "licenseNumber" in df_temp_gs.columns: df_temp_gs = df_temp_gs[df_temp_gs['licenseNumber'].astype(str).str.lower().str.contains(ln_term, na=False)]
         if sn_term and "storeName" in df_temp_gs.columns: df_temp_gs = df_temp_gs[df_temp_gs['storeName'] == sn_term]
-        df_global_search_results_display = df_temp_gs.copy(); df_filtered = df_global_search_results_display.copy()
+        df_global_search_results_display = df_temp_gs.copy(); df_filtered = df_global_search_results_display.copy() # df_filtered populated for global search
     else:
         df_temp_filters = df_original.copy();
         if 'onboarding_date_only' in df_temp_filters.columns and df_temp_filters['onboarding_date_only'].notna().any():
@@ -631,8 +834,15 @@ if not df_original.empty:
             if selected_values_cat and col_name_cat in df_temp_filters.columns:
                 if col_name_cat == 'status': df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().isin(selected_values_cat)]
                 else: df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).isin(selected_values_cat)]
-        df_filtered = df_temp_filters.copy()
-else: df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
+        df_filtered = df_temp_filters.copy() # df_filtered populated for normal filters
+else: df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame() # df_filtered is empty
+# Assign to df_filtered_for_export after df_filtered is definitely assigned
+if not df_filtered.empty:
+    df_filtered_for_export = df_filtered.copy()
+else:
+    df_filtered_for_export = pd.DataFrame()
+
+
 today_mtd_calc = date.today(); mtd_start_calc = today_mtd_calc.replace(day=1); prev_month_end_calc = mtd_start_calc - timedelta(days=1); prev_month_start_calc = prev_month_end_calc.replace(day=1)
 df_mtd_data, df_prev_mtd_data = pd.DataFrame(), pd.DataFrame()
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
@@ -644,6 +854,11 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
         df_prev_mtd_data = df_valid_dates_original[prev_mtd_mask.values if len(prev_mtd_mask) == len(df_valid_dates_original) else prev_mtd_mask[df_valid_dates_original.index]]
 total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = calculate_metrics(df_mtd_data); total_prev_mtd, _, _, _ = calculate_metrics(df_prev_mtd_data)
 delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and pd.notna(total_prev_mtd) else None
+
+# Define preferred_cols_order globally if it's used by PDF and CSV before display_html_table_and_details
+preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
+preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
+
 
 def get_cell_style_class(column_name, value):
     val_str = str(value).strip().lower()
@@ -684,12 +899,13 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         return status_val
     if 'status' in df_display_copy.columns: df_display_copy['status_styled'] = df_display_copy['status'].apply(map_status_to_emoji_html)
     else: df_display_copy['status_styled'] = ""
-    preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
-    preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
+    
+    # Use global preferred_cols_order
     cols_present_in_df = df_display_copy.columns.tolist(); final_display_cols = [col for col in preferred_cols_order if col in cols_present_in_df]
     excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only', '_styled')
     other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not col.endswith(excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']] # onboardingWelcome excluded
     final_display_cols.extend(other_existing_cols_for_display); final_display_cols = list(dict.fromkeys(final_display_cols))
+
     if not final_display_cols or df_display_copy[final_display_cols].empty:
         context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No columns/data for {context_name_display}. 📋</div>", unsafe_allow_html=True); return
     html_table = ["<div class='custom-table-container'><table class='custom-styled-table'><thead><tr>"]
@@ -723,7 +939,7 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             options_list_for_select = [None] + list(transcript_options_map.keys()); current_selection_for_select = st.session_state[transcript_session_key_local]
             try: current_index_for_select = options_list_for_select.index(current_selection_for_select)
             except ValueError: current_index_for_select = 0; st.session_state[transcript_session_key_local] = None
-            selected_key_from_display = st.selectbox("Select record to view details:", options=options_list_for_select, index=current_index_for_select, format_func=lambda x: "📄 Choose an entry..." if x is None else x, key=f"transcript_selector_{context_key_prefix}_widget_v4_3_1")
+            selected_key_from_display = st.selectbox("Select record to view details:", options=options_list_for_select, index=current_index_for_select, format_func=lambda x: "📄 Choose an entry..." if x is None else x, key=f"transcript_selector_{context_key_prefix}_widget_v4_4_0") # Key updated
             if selected_key_from_display != st.session_state[transcript_session_key_local]: st.session_state[transcript_session_key_local] = selected_key_from_display; st.session_state[auto_selected_once_key] = False; st.rerun()
             if st.session_state[transcript_session_key_local]:
                 selected_original_idx = transcript_options_map[st.session_state[transcript_session_key_local]]; selected_row_details = df_display_copy.loc[selected_original_idx]
@@ -753,8 +969,27 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 else: st.info("ℹ️ No transcript available or empty for this record.")
         else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No entries in table from {context_name_display} to select details. 📋</div>", unsafe_allow_html=True)
     else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📜 Necessary columns ('fullTranscript'/'summary') missing for details viewer in {context_name_display}. 📜</div>", unsafe_allow_html=True)
-    st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
-    st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3_1")
+    st.markdown("---")
+    
+    # Use a subset of columns for the download button within display_html_table_and_details
+    # This remains for context-specific downloads if desired, separate from the main sidebar CSV download.
+    df_download_subset = df_display_copy[final_display_cols].copy()
+    # If status_styled is in final_display_cols, replace it with original 'status' for export if preferred
+    if 'status_styled' in df_download_subset.columns and 'status' in df_display_copy.columns:
+        df_download_subset['status'] = df_display_copy['status'] # Add original status
+        df_download_subset = df_download_subset.drop(columns=['status_styled'])
+        # Reorder to put status where status_styled was, or at a sensible place
+        cols = df_download_subset.columns.tolist()
+        if 'status' in cols : # ensure it was added
+            status_idx = final_display_cols.index('status_styled') if 'status_styled' in final_display_cols else -1
+            if status_idx != -1:
+                cols.insert(status_idx, cols.pop(cols.index('status')))
+                df_download_subset = df_download_subset[cols]
+
+
+    csv_data_to_download = convert_df_to_csv(df_download_subset); 
+    download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
+    st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_4_0") # Key updated
 
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
     @st.dialog("🔍 Global Search Results", width="large")
@@ -762,7 +997,7 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
         st.markdown("##### Records matching global search criteria:");
         if not df_global_search_results_display.empty: display_html_table_and_details(df_global_search_results_display, context_key_prefix="dialog_global_search")
         else: st.info("ℹ️ No results for global search. Try broadening terms.")
-        if st.button("Close & Clear Search", key="close_gs_dialog_clear_button_v4_3_1"):
+        if st.button("Close & Clear Search", key="close_gs_dialog_clear_button_v4_4_0"): # Key updated
             st.session_state.show_global_search_dialog = False; st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""
             if 'selected_transcript_key_dialog_global_search' in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None
             if "dialog_global_search_auto_selected_once" in st.session_state: st.session_state.dialog_global_search_auto_selected_once = False
@@ -778,11 +1013,11 @@ if st.session_state.active_tab == TAB_OVERVIEW:
     st.header("📊 Filtered Data Snapshot")
     if global_search_active: st.info("ℹ️ Global search active. Close pop-up or clear search for filtered overview.")
     elif not df_filtered.empty:
-        total_filtered, sr_filtered, score_filtered, days_filtered = calculate_metrics(df_filtered); cols_filtered_overview = st.columns(4)
-        with cols_filtered_overview[0]: st.metric("📄 Onboardings (Filtered)", f"{total_filtered:.0f}" if pd.notna(total_filtered) else "0")
-        with cols_filtered_overview[1]: st.metric("🎯 Success Rate (Filtered)", f"{sr_filtered:.1f}%" if pd.notna(sr_filtered) else "N/A")
-        with cols_filtered_overview[2]: st.metric("🌟 Avg. Score (Filtered)", f"{score_filtered:.2f}" if pd.notna(score_filtered) else "N/A")
-        with cols_filtered_overview[3]: st.metric("⏱️ Avg. Days Confirm (Filtered)", f"{days_filtered:.1f}" if pd.notna(days_filtered) else "N/A")
+        total_filtered_calc, sr_filtered_calc, score_filtered_calc, days_filtered_calc = calculate_metrics(df_filtered); cols_filtered_overview = st.columns(4) # Renamed to avoid conflict with PDF vars
+        with cols_filtered_overview[0]: st.metric("📄 Onboardings (Filtered)", f"{total_filtered_calc:.0f}" if pd.notna(total_filtered_calc) else "0")
+        with cols_filtered_overview[1]: st.metric("🎯 Success Rate (Filtered)", f"{sr_filtered_calc:.1f}%" if pd.notna(sr_filtered_calc) else "N/A")
+        with cols_filtered_overview[2]: st.metric("🌟 Avg. Score (Filtered)", f"{score_filtered_calc:.2f}" if pd.notna(score_filtered_calc) else "N/A")
+        with cols_filtered_overview[3]: st.metric("⏱️ Avg. Days Confirm (Filtered)", f"{days_filtered_calc:.1f}" if pd.notna(days_filtered_calc) else "N/A")
     else: st.markdown("<div class='no-data-message'>🤷 No data matches filters for Overview. Adjust selections! 🤷</div>", unsafe_allow_html=True)
 elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     st.header(TAB_DETAILED_ANALYSIS)
@@ -844,4 +1079,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.3.1 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.4.0 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True) # Version updated

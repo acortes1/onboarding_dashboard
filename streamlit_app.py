@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.4", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.5", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -479,20 +479,27 @@ def load_data_from_google_sheet():
 
 # Removed @st.cache_data for debugging, can be added back if performance is an issue
 def convert_df_to_csv(df_to_convert):
-    """Converts a Pandas DataFrame to CSV bytes, with error handling."""
+    """Converts a Pandas DataFrame to CSV bytes, with enhanced error handling."""
     if not isinstance(df_to_convert, pd.DataFrame):
-        # Using st.warning for less intrusive debugging in deployed app
         st.warning(f"Debug (convert_df_to_csv): Received non-DataFrame. Type: {type(df_to_convert)}")
-        return b"Error: Invalid data type for CSV conversion." 
+        return b"Error: Invalid data type for CSV conversion."
     try:
-        if df_to_convert.empty and len(df_to_convert.columns) == 0:
-             # Handle DataFrame with no columns and no rows: to_csv would be empty string.
-            return b"" # Empty bytes is valid for download button
+        # Handle DataFrame that's empty but might have columns (results in header-only CSV)
+        # or truly empty (no columns, no rows)
+        if df_to_convert.empty:
+            if len(df_to_convert.columns) == 0:
+                return b""  # Truly empty, return empty bytes
+            else: # Empty with columns, to_csv will produce header
+                csv_string = df_to_convert.to_csv(index=False)
+                return csv_string.encode('utf-8')
+        
+        # For non-empty DataFrames
         csv_string = df_to_convert.to_csv(index=False)
         return csv_string.encode('utf-8')
     except Exception as e:
-        st.warning(f"Debug (convert_df_to_csv): Error during to_csv() or encode(). Error: {e}")
-        return b"Error: Could not convert DataFrame to CSV."
+        st.warning(f"Debug (convert_df_to_csv): Error during DataFrame to CSV conversion. Error: {e}")
+        return b"Error: Could not convert DataFrame to CSV due to an internal error."
+
 
 def calculate_metrics(df_input):
     if df_input.empty: return 0, 0.0, pd.NA, pd.NA
@@ -769,7 +776,7 @@ if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_4_3
 preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
 preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
 
-# CSV Export Button
+# --- CSV Export Button ---
 csv_button_disabled = global_search_active or df_filtered_for_export.empty
 csv_help_text = "Download the currently filtered data table as a CSV file."
 if global_search_active:
@@ -777,45 +784,51 @@ if global_search_active:
 elif df_filtered_for_export.empty:
     csv_help_text = "No filtered data available to download."
 
-data_for_csv_download_widget: bytes
-if csv_button_disabled:
-    data_for_csv_download_widget = b""
-else:
-    # This block only runs if data should be available and exportable
-    # df_filtered_for_export is guaranteed not empty here
-    
-    export_cols = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled']
-    if 'status' not in export_cols and 'status' in df_filtered_for_export.columns: # Ensure original status is included
-        export_cols.append('status') 
-    
-    other_valid_cols = [col for col in df_filtered_for_export.columns if col not in export_cols and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
-    final_cols_for_csv = list(dict.fromkeys(export_cols + other_valid_cols))
-    
-    actual_cols_to_export = [col for col in final_cols_for_csv if col in df_filtered_for_export.columns]
+# Prepare data for the button
+# Initialize with a safe default (empty bytes)
+csv_download_payload = b""
 
-    df_for_this_export: pd.DataFrame
-    if actual_cols_to_export:
-        df_for_this_export = df_filtered_for_export[actual_cols_to_export].copy()
-    else: 
-        df_for_this_export = df_filtered_for_export.copy() # Fallback to all columns if selection is empty
-    
-    data_for_csv_download_widget = convert_df_to_csv(df_for_this_export)
+if not csv_button_disabled:
+    # This block executes only if the button should be enabled and data is available.
+    # df_filtered_for_export is guaranteed to be a non-empty DataFrame here.
+    try:
+        export_cols_runtime = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled']
+        if 'status' not in export_cols_runtime and 'status' in df_filtered_for_export.columns:
+            export_cols_runtime.append('status')
+        
+        other_valid_cols_runtime = [col for col in df_filtered_for_export.columns if col not in export_cols_runtime and not col.endswith(('_dt', '_utc', '_str_original', '_date_only', '_styled'))]
+        final_cols_for_csv_runtime = list(dict.fromkeys(export_cols_runtime + other_valid_cols_runtime))
+        actual_cols_to_export_runtime = [col for col in final_cols_for_csv_runtime if col in df_filtered_for_export.columns]
 
-# Final safeguard, though convert_df_to_csv should always return bytes
-if not isinstance(data_for_csv_download_widget, bytes):
-    st.warning(f"Data for CSV download button was not bytes. Type: {type(data_for_csv_download_widget)}. Using empty bytes as fallback.")
-    data_for_csv_download_widget = b""
+        df_for_csv_export_runtime: pd.DataFrame
+        if actual_cols_to_export_runtime: # Ensure there are columns to select
+            df_for_csv_export_runtime = df_filtered_for_export[actual_cols_to_export_runtime].copy()
+        elif not df_filtered_for_export.empty : # If no specific columns but df not empty
+             df_for_csv_export_runtime = df_filtered_for_export.copy() # Fallback to all columns
+        else: # Should not happen if csv_button_disabled is False, but as a failsafe
+            df_for_csv_export_runtime = pd.DataFrame() # Create empty DF to pass to convert_df_to_csv
+
+        csv_download_payload = convert_df_to_csv(df_for_csv_export_runtime)
+        
+    except Exception as e_csv_prep:
+        st.warning(f"Error during CSV data preparation: {e_csv_prep}")
+        csv_download_payload = b"Error: CSV preparation failed." # Ensure it's bytes
+
+# Final check, convert_df_to_csv should always return bytes.
+if not isinstance(csv_download_payload, bytes):
+    st.error(f"CRITICAL ERROR: CSV data is type {type(csv_download_payload)}, not bytes, before download button. Fallback to error bytes.")
+    csv_download_payload = b"Error: Final type check failed for CSV data."
 
 
 st.sidebar.download_button(
     label="📥 Download Filtered Data (CSV)",
-    data=data_for_csv_download_widget, 
+    data=csv_download_payload,
     file_name=f"filtered_onboarding_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
     mime="text/csv",
     key="download_filtered_csv_button_sidebar_v4_4_4", # Key updated for new version
     use_container_width=True,
     help=csv_help_text,
-    disabled=csv_button_disabled 
+    disabled=csv_button_disabled
 )
 
 
@@ -1144,4 +1157,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Dashboard v4.4.3 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Dashboard v4.4.4 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)

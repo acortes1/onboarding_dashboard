@@ -50,7 +50,6 @@ else:
     ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
 PLOT_BG_COLOR = "rgba(0,0,0,0)"
 
-# --- Custom Styling (CSS) ---
 css_parts = [
     "<style>",
     f"""
@@ -105,9 +104,7 @@ st.markdown(css_style, unsafe_allow_html=True)
 def check_password():
     app_password = st.secrets.get("APP_ACCESS_KEY")
     app_hint = st.secrets.get("APP_ACCESS_HINT", "Hint not available.")
-    if app_password is None:
-        st.sidebar.warning("APP_ACCESS_KEY not set. Bypassing password.")
-        return True
+    if app_password is None: st.sidebar.warning("APP_ACCESS_KEY not set. Bypassing password."); return True
     if "password_entered" not in st.session_state: st.session_state.password_entered = False
     if st.session_state.password_entered: return True
     with st.form("password_form_main_app_v3_10"):
@@ -115,14 +112,11 @@ def check_password():
         password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v3_10")
         submitted = st.form_submit_button("Submit")
         if submitted:
-            if password_attempt == app_password:
-                st.session_state.password_entered = True; st.rerun()
-            else:
-                st.error("Incorrect Access Key."); return False
+            if password_attempt == app_password: st.session_state.password_entered = True; st.rerun()
+            else: st.error("Incorrect Access Key."); return False
     return False
 
-if not check_password():
-    st.stop()
+if not check_password(): st.stop()
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
@@ -162,17 +156,13 @@ def robust_to_datetime(series):
 @st.cache_data(ttl=600)
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
-    if gc is None:
-        st.session_state.last_data_refresh_time = datetime.now()
-        return pd.DataFrame() # Auth failed message is handled by authenticate_gspread_cached via st.error
+    if gc is None: st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
     url = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME"); ws_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
     if not url: st.error("Config: GOOGLE_SHEET_URL_OR_NAME missing."); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
     if not ws_name: st.error("Config: GOOGLE_WORKSHEET_NAME missing."); st.session_state.last_data_refresh_time = datetime.now(); return pd.DataFrame()
     try:
-        ss = gc.open_by_url(url) if "docs.google.com" in url else gc.open(url)
-        ws = ss.worksheet(ws_name)
-        st.session_state.last_data_refresh_time = datetime.now()
-        data = ws.get_all_records(head=1, expected_headers=None)
+        ss = gc.open_by_url(url) if "docs.google.com" in url else gc.open(url); ws = ss.worksheet(ws_name)
+        st.session_state.last_data_refresh_time = datetime.now(); data = ws.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("Source sheet has no data rows (headers may exist)."); return pd.DataFrame()
         df_loaded_internal = pd.DataFrame(data)
         standardized_column_names = []
@@ -180,8 +170,7 @@ def load_data_from_google_sheet():
         df_loaded_internal.columns = standardized_column_names
         column_name_map_to_code = { "licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "storename": "storeName", "repname": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "clientsentiment": "clientSentiment", "fulltranscript": "fullTranscript", "score": "score", "status": "status", "summary": "summary" }
         for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): std_req_key = req_key_internal.lower(); column_name_map_to_code[std_req_key] = req_key_internal
-        cols_to_rename_standardized = {}
-        current_df_columns = list(df_loaded_internal.columns)
+        cols_to_rename_standardized = {}; current_df_columns = list(df_loaded_internal.columns)
         for std_sheet_col in current_df_columns:
             if std_sheet_col in column_name_map_to_code:
                 target_code_name = column_name_map_to_code[std_sheet_col]
@@ -238,16 +227,19 @@ default_s_init, default_e_init, initial_min_data_date, initial_max_data_date = g
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 if 'date_range' not in st.session_state or not (isinstance(st.session_state.date_range, tuple) and len(st.session_state.date_range) == 2 and isinstance(st.session_state.date_range[0], date) and isinstance(st.session_state.date_range[1], date)): st.session_state.date_range = (default_s_init, default_e_init)
-if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview" # Default tab
+if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
 for s_key_base in ['licenseNumber', 'storeName']:
     if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
-if 'selected_transcript_key' not in st.session_state: st.session_state.selected_transcript_key = None
+if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None # For dialog
+if 'selected_transcript_key_filtered_analysis' not in st.session_state: st.session_state.selected_transcript_key_filtered_analysis = None # For tab
 if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
 if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = initial_min_data_date
 if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = initial_max_data_date
 if 'date_filter_is_active' not in st.session_state: st.session_state.date_filter_is_active = False
+if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
+
 
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None :
     df_from_load_func = load_data_from_google_sheet()
@@ -255,11 +247,9 @@ if not st.session_state.data_loaded and st.session_state.last_data_refresh_time 
         st.session_state.df_original = df_from_load_func; st.session_state.data_loaded = True
         ds,de,min_data_date,max_data_date = get_default_date_range(df_from_load_func.get('onboarding_date_only'))
         st.session_state.date_range = (ds,de); st.session_state.min_data_date_for_filter = min_data_date; st.session_state.max_data_date_for_filter = max_data_date
-    else:
-        st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
+    else: st.session_state.df_original = pd.DataFrame(); st.session_state.data_loaded = False
 df_original = st.session_state.df_original
 
-# --- Sidebar: Top Status Message ---
 if st.session_state.data_loaded and not df_original.empty: st.sidebar.success(f"Data loaded: {len(df_original)} records.")
 elif st.session_state.get('last_data_refresh_time') and not st.session_state.data_loaded: st.sidebar.warning("Data source read, but no data rows found or an error occurred.")
 elif not st.session_state.get('last_data_refresh_time'): st.sidebar.info("Initializing data load...")
@@ -270,24 +260,21 @@ if not st.session_state.data_loaded and df_original.empty and st.session_state.g
 elif not st.session_state.data_loaded and df_original.empty :
      st.markdown("<div class='no-data-message'>🚧 Data loading... please wait. 🚧</div>", unsafe_allow_html=True)
 
-# --- Sidebar: Global Search ---
 st.sidebar.header("🌍 Global Search")
 st.sidebar.caption("Search across all data. Overrides filters below when active.")
 global_search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
 for k,lbl in global_search_cols_definition.items():
-    val = st.sidebar.text_input(f"Search {lbl}:", value=st.session_state[k+"_search"], key=f"{k}_global_search_widget")
+    val = st.sidebar.text_input(f"Search {lbl}:", value=st.session_state[k+"_search"], key=f"{k}_global_search_widget", help="Press Enter to search")
     if val != st.session_state[k+"_search"]:
         st.session_state[k+"_search"]=val
-        if val: st.session_state.active_tab = "🔎 Global Search Results" # Switch to search results tab
-        else: # If search term cleared, and other search is also clear, consider going to Overview
-            other_search_key = "storeName_search" if k == "licenseNumber" else "licenseNumber_search"
-            if not st.session_state.get(other_search_key.replace("_search", "")+"_search"): # Check if other global search is also empty
-                 st.session_state.active_tab = "🌌 Overview"
+        if val: st.session_state.show_global_search_dialog = True # Show dialog on new search
+        else: # If this search term is cleared
+            all_global_search_clear = not any(st.session_state.get(s_key+"_search", "") for s_key in global_search_cols_definition)
+            if all_global_search_clear: st.session_state.show_global_search_dialog = False
         st.rerun()
 st.sidebar.markdown("---")
 global_search_active = bool(st.session_state.get("licenseNumber_search", "") or st.session_state.get("storeName_search", ""))
 
-# --- Sidebar: Filters ---
 st.sidebar.header("🔍 Filters")
 if global_search_active: st.sidebar.caption("ℹ️ Date and category filters are overridden by active Global Search.")
 st.sidebar.markdown("##### Date Shortcuts")
@@ -330,12 +317,11 @@ def clear_filters_cb():
     st.session_state.date_filter_is_active = False
     for k_search in global_search_cols_definition: st.session_state[k_search+"_search"]=""
     for k_cat in cat_filters_definition: st.session_state[k_cat+"_filter"]=[]
-    st.session_state.selected_transcript_key = None
-    st.session_state.active_tab = "🌌 Overview" # Reset to overview when clearing all
+    st.session_state.selected_transcript_key_dialog_global_search = None; st.session_state.selected_transcript_key_filtered_analysis = None
+    st.session_state.active_tab = "🌌 Overview"; st.session_state.show_global_search_dialog = False
 if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_10"): st.rerun()
 
-# --- Sidebar: Understanding the Score (Moved) ---
-with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=True):
+with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=False): # Default to collapsed
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
     - **Secondary (Max 3 pts):** `Intro Self & DIME` (1), `Offer Display Help` (1), `Provide Promo Credit Link` (1).
@@ -343,20 +329,11 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=T
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 
-# --- Tab Navigation ---
-tab_names = ["🌌 Overview", "🔎 Global Search Results", "📊 Analysis & Transcripts", "📈 Trends & Distributions"]
-# Ensure active_tab is valid, especially if it was set to a tab that might now be conditionally hidden
-if global_search_active and st.session_state.active_tab not in ["🌌 Overview", "🔎 Global Search Results", "📈 Trends & Distributions"]:
-    st.session_state.active_tab = "🔎 Global Search Results"
-elif not global_search_active and st.session_state.active_tab == "🔎 Global Search Results":
-    st.session_state.active_tab = "🌌 Overview" # or "📊 Analysis & Transcripts"
-# Default to Overview if current active_tab is somehow invalid after logic changes
+tab_names = ["🌌 Overview", "📊 Detailed Analysis (Filtered)", "📈 Trends & Distributions"] # Removed Global Search Results tab
 if st.session_state.active_tab not in tab_names: st.session_state.active_tab = "🌌 Overview"
-
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab), horizontal=True, key="main_tab_selector_v3_10")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
 
-# --- Active Filters Summary Display ---
 summary_message = ""
 if global_search_active:
     active_filters_parts = ["Global Search Active:"]
@@ -381,7 +358,6 @@ else:
     else: summary_message = f"Showing data for: {date_display_string} (default range). No other filters active. (No global search)"
 st.markdown(f"<div class='active-filters-summary'>{summary_message}</div>", unsafe_allow_html=True)
 
-# --- Data Filtering Logic ---
 df_filtered = pd.DataFrame()
 if not df_original.empty:
     if global_search_active:
@@ -405,10 +381,7 @@ if not df_original.empty:
         df_filtered = df_working.copy()
 else: df_filtered = pd.DataFrame()
 
-# --- Plotly Base Layout Settings ---
 plotly_base_layout_settings = { "plot_bgcolor": PLOT_BG_COLOR, "paper_bgcolor": PLOT_BG_COLOR, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":False, "margin": dict(l=40, r=20, t=60, b=40), "font_color": "var(--text-color)", "title_font_color": "var(--app-accent-primary)", "xaxis_title_font_color": "var(--text-color)", "yaxis_title_font_color": "var(--text-color)", "xaxis_tickfont_color": "var(--text-color)", "yaxis_tickfont_color": "var(--text-color)", "legend_font_color": "var(--text-color)", }
-
-# --- MTD Metrics Calculation ---
 today_date_mtd = date.today(); mtd_s = today_date_mtd.replace(day=1); prev_mtd_e = mtd_s - timedelta(days=1); prev_mtd_s = prev_mtd_e.replace(day=1)
 df_mtd, df_prev_mtd = pd.DataFrame(), pd.DataFrame()
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
@@ -420,7 +393,6 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-# --- Reusable function to display table and transcript viewer ---
 def display_data_table_and_details(df_to_display, context_key_prefix=""):
     df_display_table = df_to_display.copy().reset_index(drop=True)
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
@@ -429,14 +401,12 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
     cols_for_display = list(dict.fromkeys(cols_for_display + other_cols))
 
     if not df_display_table.empty:
-        def style_boolean_cell(val): # For readability with color backgrounds
-            val_str = str(val).strip().lower()
-            color = "#111111" # Dark text for contrast
+        def style_boolean_cell(val):
+            val_str = str(val).strip().lower(); text_color = "#111111" # Dark text for contrast
             if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF' # Light Green
             elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8' # Light Pink/Red
-            else: return f'color: {color};' # Default text color, no background for NaNs
-            return f'background-color: {bg_color}; color: {color};'
-
+            else: return f'color: {text_color};'
+            return f'background-color: {bg_color}; color: {text_color};'
         def style_table_customized(df_to_style):
             styled_df = df_to_style.style
             if 'score' in df_to_style.columns: styled_df = styled_df.bar(subset=['score'], align='mid', color=[ACTIVE_ACCENT_MUTED, ACTIVE_ACCENT_SECONDARY], vmin=0, vmax=10)
@@ -446,16 +416,13 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
             boolean_like_cols = [col for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS if col in df_to_style.columns and col != 'score']
             for col_name in boolean_like_cols: styled_df = styled_df.applymap(style_boolean_cell, subset=[col_name])
             return styled_df
-        
         st.dataframe(style_table_customized(df_display_table[cols_for_display]), use_container_width=True, height=350)
         st.markdown("---"); st.subheader("🔍 View Full Onboarding Details & Transcript")
         if 'fullTranscript' in df_display_table.columns:
             transcript_options = { f"Idx {idx}: {row.get('storeName', 'N/A')} ({row.get('onboardingDate', 'N/A')})": idx for idx, row in df_display_table.iterrows() }
             if transcript_options:
-                # Use a unique session state key for transcript selector per context
                 transcript_session_key = f"selected_transcript_key_{context_key_prefix}"
                 if transcript_session_key not in st.session_state: st.session_state[transcript_session_key] = None
-
                 current_selection = st.session_state[transcript_session_key]; options_list = [None] + list(transcript_options.keys())
                 try: current_index = options_list.index(current_selection)
                 except ValueError: current_index = 0
@@ -491,17 +458,24 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
     elif not df_original.empty : st.markdown(f"<div class='no-data-message'>📊 No data matches current {context_key_prefix} criteria. Try different settings! 📊</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-# --- Display Content Based on Active Tab ---
+# --- Global Search Dialog ---
+if st.session_state.get('show_global_search_dialog', False) and global_search_active:
+    with st.dialog("Global Search Results", width="large"):
+        st.markdown("##### Results from your Global Search:")
+        display_data_table_and_details(df_filtered, context_key_prefix="dialog_global_search")
+        if st.button("Close Search Results", key="close_gs_dialog_button"):
+            st.session_state.show_global_search_dialog = False
+            st.rerun()
+
 if st.session_state.active_tab == "🌌 Overview":
-    with st.container(): # MTD Overview
-        st.header("📈 Month-to-Date (MTD) Overview")
-        c1,c2,c3,c4 = st.columns(4)
+    with st.container():
+        st.header("📈 Month-to-Date (MTD) Overview"); c1,c2,c3,c4 = st.columns(4)
         with c1: st.metric("🗓️ Onboardings MTD", tot_mtd or "0", f"{delta_mtd:+}" if delta_mtd is not None and pd.notna(delta_mtd) else "N/A", help="Total onboardings this month to date vs. previous month for the same period.")
         with c2: st.metric("✅ Success Rate MTD", f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Percentage of onboardings marked 'Confirmed' this month to date.")
         with c3: st.metric("⭐ Avg Score MTD", f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average onboarding score (0-10) this month to date.")
         with c4: st.metric("⏳ Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A", help="Average number of days from delivery to confirmation for onboardings confirmed this month to date.")
-    with st.container(): # Filtered Data Overview
-        st.header("📊 Filtered Data Overview")
+    with st.container():
+        st.header("📊 Filtered Data Overview");
         if not df_filtered.empty:
             tot_filt, sr_filt, score_filt, days_filt = calculate_metrics(df_filtered)
             fc1,fc2,fc3,fc4 = st.columns(4)
@@ -511,20 +485,10 @@ if st.session_state.active_tab == "🌌 Overview":
             with fc4: st.metric("⏱️ Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
         else: st.markdown("<div class='no-data-message'>🤷 No data matches current search/filters for Overview. Try adjusting your selections! 🤷</div>", unsafe_allow_html=True)
 
-elif st.session_state.active_tab == "🔎 Global Search Results":
-    st.header("🔎 Global Search Results")
-    if global_search_active:
-        display_data_table_and_details(df_filtered, context_key_prefix="global_search")
-        # Visuals for global search results (can reuse logic from Analysis tab if desired)
-        # For now, just the table and transcript viewer.
-    else:
-        st.info("⬅️ Enter a License Number or Store Name in the 'Global Search' section in the sidebar to see results here.")
-
-elif st.session_state.active_tab == "📊 Analysis & Transcripts":
-    st.header("📊 Analysis & Transcripts (Filtered Data)")
+elif st.session_state.active_tab == "📊 Detailed Analysis (Filtered)": # Relabeled Tab
+    st.header("📊 Detailed Analysis (Filtered Data)")
     if not global_search_active:
         display_data_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
-        # Key Visuals for filtered data
         st.header("📊 Key Visuals (Based on Date/Category Filters)")
         if not df_filtered.empty:
             c1_charts, c2_charts = st.columns(2)
@@ -554,8 +518,7 @@ elif st.session_state.active_tab == "📊 Analysis & Transcripts":
         elif not df_original.empty : st.markdown("<div class='no-data-message'>🖼️ No data matches current filters for detailed visuals. 🖼️</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
     else: # Global search is active
-        st.info("ℹ️ Global Search is active. View results in the '🔎 Global Search Results' tab. Filters on this page are currently overridden.")
-
+        st.info("ℹ️ Global Search is active, and results are shown in a pop-up dialog if available. This tab shows data based on Date/Category filters when Global Search is inactive.")
 
 elif st.session_state.active_tab == "📈 Trends & Distributions":
     st.header("💡 Trends & Distributions")
@@ -578,10 +541,8 @@ elif st.session_state.active_tab == "📈 Trends & Distributions":
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-# --- Footer ---
 st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.11 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
-# --- Sidebar: Data Controls & Version Info (Bottom) ---
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
 if st.sidebar.button("🔄 Refresh Data", key="refresh_main_button_v3_10_bottom"):

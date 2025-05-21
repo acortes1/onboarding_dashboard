@@ -230,16 +230,15 @@ if 'date_range' not in st.session_state or not (isinstance(st.session_state.date
 if 'active_tab' not in st.session_state: st.session_state.active_tab = "🌌 Overview"
 for f_key in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
     if f_key not in st.session_state: st.session_state[f_key] = []
-for s_key_base in ['licenseNumber', 'storeName']:
+for s_key_base in ['licenseNumber', 'storeName']: # Ensures _search keys exist
     if f"{s_key_base}_search" not in st.session_state: st.session_state[f"{s_key_base}_search"] = ""
-if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None # For dialog
-if 'selected_transcript_key_filtered_analysis' not in st.session_state: st.session_state.selected_transcript_key_filtered_analysis = None # For tab
+if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.session_state.selected_transcript_key_dialog_global_search = None
+if 'selected_transcript_key_filtered_analysis' not in st.session_state: st.session_state.selected_transcript_key_filtered_analysis = None
 if 'last_data_refresh_time' not in st.session_state: st.session_state.last_data_refresh_time = None
 if 'min_data_date_for_filter' not in st.session_state: st.session_state.min_data_date_for_filter = initial_min_data_date
 if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data_date_for_filter = initial_max_data_date
 if 'date_filter_is_active' not in st.session_state: st.session_state.date_filter_is_active = False
 if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
-
 
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None :
     df_from_load_func = load_data_from_google_sheet()
@@ -263,15 +262,42 @@ elif not st.session_state.data_loaded and df_original.empty :
 st.sidebar.header("🌍 Global Search")
 st.sidebar.caption("Search across all data. Overrides filters below when active.")
 global_search_cols_definition = {"licenseNumber":"License Number", "storeName":"Store Name"}
-for k,lbl in global_search_cols_definition.items():
-    val = st.sidebar.text_input(f"Search {lbl}:", value=st.session_state[k+"_search"], key=f"{k}_global_search_widget", help="Press Enter to search")
-    if val != st.session_state[k+"_search"]:
-        st.session_state[k+"_search"]=val
-        if val: st.session_state.show_global_search_dialog = True # Show dialog on new search
-        else: # If this search term is cleared
-            all_global_search_clear = not any(st.session_state.get(s_key+"_search", "") for s_key in global_search_cols_definition)
-            if all_global_search_clear: st.session_state.show_global_search_dialog = False
-        st.rerun()
+
+# License Number Search (Text Input)
+ln_key = "licenseNumber"
+ln_label = global_search_cols_definition[ln_key]
+val_license = st.sidebar.text_input(f"Search {ln_label}:", value=st.session_state[ln_key+"_search"], key=f"{ln_key}_global_search_widget", help="Press Enter to search")
+if val_license != st.session_state[ln_key+"_search"]:
+    st.session_state[ln_key+"_search"] = val_license
+    if val_license: st.session_state.show_global_search_dialog = True
+    else: # Term cleared
+        if not st.session_state.get("storeName_search", ""): st.session_state.show_global_search_dialog = False
+    st.rerun()
+
+# Store Name Search (Selectbox for Autocomplete-like behavior)
+sn_key = "storeName"
+sn_label = global_search_cols_definition[sn_key]
+store_names_options = [""] # Default empty option for "no filter"
+if not df_original.empty and sn_key in df_original.columns:
+    unique_stores = sorted(df_original[sn_key].astype(str).dropna().unique())
+    store_names_options.extend([name for name in unique_stores if name.strip()])
+current_store_search = st.session_state.get(sn_key+"_search", "")
+if current_store_search not in store_names_options: current_store_search = "" # Reset if invalid
+try:
+    current_store_index = store_names_options.index(current_store_search)
+except ValueError:
+    current_store_index = 0 # Default to empty string if not found
+
+selected_store = st.sidebar.selectbox(
+    f"Search {sn_label}:", options=store_names_options, index=current_store_index,
+    key=f"{sn_key}_global_search_widget_select", help="Select a store name to search"
+)
+if selected_store != st.session_state.get(sn_key+"_search", ""):
+    st.session_state[sn_key+"_search"] = selected_store
+    if selected_store: st.session_state.show_global_search_dialog = True
+    else: # Store selection cleared
+        if not st.session_state.get("licenseNumber_search", ""): st.session_state.show_global_search_dialog = False
+    st.rerun()
 st.sidebar.markdown("---")
 global_search_active = bool(st.session_state.get("licenseNumber_search", "") or st.session_state.get("storeName_search", ""))
 
@@ -321,7 +347,7 @@ def clear_filters_cb():
     st.session_state.active_tab = "🌌 Overview"; st.session_state.show_global_search_dialog = False
 if st.sidebar.button("🧹 Clear All Filters",on_click=clear_filters_cb,use_container_width=True, key="clear_filters_v3_10"): st.rerun()
 
-with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=False): # Default to collapsed
+with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=False): # Set to collapsed
     st.markdown("""
     - **Primary (Max 4 pts):** `Confirm Kit Received` (2), `Schedule Training & Promo` (2).
     - **Secondary (Max 3 pts):** `Intro Self & DIME` (1), `Offer Display Help` (1), `Provide Promo Credit Link` (1).
@@ -329,7 +355,7 @@ with st.sidebar.expander("ℹ️ Understanding The Score (0-10 pts)", expanded=F
     *Key checklist items for completeness: Expectations Set, Intro Self & DIME, Confirm Kit Received, Offer Display Help, Schedule Training & Promo, Provide Promo Credit Link.*
     """)
 
-tab_names = ["🌌 Overview", "📊 Detailed Analysis (Filtered)", "📈 Trends & Distributions"] # Removed Global Search Results tab
+tab_names = ["🌌 Overview", "📊 Detailed Analysis (Filtered)", "📈 Trends & Distributions"] # Relabeled tab
 if st.session_state.active_tab not in tab_names: st.session_state.active_tab = "🌌 Overview"
 selected_tab = st.radio("Navigation:", tab_names, index=tab_names.index(st.session_state.active_tab), horizontal=True, key="main_tab_selector_v3_10")
 if selected_tab != st.session_state.active_tab: st.session_state.active_tab = selected_tab; st.rerun()
@@ -362,9 +388,10 @@ df_filtered = pd.DataFrame()
 if not df_original.empty:
     if global_search_active:
         df_working = df_original.copy()
-        license_search_term = st.session_state.get("licenseNumber_search", ""); store_search_term = st.session_state.get("storeName_search", "")
+        license_search_term = st.session_state.get("licenseNumber_search", "")
+        store_search_term = st.session_state.get("storeName_search", "") # This is now the selected store name
         if license_search_term and "licenseNumber" in df_working.columns: df_working = df_working[df_working['licenseNumber'].astype(str).str.contains(license_search_term, case=False, na=False)]
-        if store_search_term and "storeName" in df_working.columns: df_working = df_working[df_working['storeName'].astype(str).str.contains(store_search_term, case=False, na=False)]
+        if store_search_term and "storeName" in df_working.columns: df_working = df_working[df_working['storeName'] == store_search_term] # Exact match for selectbox
         df_filtered = df_working.copy()
     else: # Apply Date and Category Filters
         df_working = df_original.copy()
@@ -393,7 +420,7 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
-def display_data_table_and_details(df_to_display, context_key_prefix=""):
+def display_data_table_and_details(df_to_display, context_key_prefix=""): # context_key_prefix for unique session state keys
     df_display_table = df_to_display.copy().reset_index(drop=True)
     cols_to_try = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status', 'score', 'clientSentiment', 'days_to_confirmation'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
     cols_for_display = [col for col in cols_to_try if col in df_display_table.columns]
@@ -402,10 +429,10 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
 
     if not df_display_table.empty:
         def style_boolean_cell(val):
-            val_str = str(val).strip().lower(); text_color = "#111111" # Dark text for contrast
+            val_str = str(val).strip().lower(); text_color = "#111111" # Dark text for good contrast
             if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF' # Light Green
             elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8' # Light Pink/Red
-            else: return f'color: {text_color};'
+            else: return f'color: {text_color};' # Default for NaNs or other values, ensure text color is set
             return f'background-color: {bg_color}; color: {text_color};'
         def style_table_customized(df_to_style):
             styled_df = df_to_style.style
@@ -451,18 +478,30 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
                             html_transcript += f"<p class='transcript-line'>{speaker} {msg}</p>"
                         st.markdown(html_transcript + "</div>", unsafe_allow_html=True)
                     else: st.info("No transcript available or empty.")
-                    st.markdown("</div>", unsafe_allow_html=True)
-            else: st.markdown(f"<div class='no-data-message'>📋 No entries in the table from {context_key_prefix} to select for details. 📋</div>", unsafe_allow_html=True)
-        else: st.markdown(f"<div class='no-data-message'>📜 No data in table for transcript viewer ('fullTranscript' column missing) from {context_key_prefix}. 📜</div>", unsafe_allow_html=True)
-        st.markdown("---"); csv_data = convert_df_to_csv(df_display_table); st.download_button(f"📥 Download These {context_key_prefix} Results", csv_data, f'{context_key_prefix}_results.csv', 'text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}")
-    elif not df_original.empty : st.markdown(f"<div class='no-data-message'>📊 No data matches current {context_key_prefix} criteria. Try different settings! 📊</div>", unsafe_allow_html=True)
+                    st.markdown("</div>", unsafe_allow_html=True) # End transcript-details-section
+            else: st.markdown(f"<div class='no-data-message'>📋 No entries in the table from {context_key_prefix} context to select for details. 📋</div>", unsafe_allow_html=True)
+        else: st.markdown(f"<div class='no-data-message'>📜 No data in table for transcript viewer ('fullTranscript' column missing) in {context_key_prefix} context. 📜</div>", unsafe_allow_html=True)
+        st.markdown("---"); csv_data = convert_df_to_csv(df_display_table); st.download_button(f"📥 Download These {context_key_prefix.replace('_', ' ').title()} Results", csv_data, f'{context_key_prefix}_results.csv', 'text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}")
+    elif not df_original.empty : st.markdown(f"<div class='no-data-message'>📊 No data matches current {context_key_prefix.replace('_', ' ')} criteria. Try different settings! 📊</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-# --- Global Search Dialog ---
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
-    with st.dialog("Global Search Results", width="large"):
+    # Ensure df_filtered is up-to-date for the dialog
+    if not df_original.empty:
+        df_gs_results = df_original.copy()
+        license_search_term = st.session_state.get("licenseNumber_search", "")
+        store_search_term = st.session_state.get("storeName_search", "")
+        if license_search_term and "licenseNumber" in df_gs_results.columns: df_gs_results = df_gs_results[df_gs_results['licenseNumber'].astype(str).str.contains(license_search_term, case=False, na=False)]
+        if store_search_term and "storeName" in df_gs_results.columns: df_gs_results = df_gs_results[df_gs_results['storeName'] == store_search_term]
+    else:
+        df_gs_results = pd.DataFrame()
+
+    with st.dialog("Global Search Results", width="large"): # Check Streamlit version >= 1.28 for st.dialog
         st.markdown("##### Results from your Global Search:")
-        display_data_table_and_details(df_filtered, context_key_prefix="dialog_global_search")
+        if not df_gs_results.empty:
+            display_data_table_and_details(df_gs_results, context_key_prefix="dialog_global_search")
+        else:
+            st.info("No results found for your global search terms.")
         if st.button("Close Search Results", key="close_gs_dialog_button"):
             st.session_state.show_global_search_dialog = False
             st.rerun()
@@ -476,7 +515,7 @@ if st.session_state.active_tab == "🌌 Overview":
         with c4: st.metric("⏳ Avg Days to Confirm MTD", f"{days_mtd:.1f}" if pd.notna(days_mtd) else "N/A", help="Average number of days from delivery to confirmation for onboardings confirmed this month to date.")
     with st.container():
         st.header("📊 Filtered Data Overview");
-        if not df_filtered.empty:
+        if not df_filtered.empty: # df_filtered reflects global search OR local filters
             tot_filt, sr_filt, score_filt, days_filt = calculate_metrics(df_filtered)
             fc1,fc2,fc3,fc4 = st.columns(4)
             with fc1: st.metric("📄 Filtered Onboardings", tot_filt or "0")
@@ -485,12 +524,12 @@ if st.session_state.active_tab == "🌌 Overview":
             with fc4: st.metric("⏱️ Filtered Avg Days Confirm", f"{days_filt:.1f}" if pd.notna(days_filt) else "N/A")
         else: st.markdown("<div class='no-data-message'>🤷 No data matches current search/filters for Overview. Try adjusting your selections! 🤷</div>", unsafe_allow_html=True)
 
-elif st.session_state.active_tab == "📊 Detailed Analysis (Filtered)": # Relabeled Tab
+elif st.session_state.active_tab == "📊 Detailed Analysis (Filtered)":
     st.header("📊 Detailed Analysis (Filtered Data)")
     if not global_search_active:
         display_data_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
         st.header("📊 Key Visuals (Based on Date/Category Filters)")
-        if not df_filtered.empty:
+        if not df_filtered.empty: # df_filtered here is from date/category filters
             c1_charts, c2_charts = st.columns(2)
             with c1_charts:
                 if 'status' in df_filtered.columns and df_filtered['status'].notna().any(): status_counts = df_filtered['status'].value_counts().reset_index(); status_fig = px.bar(status_counts, x='status', y='count', color='status', title="Onboarding Status Distribution", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ); status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
@@ -518,12 +557,12 @@ elif st.session_state.active_tab == "📊 Detailed Analysis (Filtered)": # Relab
         elif not df_original.empty : st.markdown("<div class='no-data-message'>🖼️ No data matches current filters for detailed visuals. 🖼️</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
     else: # Global search is active
-        st.info("ℹ️ Global Search is active, and results are shown in a pop-up dialog if available. This tab shows data based on Date/Category filters when Global Search is inactive.")
+        st.info("ℹ️ Global Search is active. Results are shown in a pop-up dialog (if any found) when search terms are entered/changed. This tab displays detailed analysis based on Date/Category filters when Global Search is inactive.")
 
 elif st.session_state.active_tab == "📈 Trends & Distributions":
     st.header("💡 Trends & Distributions")
     st.markdown(f"*(Based on {'Global Search Results' if global_search_active else 'Filtered Data (Date/Category)'})*")
-    if not df_filtered.empty:
+    if not df_filtered.empty: # df_filtered reflects global search OR local filters
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             df_trend_for_tab3 = df_filtered.copy(); df_trend_for_tab3['onboarding_date_only'] = pd.to_datetime(df_trend_for_tab3['onboarding_date_only'], errors='coerce'); df_trend_for_tab3.dropna(subset=['onboarding_date_only'], inplace=True)
             if not df_trend_for_tab3.empty:

@@ -643,7 +643,10 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        return pdf.output(dest='S')
+        output = pdf.output(dest='S')
+        if isinstance(output, bytearray):
+            return bytes(output)
+        return output # Should be bytes if not bytearray
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -786,7 +789,7 @@ elif df_filtered_for_export.empty:
 
 # Prepare data for the button
 # Initialize with a safe default (empty bytes)
-csv_download_payload = b""
+csv_download_payload = b"" # Ensure this is bytes
 
 if not csv_button_disabled:
     # This block executes only if the button should be enabled and data is available.
@@ -854,24 +857,32 @@ elif df_filtered_for_export.empty:
 
 
 if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf_main_button_v4_4_4", use_container_width=True, help=pdf_help_text, disabled=pdf_button_disabled): # Key updated
-    pdf_bytes = generate_executive_snapshot_pdf(
+    pdf_bytes_data = generate_executive_snapshot_pdf( # Renamed variable
         df_filtered_for_export, 
         mtd_metrics_for_pdf, 
         filtered_metrics_for_pdf, 
         st.session_state.get('last_data_refresh_time'),
         PST_TIMEZONE
     )
-    if pdf_bytes:
-        download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
-        st.sidebar.download_button(
-            label="✅ Click to Download PDF",
-            data=pdf_bytes,
-            file_name=f"executive_snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-            mime="application/pdf",
-            key=download_key, 
-            use_container_width=True
-        )
-        st.toast("PDF prepared! Click '✅ Click to Download PDF' in the sidebar.", icon="📄")
+    if pdf_bytes_data: # Check the renamed variable
+        # Ensure pdf_bytes_data is bytes
+        if isinstance(pdf_bytes_data, bytearray):
+            pdf_bytes_data = bytes(pdf_bytes_data)
+        elif not isinstance(pdf_bytes_data, bytes):
+            st.sidebar.error("PDF data is not in expected byte format.")
+            pdf_bytes_data = None # Prevent download if not bytes
+
+        if pdf_bytes_data: # Check again after potential conversion
+            download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
+            st.sidebar.download_button(
+                label="✅ Click to Download PDF",
+                data=pdf_bytes_data,
+                file_name=f"executive_snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                mime="application/pdf",
+                key=download_key, 
+                use_container_width=True
+            )
+            st.toast("PDF prepared! Click '✅ Click to Download PDF' in the sidebar.", icon="📄")
     else:
         st.sidebar.error("PDF generation failed. See main panel for details.")
 

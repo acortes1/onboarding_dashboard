@@ -10,7 +10,7 @@ import numpy as np
 import re
 
 st.set_page_config(
-    page_title="Onboarding Performance Dashboard v3.15", # Updated version
+    page_title="Onboarding Performance Dashboard v3.16", # Updated version
     page_icon="💎",
     layout="wide"
 )
@@ -47,9 +47,25 @@ LIGHT_PLOTLY_SENTIMENT_MAP = { 'positive': '#1A73E8', 'negative': '#D93025', 'ne
 THEME = st.get_option("theme.base")
 if THEME == "light":
     ACTIVE_ACCENT_PRIMARY = LIGHT_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = LIGHT_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = LIGHT_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = LIGHT_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = LIGHT_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = LIGHT_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = LIGHT_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = LIGHT_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = LIGHT_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = LIGHT_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = LIGHT_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = LIGHT_PLOTLY_SENTIMENT_MAP
+    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529" # Dark text for light backgrounds
+    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#FFFFFF"  # Light text for dark backgrounds
 else:
     ACTIVE_ACCENT_PRIMARY = DARK_APP_ACCENT_PRIMARY; ACTIVE_ACCENT_SECONDARY = DARK_APP_ACCENT_SECONDARY; ACTIVE_ACCENT_MUTED = DARK_APP_ACCENT_MUTED; ACTIVE_ACCENT_HIGHLIGHT = DARK_APP_ACCENT_HIGHLIGHT; ACTIVE_ACCENT_LIGHTEST = DARK_APP_ACCENT_LIGHTEST; ACTIVE_TEXT_ON_ACCENT = DARK_APP_TEXT_ON_ACCENT; ACTIVE_DL_BUTTON_BG = DARK_APP_DL_BUTTON_BG; ACTIVE_DL_BUTTON_TEXT = DARK_APP_DL_BUTTON_TEXT; ACTIVE_DL_BUTTON_HOVER_BG = DARK_APP_DL_BUTTON_HOVER_BG; ACTIVE_PLOTLY_PRIMARY_SEQ = DARK_PLOTLY_PRIMARY_SEQ; ACTIVE_PLOTLY_QUALITATIVE_SEQ = DARK_PLOTLY_QUALITATIVE_SEQ; ACTIVE_PLOTLY_SENTIMENT_MAP = DARK_PLOTLY_SENTIMENT_MAP
+    DEFAULT_TEXT_COLOR_ON_LIGHT_BG = "#212529" # Dark text for light backgrounds
+    DEFAULT_TEXT_COLOR_ON_DARK_BG = "#E1E1E1"  # Light text for dark backgrounds (slightly off-white for better feel)
+
 PLOT_BG_COLOR = "rgba(0,0,0,0)"
+
+# Helper function to get contrasting text color
+def get_contrasting_text_color(hex_bg_color):
+    try:
+        hex_bg_color = hex_bg_color.lstrip('#')
+        r, g, b = tuple(int(hex_bg_color[i:i+2], 16) for i in (0, 2, 4))
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return DEFAULT_TEXT_COLOR_ON_DARK_BG if luminance < 0.5 else DEFAULT_TEXT_COLOR_ON_LIGHT_BG
+    except: # Fallback in case of invalid hex or other error
+        return DEFAULT_TEXT_COLOR_ON_LIGHT_BG if THEME == "light" else DEFAULT_TEXT_COLOR_ON_DARK_BG
+
 
 css_parts = [
     "<style>",
@@ -226,7 +242,6 @@ def get_default_date_range(series):
 
 default_s_init, default_e_init, initial_min_data_date, initial_max_data_date = get_default_date_range(None)
 
-# Initialize session state variables
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
 if 'date_range' not in st.session_state or not (isinstance(st.session_state.date_range, tuple) and len(st.session_state.date_range) == 2 and isinstance(st.session_state.date_range[0], date) and isinstance(st.session_state.date_range[1], date)): st.session_state.date_range = (default_s_init, default_e_init)
@@ -252,9 +267,8 @@ if 'max_data_date_for_filter' not in st.session_state: st.session_state.max_data
 if 'date_filter_is_active' not in st.session_state: st.session_state.date_filter_is_active = False
 if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
 
-# Initial data load attempt
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None:
-    df_from_load_func = load_data_from_google_sheet() # This sets last_data_refresh_time
+    df_from_load_func = load_data_from_google_sheet()
     if not df_from_load_func.empty:
         st.session_state.df_original = df_from_load_func
         st.session_state.data_loaded = True
@@ -263,24 +277,22 @@ if not st.session_state.data_loaded and st.session_state.last_data_refresh_time 
         st.session_state.min_data_date_for_filter = min_data_date
         st.session_state.max_data_date_for_filter = max_data_date
     else:
-        st.session_state.df_original = pd.DataFrame() # Ensure it's an empty DF
+        st.session_state.df_original = pd.DataFrame()
         st.session_state.data_loaded = False
-# Assign to df_original for use in the app, ensuring it reflects the loaded state
 df_original = st.session_state.df_original
 
-# Sidebar: Initial status messages
 if st.session_state.data_loaded and not df_original.empty:
     st.sidebar.success(f"Data loaded: {len(df_original)} records.")
 elif st.session_state.get('last_data_refresh_time') and not st.session_state.data_loaded:
     st.sidebar.warning("Data source read, but no data rows found or an error occurred.")
-elif not st.session_state.get('last_data_refresh_time'): # Only show if no refresh attempt has been made yet
+elif not st.session_state.get('last_data_refresh_time'):
     st.sidebar.info("Initializing data load...")
 
 
 st.title("🌌 Onboarding Performance Dashboard 🌌")
 if not st.session_state.data_loaded and df_original.empty and st.session_state.get('last_data_refresh_time'):
     st.markdown("<div class='no-data-message'>🚧 No data loaded. Check configurations or Google Sheet. Attempted to refresh. 🚧</div>", unsafe_allow_html=True)
-elif not st.session_state.data_loaded and df_original.empty and not st.session_state.get('last_data_refresh_time') : # If no attempt yet
+elif not st.session_state.data_loaded and df_original.empty and not st.session_state.get('last_data_refresh_time') :
      st.markdown("<div class='no-data-message'>🚧 Data loading... please wait. 🚧</div>", unsafe_allow_html=True)
 
 
@@ -460,6 +472,54 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 tot_mtd, sr_mtd, score_mtd, days_mtd = calculate_metrics(df_mtd); tot_prev,_,_,_ = calculate_metrics(df_prev_mtd)
 delta_mtd = tot_mtd - tot_prev if pd.notna(tot_mtd) and pd.notna(tot_prev) else None
 
+# --- Styling Functions for DataFrame ---
+def style_boolean_cell(val):
+    val_str = str(val).strip().lower()
+    if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300" # Light Green BG, Dark Green text
+    elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000" # Light Pink/Red BG, Dark Red text
+    else: return f'color: {"var(--text-color)"};' # Theme-aware default text color
+    return f'background-color: {bg_color}; color: {text_color};'
+
+def style_sentiment_cell(val):
+    val_str = str(val).strip().lower()
+    bg_color = ""
+    if val_str == 'positive': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('positive', '#D4EFDF') # Light Green as default
+    elif val_str == 'negative': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('negative', '#FADBD8') # Light Red
+    elif val_str == 'neutral': bg_color = ACTIVE_PLOTLY_SENTIMENT_MAP.get('neutral', '#EAEAEA')    # Light Gray
+    else: return f'color: {"var(--text-color)"};'
+
+    # Make background lighter for cell, map can provide darker colors for charts
+    if val_str == 'positive': bg_color = '#D4EFDF'
+    elif val_str == 'negative': bg_color = '#FADBD8'
+    elif val_str == 'neutral': bg_color = '#F0F0F0' # Lighter gray
+
+    text_color = get_contrasting_text_color(bg_color)
+    return f'background-color: {bg_color}; color: {text_color};'
+
+def style_score_cell(val):
+    try:
+        score = float(val)
+        if pd.isna(score): return f'color: {"var(--text-color)"};'
+        if score >= 8: bg_color = '#C8E6C9'    # Light Green (High)
+        elif score >= 4: bg_color = '#FFF9C4'  # Light Yellow (Medium)
+        else: bg_color = '#FFCDD2'             # Light Red (Low)
+        text_color = get_contrasting_text_color(bg_color)
+        return f'background-color: {bg_color}; color: {text_color};'
+    except (ValueError, TypeError):
+        return f'color: {"var(--text-color)"};' # Default for non-numeric/NaN
+
+def style_days_to_confirmation_cell(val):
+    try:
+        days = float(val)
+        if pd.isna(days): return f'color: {"var(--text-color)"};'
+        if days <= 7: bg_color = '#C8E6C9'      # Light Green (Fast)
+        elif days <= 14: bg_color = '#FFF9C4'   # Light Yellow (Moderate)
+        else: bg_color = '#FFCDD2'              # Light Red (Slow)
+        text_color = get_contrasting_text_color(bg_color)
+        return f'background-color: {bg_color}; color: {text_color};'
+    except (ValueError, TypeError):
+        return f'color: {"var(--text-color)"};'
+
 def display_data_table_and_details(df_to_display, context_key_prefix=""):
     if df_to_display is None or df_to_display.empty:
         context_name = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
@@ -480,23 +540,22 @@ def display_data_table_and_details(df_to_display, context_key_prefix=""):
         st.markdown(f"<div class='no-data-message'>📋 No relevant columns to display for the {context_name} data. 📋</div>", unsafe_allow_html=True)
         return
 
-    def style_boolean_cell(val):
-        val_str = str(val).strip().lower();
-        if val_str in ['true', '1', 'yes']: bg_color = '#D4EFDF'; text_color = "#003300"
-        elif val_str in ['false', '0', 'no']: bg_color = '#FADBD8'; text_color = "#500000"
-        else: return f'color: {"var(--text-color)"};'
-        return f'background-color: {bg_color}; color: {text_color};'
-
     def style_table_customized(df_to_style):
         styled_df = df_to_style.style
-        if 'score' in df_to_style.columns: styled_df = styled_df.bar(subset=['score'], align='mid', color=[ACTIVE_ACCENT_MUTED, ACTIVE_ACCENT_SECONDARY], vmin=0, vmax=10)
+        
+        # Apply new styling functions
+        if 'clientSentiment' in df_to_style.columns:
+            styled_df = styled_df.applymap(style_sentiment_cell, subset=['clientSentiment'])
+        if 'score' in df_to_style.columns:
+            styled_df = styled_df.applymap(style_score_cell, subset=['score'])
         if 'days_to_confirmation' in df_to_style.columns:
-            df_numeric_days = pd.to_numeric(df_to_style['days_to_confirmation'], errors='coerce'); min_days = df_numeric_days.min() if df_numeric_days.notna().any() else 0; max_days = df_numeric_days.max() if df_numeric_days.notna().any() else 30
-            styled_df = styled_df.bar(subset=['days_to_confirmation'], align='zero', color=ACTIVE_ACCENT_HIGHLIGHT, vmin=min_days, vmax=max_days if max_days > min_days else min_days +1)
+            styled_df = styled_df.applymap(style_days_to_confirmation_cell, subset=['days_to_confirmation'])
+            
         boolean_like_cols = [col for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS if col in df_to_style.columns and col != 'score']
         for col_name_bool in boolean_like_cols:
             styled_df = styled_df.applymap(style_boolean_cell, subset=[col_name_bool])
         return styled_df
+
     st.dataframe(style_table_customized(df_display_table[cols_for_display]), use_container_width=True, height=350)
     st.markdown("---"); st.subheader("🔍 View Full Onboarding Details & Transcript")
     if 'fullTranscript' in df_display_table.columns:
@@ -555,7 +614,7 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             st.session_state.show_global_search_dialog = False
             st.session_state.licenseNumber_search = ""
             st.session_state.storeName_search = ""
-            if 'selected_transcript_key_dialog_global_search' in st.session_state: # Also clear selection for dialog
+            if 'selected_transcript_key_dialog_global_search' in st.session_state:
                 st.session_state.selected_transcript_key_dialog_global_search = None
             st.rerun()
     show_gs_dialog_content()
@@ -641,49 +700,41 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data matches current search/filters for Trends & Distributions. 📉</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>💾 No data loaded to display. Please check data source or refresh. 💾</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.15 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Performance Dashboard v3.16 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
 
-# Sidebar: Data Controls Section (Revised)
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Data Controls")
 
-if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v315"):
+if st.sidebar.button("🔄 Refresh Data", key="refresh_data_button_v316"): # Updated key
     st.cache_data.clear()
     st.session_state.data_loaded = False
-    st.session_state.last_data_refresh_time = None # Critical to trigger reload logic
-    st.session_state.df_original = pd.DataFrame()   # Clear data cache
-
-    # Reset filters and search
+    st.session_state.last_data_refresh_time = None
+    st.session_state.df_original = pd.DataFrame()
     st.session_state.licenseNumber_search = ""
     st.session_state.storeName_search = ""
     st.session_state.show_global_search_dialog = False
     for f_key_clear in ['repName_filter', 'status_filter', 'clientSentiment_filter']:
         if f_key_clear in st.session_state: st.session_state[f_key_clear] = []
-    
     ds_clear_refresh, de_clear_refresh, _, _ = get_default_date_range(None)
     st.session_state.date_range = (ds_clear_refresh, de_clear_refresh)
     st.session_state.date_filter_is_active = False
-    st.session_state.active_tab = TAB_OVERVIEW # Go to a neutral tab
-
-    # Clear transcript selections
+    st.session_state.active_tab = TAB_OVERVIEW
     if 'selected_transcript_key_dialog_global_search' in st.session_state:
         st.session_state.selected_transcript_key_dialog_global_search = None
     if 'selected_transcript_key_filtered_analysis' in st.session_state:
         st.session_state.selected_transcript_key_filtered_analysis = None
     st.rerun()
 
-# Status display caption in Data Controls
 if st.session_state.get('last_data_refresh_time'):
     refresh_time_str = st.session_state.last_data_refresh_time.strftime('%b %d, %Y %I:%M %p')
     st.sidebar.caption(f"Last data refresh attempt: {refresh_time_str}")
     if not st.session_state.get('data_loaded', False):
         st.sidebar.caption("⚠️ Data not loaded successfully during the last attempt.")
 else:
-    # This means last_data_refresh_time is None (before first auto-load or after user clicks "Refresh Data")
     st.sidebar.caption("Data not yet loaded or refresh triggered. Automatic load initiated if applicable.")
 
 st.sidebar.markdown("---")
 theme_display_name = THEME.capitalize() if isinstance(THEME, str) and THEME else "Unknown"
-info_string = f"App Version: 3.15";
+info_string = f"App Version: 3.16";
 if theme_display_name: info_string += f" ({theme_display_name} Mode)"
 st.sidebar.info(info_string)

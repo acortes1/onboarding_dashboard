@@ -8,6 +8,5 @@ google-auth-oauthlib
 google-auth-httplib2
 python-dateutil
 matplotlib
-streamlit-aggrid
 xhtml2pdf
 kaleido

@@ -477,8 +477,19 @@ def load_data_from_google_sheet():
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     except Exception as e: st.error(f"🌪️ Error loading data: {e}"); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
 
-@st.cache_data
-def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).encode('utf-8')
+# Remove @st.cache_data for debugging, can be added back if performance is an issue
+# @st.cache_data
+def convert_df_to_csv(df_to_convert):
+    """Converts a Pandas DataFrame to CSV bytes, with error handling."""
+    if not isinstance(df_to_convert, pd.DataFrame):
+        st.error(f"Debug: convert_df_to_csv received non-DataFrame: {type(df_to_convert)}")
+        return b"Error: Invalid data type for CSV conversion." # Return bytes
+    try:
+        csv_string = df_to_convert.to_csv(index=False)
+        return csv_string.encode('utf-8')
+    except Exception as e:
+        st.error(f"Debug: Error in convert_df_to_csv during to_csv() or encode(): {e}")
+        return b"Error converting DataFrame to CSV." # Return bytes
 
 def calculate_metrics(df_input):
     if df_input.empty: return 0, 0.0, pd.NA, pd.NA
@@ -764,6 +775,7 @@ if global_search_active:
 elif df_filtered_for_export.empty:
     csv_help_text = "No filtered data available to download."
 
+csv_export_data = b"" # Initialize with empty bytes
 
 if not csv_button_disabled:
     export_columns_csv = [col for col in preferred_cols_order if col in df_filtered_for_export.columns and col != 'status_styled'] 
@@ -772,30 +784,35 @@ if not csv_button_disabled:
     final_export_cols_csv = list(dict.fromkeys(export_columns_csv + other_cols_csv))
     
     valid_final_export_cols_csv = [col for col in final_export_cols_csv if col in df_filtered_for_export.columns]
-    df_to_export_csv = df_filtered_for_export[valid_final_export_cols_csv].copy() if valid_final_export_cols_csv else df_filtered_for_export.copy()
-
     
-    csv_export_data = convert_df_to_csv(df_to_export_csv)
-    st.sidebar.download_button(
-        label="📥 Download Filtered Data (CSV)",
-        data=csv_export_data,
-        file_name=f"filtered_onboarding_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-        key="download_filtered_csv_button_sidebar_v4_4_3", 
-        use_container_width=True,
-        help=csv_help_text 
-    )
-else:
-     st.sidebar.download_button(
-        label="📥 Download Filtered Data (CSV)",
-        data="", 
-        file_name="filtered_onboarding_data.csv",
-        mime="text/csv",
-        key="download_filtered_csv_button_sidebar_disabled_v4_4_3", 
-        use_container_width=True,
-        disabled=True,
-        help=csv_help_text
-    )
+    if valid_final_export_cols_csv and not df_filtered_for_export.empty:
+        df_to_export_csv = df_filtered_for_export[valid_final_export_cols_csv].copy()
+        if isinstance(df_to_export_csv, pd.DataFrame):
+            csv_export_data = convert_df_to_csv(df_to_export_csv)
+        else:
+            st.error(f"Error: df_to_export_csv is not a DataFrame. Type: {type(df_to_export_csv)}")
+            # csv_export_data remains b""
+    elif not df_filtered_for_export.empty: # Has rows but no valid columns selected (edge case)
+        df_to_export_csv = df_filtered_for_export.copy() # Export all available if column selection fails
+        csv_export_data = convert_df_to_csv(df_to_export_csv)
+    # If df_filtered_for_export is empty, csv_export_data remains b""
+
+# Final check for csv_export_data type before passing to download_button
+if not isinstance(csv_export_data, bytes):
+    st.warning(f"Warning: csv_export_data is not bytes before download. Type: {type(csv_export_data)}. Will provide empty bytes.")
+    csv_export_data = b""
+
+st.sidebar.download_button(
+    label="📥 Download Filtered Data (CSV)",
+    data=csv_export_data, 
+    file_name=f"filtered_onboarding_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+    mime="text/csv",
+    key="download_filtered_csv_button_sidebar_v4_4_3", 
+    use_container_width=True,
+    help=csv_help_text,
+    disabled=csv_button_disabled 
+)
+
 
 # MTD Calculations for PDF (ensure df_original is used for a consistent MTD baseline)
 today_mtd_calc_pdf = date.today(); mtd_start_calc_pdf = today_mtd_calc_pdf.replace(day=1); prev_month_end_calc_pdf = mtd_start_calc_pdf - timedelta(days=1); prev_month_start_calc_pdf = prev_month_end_calc_pdf.replace(day=1)

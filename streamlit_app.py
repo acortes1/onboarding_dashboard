@@ -223,12 +223,12 @@ if not st.session_state.get("authenticated", False):
     st.markdown(f"Please log in with your **{ALLOWED_DOMAIN}** Google account to continue.")
     
     auth_url = get_google_auth_url()
-    # Use st.markdown for the login link
+    # Use st.markdown for the login link with target="_top"
     login_button_html = f"""
-        <a href="{auth_url}" target="_self" style="
+        <a href="{auth_url}" target="_top" style="
             display: inline-block;
             padding: 11px 25px;
-            background-color: var(--primary-color);
+            background-color: var(--primary-color, #6A0DAD); /* Fallback color */
             color: white;
             text-decoration: none;
             border-radius: 8px;
@@ -270,6 +270,7 @@ else:
             TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)"; TABLE_BORDER_COLOR = "var(--border-color)"; TABLE_CELL_PADDING = "0.65em 0.8em"; TABLE_FONT_SIZE = "0.92rem";
         css = f"""<style>
             :root {{
+                --primary-color: #6A0DAD; /* Define primary color if not already defined by theme */
                 --score-good-bg: {SCORE_GOOD_BG}; --score-good-text: {SCORE_GOOD_TEXT}; --score-medium-bg: {SCORE_MEDIUM_BG}; --score-medium-text: {SCORE_MEDIUM_TEXT}; --score-bad-bg: {SCORE_BAD_BG}; --score-bad-text: {SCORE_BAD_TEXT};
                 --sentiment-positive-bg: {SENTIMENT_POSITIVE_BG}; --sentiment-positive-text: {SENTIMENT_POSITIVE_TEXT}; --sentiment-neutral-bg: {SENTIMENT_NEUTRAL_BG}; --sentiment-neutral-text: {SENTIMENT_NEUTRAL_TEXT}; --sentiment-negative-bg: {SENTIMENT_NEGATIVE_BG}; --sentiment-negative-text: {SENTIMENT_NEGATIVE_TEXT};
                 --days-good-bg: {DAYS_GOOD_BG}; --days-good-text: {DAYS_GOOD_TEXT}; --days-medium-bg: {DAYS_MEDIUM_BG}; --days-medium-text: {DAYS_MEDIUM_TEXT}; --days-bad-bg: {DAYS_BAD_BG}; --days-bad-text: {DAYS_BAD_TEXT};
@@ -630,7 +631,7 @@ else:
         if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
     else: st.sidebar.caption("⏳ Data not yet loaded.")
     st.sidebar.markdown("---");
-    st.sidebar.caption(f"Onboarding Dashboard v4.3.1\n\n© {datetime.now().year} Nexus Workflow")
+    st.sidebar.caption(f"Onboarding Analytics Dashboard v4.3.1\n\n© {datetime.now().year} Nexus Workflow")
 
     # --- Main Content Area (from original app) ---
     st.title("🚀 Onboarding Analytics Dashboard") # Changed icon from original for consistency

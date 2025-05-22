@@ -10,10 +10,11 @@ import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
-import time # Not explicitly used in the final merge, but was in original
+# import time # Not explicitly used in the final merge, but was in original
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
+# from fpdf import FPDF # Removed as PDF generation is being isolated
 
 # --- Configuration from secrets.toml (SSO and Google Sheets) ---
 try:

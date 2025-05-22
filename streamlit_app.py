@@ -66,9 +66,9 @@ def exchange_code_for_token(code):
             try:
                 error_details = e.response.json()
                 error_message += f"\nGoogle Error: {error_details.get('error_description', e.response.text)}"
-            except ValueError:
+            except ValueError: # If response is not JSON
                 error_message += f"\nResponse content: {e.response.content.decode(errors='ignore')}"
-        st.error(error_message)
+        st.error(error_message) # This will display the error on the Streamlit page
         return None
 
 def get_user_info_from_id_token(token_data):
@@ -94,7 +94,7 @@ def get_user_info_from_id_token(token_data):
         }
         return st.session_state["user_info"]
     except ValueError as e:
-        st.error(f"Login failed: Invalid ID token. ({e})")
+        st.error(f"Login failed: Invalid ID token. ({e})") # e.g., token expired, invalid signature
         return None
     except Exception as e:
         st.error(f"An unexpected error occurred during token verification: {e}")
@@ -107,27 +107,53 @@ if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None
 
 query_params = st.query_params
 if not st.session_state.get("authenticated", False) and "code" in query_params:
+    # --- START DEBUGGING BLOCK ---
+    st.info("DEBUG: Entered OAuth callback processing block.")
     auth_code_list = query_params.get_all("code")
     returned_state_list = query_params.get_all("state")
     auth_code = auth_code_list[0] if auth_code_list else None
     returned_state = returned_state_list[0] if returned_state_list else None
 
-    if not auth_code: st.error("Authentication failed: No authorization code received.")
+    if not auth_code:
+        st.error("Authentication failed: No authorization code received.")
+        st.info("DEBUG: No auth_code found in query_params.")
     elif not returned_state or returned_state != st.session_state.get("oauth_state"):
-        st.error("Login failed: State mismatch (CSRF suspected). Please try again.")
-        st.session_state["oauth_state"] = None
+        st.error("Login failed: State mismatch (CSRF suspected). Please try logging in again.")
+        st.info(f"DEBUG: State mismatch. Expected: '{st.session_state.get('oauth_state')}', Got: '{returned_state}'")
+        st.session_state["oauth_state"] = None # Clear potentially compromised state
     else:
-        st.session_state["oauth_state"] = None
+        st.info("DEBUG: State check passed. Proceeding to exchange code for token.")
+        st.session_state["oauth_state"] = None # Clear state as it's a one-time use token
         token_data = exchange_code_for_token(auth_code)
+
         if token_data:
+            st.info(f"DEBUG: Token exchange successful. Token data received (keys): {list(token_data.keys())}")
+            if "id_token" in token_data:
+                 st.info("DEBUG: id_token found in token_data.")
+            else:
+                 st.warning("DEBUG: id_token NOT found in token_data.")
+
             user_details = get_user_info_from_id_token(token_data)
             if user_details:
+                st.info(f"DEBUG: User info verification successful. User: {user_details.get('email')}")
                 st.session_state["authenticated"] = True
                 st.query_params.clear()
+                st.info("DEBUG: Authentication successful. Clearing params and rerunning to show dashboard.")
                 st.rerun()
+            else:
+                # Errors from get_user_info_from_id_token are displayed by the function itself
+                st.error("DEBUG: User info verification failed (get_user_info_from_id_token returned None). Check errors above.")
+        else:
+            # Errors from exchange_code_for_token are displayed by the function itself
+            st.error("DEBUG: Token exchange failed (exchange_code_for_token returned None). Check errors above.")
+    # --- END DEBUGGING BLOCK ---
+
+    # Fallback cleanup if authentication didn't complete successfully in this run
     if not st.session_state.get("authenticated", False) and ("code" in query_params or "state" in query_params):
+        st.info("DEBUG: Fallback cleanup: Authentication did not complete. Clearing params and rerunning to reset login page.")
         st.query_params.clear()
-        if not st.session_state.get("authenticated", False): st.rerun()
+        if not st.session_state.get("authenticated", False): # Avoid double rerun if already rerunning
+             st.rerun()
 
 
 # --- Main Application UI ---

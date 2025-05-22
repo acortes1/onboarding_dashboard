@@ -1,257 +1,94 @@
 import streamlit as st
-from urllib.parse import urlencode
-import requests
-from requests_oauthlib import OAuth2Session # To create the auth URL and manage session
-from google.oauth2 import id_token # To verify the ID token
-from google.auth.transport import requests as google_requests # To make requests for token verification
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
 import gspread
 from google.oauth2.service_account import Credentials
-# import time # Not explicitly used in the final merge, but was in original
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
 
 # --- Page Configuration: MUST BE THE FIRST STREAMLIT COMMAND ---
-# Set a default page config. This can be updated later if the user authenticates.
+# Set a default page config. This will be updated if the user authenticates.
 st.set_page_config(layout="centered", page_title="Login - Onboarding Dashboard")
 
-# --- Initialize Debug Log in Session State ---
-if "debug_log" not in st.session_state:
-    st.session_state.debug_log = []
+# --- Initialize Debug Log in Session State (Optional, but can be helpful) ---
+if "debug_log_native_sso" not in st.session_state:
+    st.session_state.debug_log_native_sso = []
 
-def log_debug(message):
+def log_sso_debug(message):
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    st.session_state.debug_log.append(f"[{timestamp}] {message}")
+    st.session_state.debug_log_native_sso.append(f"[{timestamp}] {message}")
+    # For immediate visibility during debugging, you might print or st.write here,
+    # but be mindful of clearing it or removing for production.
+    # print(f"SSO DEBUG: {message}") 
 
-# --- Display Debug Log and Query Params at the top ---
-# This will run on every script execution after the initial page config
-log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}.")
-st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=True).json(st.session_state.debug_log[-30:]) # Show last 30, expanded by default for debugging
+# Display debug log if needed
+# st.sidebar.expander("SSO DEBUG LOG", expanded=False).json(st.session_state.debug_log_native_sso[-20:])
 
-# Early check and display of query_params
+
+# --- Configuration from secrets.toml ---
 try:
-    live_query_params = dict(st.query_params)
-    st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=True).json(live_query_params)
-except Exception as e_qp_display:
-    st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=True).error(f"Error displaying query_params: {e_qp_display}")
-    log_debug(f"ERROR early display of query_params: {e_qp_display}")
-
-
-# --- Configuration from secrets.toml (SSO and Google Sheets) ---
-try:
-    # SSO Config
-    GOOGLE_SSO_CLIENT_ID = st.secrets["GOOGLE_SSO_CLIENT_ID"]
-    GOOGLE_SSO_CLIENT_SECRET = st.secrets["GOOGLE_SSO_CLIENT_SECRET"]
-    ALLOWED_DOMAIN = st.secrets["ALLOWED_DOMAIN"]
-    REDIRECT_URI = st.secrets["REDIRECT_URI"]
-    log_debug(f"Secrets loaded: Client ID starts with {GOOGLE_SSO_CLIENT_ID[:5]}, Allowed Domain: {ALLOWED_DOMAIN}, Redirect URI: {REDIRECT_URI}")
+    # Streamlit Auth config (client_id, client_secret, etc. are used by st.login internally via secrets)
+    # We only need ALLOWED_LOGIN_DOMAIN for our post-login check.
+    ALLOWED_LOGIN_DOMAIN = st.secrets.get("ALLOWED_LOGIN_DOMAIN")
+    if not ALLOWED_LOGIN_DOMAIN:
+        st.error("🚨 Configuration Error: `ALLOWED_LOGIN_DOMAIN` not found in secrets.toml.")
+        log_sso_debug("ERROR: ALLOWED_LOGIN_DOMAIN not found in secrets.")
+        st.stop()
 
     # Google Sheets (for the dashboard data, accessed via service account)
     GOOGLE_SHEET_URL_OR_NAME = st.secrets["GOOGLE_SHEET_URL_OR_NAME"]
     GOOGLE_WORKSHEET_NAME = st.secrets["GOOGLE_WORKSHEET_NAME"]
     GCP_SERVICE_ACCOUNT_INFO = st.secrets["gcp_service_account"]
+    log_sso_debug(f"Secrets loaded. Allowed Login Domain: {ALLOWED_LOGIN_DOMAIN}")
 
 except KeyError as e:
-    log_debug(f"ERROR: Missing critical configuration in .streamlit/secrets.toml: {e}")
+    log_sso_debug(f"ERROR: Missing critical configuration in .streamlit/secrets.toml: {e}")
     st.error(f"🚨 Missing critical configuration in .streamlit/secrets.toml: {e}. ")
     st.stop()
 
-# --- OAuth Endpoints ---
-AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# --- SSO Helper Functions ---
-def get_google_auth_url():
-    """Generates the Google Authentication URL."""
-    log_debug("get_google_auth_url called.")
-    scope = ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
-    oauth = OAuth2Session(client_id=GOOGLE_SSO_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=scope)
-    auth_url, state = oauth.authorization_url(AUTHORIZATION_URL, access_type="offline", prompt="consent", hd=ALLOWED_DOMAIN)
-    st.session_state["oauth_state"] = state # Set the state in session
-    log_debug(f"Generated auth URL. Stored oauth_state in session: {st.session_state['oauth_state']}")
-    return auth_url
+# --- Main Application Logic ---
 
-def exchange_code_for_token(code):
-    """Exchanges the authorization code for an access token and ID token."""
-    log_debug(f"exchange_code_for_token called with code: {code[:20]}...") # Log only part of code
-    data = {
-        "code": code,
-        "client_id": GOOGLE_SSO_CLIENT_ID,
-        "client_secret": GOOGLE_SSO_CLIENT_SECRET,
-        "redirect_uri": REDIRECT_URI,
-        "grant_type": "authorization_code",
-    }
-    try:
-        token_response = requests.post(TOKEN_URL, data=data)
-        log_debug(f"Token endpoint response status: {token_response.status_code}")
-        token_response.raise_for_status()
-        response_json = token_response.json()
-        log_debug(f"Token exchange successful. Token data keys: {list(response_json.keys())}")
-        return response_json
-    except requests.exceptions.RequestException as e:
-        error_message = f"Error exchanging code for token: {e}"
-        if hasattr(e, 'response') and e.response is not None:
-            try:
-                error_details = e.response.json()
-                error_message += f"\nGoogle Error: {error_details.get('error_description', e.response.text)}"
-            except ValueError: # If response is not JSON
-                error_message += f"\nResponse content: {e.response.content.decode(errors='ignore')}"
-        log_debug(f"ERROR in exchange_code_for_token: {error_message}")
-        st.error(error_message)
-        return None
-
-def get_user_info_from_id_token(token_data):
-    """Verifies the ID token and extracts user information, including domain check."""
-    log_debug("get_user_info_from_id_token called.")
-    if not token_data or "id_token" not in token_data: # Added check for token_data itself
-        log_debug("ERROR: token_data is None or id_token not found in token_data.")
-        st.error("Login failed: ID token not found in token response from Google.")
-        return None
-    
-    log_debug(f"Verifying id_token (first 20 chars): {token_data['id_token'][:20]}...")
-    try:
-        id_info = id_token.verify_oauth2_token(
-            token_data["id_token"], google_requests.Request(), GOOGLE_SSO_CLIENT_ID
-        )
-        log_debug(f"ID token decoded. Keys: {list(id_info.keys())}")
-
-        # Domain check
-        user_hd = id_info.get('hd')
-        log_debug(f"User HD from token: {user_hd}, Allowed Domain: {ALLOWED_DOMAIN}")
-        if not user_hd or user_hd.lower() != ALLOWED_DOMAIN.lower():
-            log_debug(f"ERROR: Domain mismatch. User HD: {user_hd}, Allowed: {ALLOWED_DOMAIN}")
-            st.error(f"Login failed: User's domain ('{user_hd or 'N/A'}') "
-                       f"does not match the allowed domain ('{ALLOWED_DOMAIN}'). Access denied.")
-            return None
-        log_debug("Domain check passed.")
-
-        # Audience check
-        token_aud = id_info.get('aud')
-        log_debug(f"Token Audience (aud): {token_aud}, Expected Client ID: {GOOGLE_SSO_CLIENT_ID}")
-        if token_aud != GOOGLE_SSO_CLIENT_ID:
-            log_debug(f"ERROR: Audience mismatch. Token aud: {token_aud}")
-            st.error("Login failed: Token audience mismatch. The token was not intended for this application.")
-            return None
-        log_debug("Audience check passed.")
-
-        st.session_state["user_info"] = {
-            "email": id_info.get("email"), "name": id_info.get("name"),
-            "picture": id_info.get("picture"), "hd": id_info.get("hd"),
-            "sub": id_info.get("sub")
-        }
-        log_debug(f"User info extracted and stored in session_state: {st.session_state['user_info'].get('email')}")
-        return st.session_state["user_info"]
-    except ValueError as e:
-        log_debug(f"ERROR: Invalid ID token during verification: {e}")
-        st.error(f"Login failed: Invalid ID token. ({e})")
-        return None
-    except Exception as e:
-        log_debug(f"ERROR: Unexpected error during token verification: {e}")
-        st.error(f"An unexpected error occurred during token verification: {e}")
-        return None
-
-# --- Streamlit App Logic: SSO Initialization and OAuth Callback Handling ---
-if "authenticated" not in st.session_state: st.session_state["authenticated"] = False
-if "user_info" not in st.session_state: st.session_state["user_info"] = None
-if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None # Explicitly initialize
-
-# This block processes the OAuth callback from Google
-_current_query_params_dict = {}
-try:
-    _current_query_params_dict = dict(st.query_params)
-    log_debug(f"Attempting to process callback. Current Query Params: {_current_query_params_dict}")
-except Exception as e:
-    log_debug(f"CRITICAL ERROR accessing st.query_params: {e}")
-    st.error(f"Internal error accessing page parameters: {e}. Please try refreshing.")
-
-if not st.session_state.get("authenticated", False) and "code" in _current_query_params_dict:
-    log_debug(f"OAuth callback detected (not authenticated and 'code' in query_params).")
-    
-    auth_code_list = _current_query_params_dict.get("code", [])
-    returned_state_list = _current_query_params_dict.get("state", [])
-
-    auth_code = auth_code_list[0] if isinstance(auth_code_list, list) and auth_code_list else auth_code_list if isinstance(auth_code_list, str) else None
-    returned_state = returned_state_list[0] if isinstance(returned_state_list, list) and returned_state_list else returned_state_list if isinstance(returned_state_list, str) else None
-    
-    # Log the state from session *before* comparing
-    session_oauth_state = st.session_state.get("oauth_state")
-    log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State from session: {session_oauth_state}")
-
-    if not auth_code:
-        log_debug("ERROR: No auth_code in callback after parsing.")
-        st.error("Authentication failed: No authorization code received.")
-    elif not returned_state or returned_state != session_oauth_state: # Compare with the fetched session_oauth_state
-        log_debug(f"ERROR: State mismatch. Expected from session: '{session_oauth_state}', Got from URL: '{returned_state}'")
-        st.error("Login failed: State mismatch (CSRF suspected). Please try logging in again.")
-        st.session_state["oauth_state"] = None # Clear potentially compromised state
-    else:
-        log_debug("State check passed. Clearing oauth_state from session.")
-        st.session_state["oauth_state"] = None 
-        token_data = exchange_code_for_token(auth_code)
-
-        if token_data:
-            user_details = get_user_info_from_id_token(token_data)
-            if user_details:
-                log_debug(f"User details successfully verified: {user_details.get('email')}. Setting authenticated = True.")
-                st.session_state["authenticated"] = True
-                log_debug("Clearing query params from URL.")
-                st.query_params.clear() 
-                log_debug("Authentication successful. Rerunning script to show dashboard...")
-                st.rerun() 
-            else:
-                log_debug("ERROR: get_user_info_from_id_token returned None. User not authenticated.")
-        else:
-            log_debug("ERROR: exchange_code_for_token returned None. Token exchange failed.")
-    
-    if not st.session_state.get("authenticated", False) and ("code" in _current_query_params_dict or "state" in _current_query_params_dict):
-        log_debug("Authentication not completed in callback processing. Clearing params and rerunning to reset login page.")
-        st.query_params.clear()
-        if not st.session_state.get("authenticated", False): 
-            st.rerun()
-
-
-# --- Main Application UI ---
-if not st.session_state.get("authenticated", False):
+if not st.user.is_logged_in:
     # --- Login Page ---
     # st.set_page_config already called at the top
-    log_debug("Displaying Login Page.")
+    log_sso_debug("User not logged in. Displaying Login Page.")
     st.title("Welcome to the Onboarding Dashboard 🛡️")
-    st.markdown(f"Please log in with your **{ALLOWED_DOMAIN}** Google account to continue.")
+    st.markdown(f"Please log in with your **{ALLOWED_LOGIN_DOMAIN}** Google account to continue.")
     
-    auth_url = get_google_auth_url()
-    # Use st.markdown for the login link with target="_top"
-    login_button_html = f"""
-        <a href="{auth_url}" target="_top" style="
-            display: inline-block;
-            padding: 11px 25px;
-            background-color: var(--primary-color, #6A0DAD); /* Fallback color */
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            text-align: center;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.07);
-            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;">
-            🔑 Login with Google
-        </a>"""
-    st.markdown(login_button_html, unsafe_allow_html=True)
+    # The st.login() command will handle the redirect to Google.
+    # The provider "google" is inferred if server_metadata_url in secrets.toml points to Google.
+    # You can explicitly state it: st.login(provider="google")
+    if st.button("🔑 Login with Google", use_container_width=True, type="primary"):
+        log_sso_debug("Login button clicked. Calling st.login().")
+        st.login() # Streamlit handles the OIDC flow
     st.caption("You will be redirected to Google for authentication.")
+
 else:
-    # --- Authenticated User - Display Dashboard ---
-    # Update page config for the authenticated view
-    st.set_page_config(
+    # --- User is Logged In - Perform Domain Check ---
+    log_sso_debug(f"User is logged in. Email: {st.user.email}")
+    
+    user_email_domain = st.user.email.split('@')[-1]
+    if user_email_domain.lower() != ALLOWED_LOGIN_DOMAIN.lower():
+        log_sso_debug(f"Domain mismatch! User domain: {user_email_domain}, Allowed: {ALLOWED_LOGIN_DOMAIN}. Logging out.")
+        st.error(f"Access Denied. Your account domain ('{user_email_domain}') is not authorized. "
+                   f"Please log in with an account from the '{ALLOWED_LOGIN_DOMAIN}' domain.")
+        if st.button("Try a different account"):
+            st.logout() # Log out the current user so they can try again
+            # No st.rerun() here, st.logout() will handle it.
+        st.stop() # Stop further execution for this user
+
+    # --- Domain Check Passed - Display Authenticated Dashboard ---
+    log_sso_debug(f"Domain check passed for {st.user.email}. Displaying dashboard.")
+    st.set_page_config( # Update page config for the dashboard view
         page_title="Onboarding Analytics Dashboard v4.3.1",
         page_icon="📈",
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    log_debug(f"Displaying Authenticated Dashboard for user: {st.session_state.get('user_info', {}).get('email')}")
-    user = st.session_state["user_info"] 
 
     # --- Custom CSS Injection (from original app) ---
     def load_custom_css():

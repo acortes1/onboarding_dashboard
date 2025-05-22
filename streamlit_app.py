@@ -71,8 +71,8 @@ def get_google_auth_url():
     scope = ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
     oauth = OAuth2Session(client_id=GOOGLE_SSO_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=scope)
     auth_url, state = oauth.authorization_url(AUTHORIZATION_URL, access_type="offline", prompt="consent", hd=ALLOWED_DOMAIN)
-    st.session_state["oauth_state"] = state
-    log_debug(f"Generated auth URL. Stored oauth_state: {state}")
+    st.session_state["oauth_state"] = state # Set the state in session
+    log_debug(f"Generated auth URL. Stored oauth_state in session: {st.session_state['oauth_state']}")
     return auth_url
 
 def exchange_code_for_token(code):
@@ -157,38 +157,37 @@ def get_user_info_from_id_token(token_data):
 # --- Streamlit App Logic: SSO Initialization and OAuth Callback Handling ---
 if "authenticated" not in st.session_state: st.session_state["authenticated"] = False
 if "user_info" not in st.session_state: st.session_state["user_info"] = None
-if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None
+if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None # Explicitly initialize
 
 # This block processes the OAuth callback from Google
 _current_query_params_dict = {}
 try:
-    # Safely get query parameters. st.query_params should be available.
     _current_query_params_dict = dict(st.query_params)
     log_debug(f"Attempting to process callback. Current Query Params: {_current_query_params_dict}")
 except Exception as e:
     log_debug(f"CRITICAL ERROR accessing st.query_params: {e}")
     st.error(f"Internal error accessing page parameters: {e}. Please try refreshing.")
-    # If st.query_params itself fails, we might be in a bad state.
 
 if not st.session_state.get("authenticated", False) and "code" in _current_query_params_dict:
     log_debug(f"OAuth callback detected (not authenticated and 'code' in query_params).")
     
-    # .get_all() returns a list, handle potential missing keys or non-list values gracefully
     auth_code_list = _current_query_params_dict.get("code", [])
     returned_state_list = _current_query_params_dict.get("state", [])
 
     auth_code = auth_code_list[0] if isinstance(auth_code_list, list) and auth_code_list else auth_code_list if isinstance(auth_code_list, str) else None
     returned_state = returned_state_list[0] if isinstance(returned_state_list, list) and returned_state_list else returned_state_list if isinstance(returned_state_list, str) else None
     
-    log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State: {st.session_state.get('oauth_state')}")
+    # Log the state from session *before* comparing
+    session_oauth_state = st.session_state.get("oauth_state")
+    log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State from session: {session_oauth_state}")
 
     if not auth_code:
         log_debug("ERROR: No auth_code in callback after parsing.")
         st.error("Authentication failed: No authorization code received.")
-    elif not returned_state or returned_state != st.session_state.get("oauth_state"):
-        log_debug(f"ERROR: State mismatch. Expected: '{st.session_state.get('oauth_state')}', Got: '{returned_state}'")
+    elif not returned_state or returned_state != session_oauth_state: # Compare with the fetched session_oauth_state
+        log_debug(f"ERROR: State mismatch. Expected from session: '{session_oauth_state}', Got from URL: '{returned_state}'")
         st.error("Login failed: State mismatch (CSRF suspected). Please try logging in again.")
-        st.session_state["oauth_state"] = None 
+        st.session_state["oauth_state"] = None # Clear potentially compromised state
     else:
         log_debug("State check passed. Clearing oauth_state from session.")
         st.session_state["oauth_state"] = None 
@@ -200,7 +199,7 @@ if not st.session_state.get("authenticated", False) and "code" in _current_query
                 log_debug(f"User details successfully verified: {user_details.get('email')}. Setting authenticated = True.")
                 st.session_state["authenticated"] = True
                 log_debug("Clearing query params from URL.")
-                st.query_params.clear() # Clear sensitive info from URL
+                st.query_params.clear() 
                 log_debug("Authentication successful. Rerunning script to show dashboard...")
                 st.rerun() 
             else:
@@ -208,23 +207,39 @@ if not st.session_state.get("authenticated", False) and "code" in _current_query
         else:
             log_debug("ERROR: exchange_code_for_token returned None. Token exchange failed.")
     
-    # If, after all processing, not authenticated, and params were present, clear and rerun to reset.
     if not st.session_state.get("authenticated", False) and ("code" in _current_query_params_dict or "state" in _current_query_params_dict):
         log_debug("Authentication not completed in callback processing. Clearing params and rerunning to reset login page.")
         st.query_params.clear()
-        if not st.session_state.get("authenticated", False): # Avoid double rerun
+        if not st.session_state.get("authenticated", False): 
             st.rerun()
 
 
 # --- Main Application UI ---
 if not st.session_state.get("authenticated", False):
     # --- Login Page ---
-    # st.set_page_config already called at the top for initial login page setup
+    # st.set_page_config already called at the top
     log_debug("Displaying Login Page.")
     st.title("Welcome to the Onboarding Dashboard 🛡️")
     st.markdown(f"Please log in with your **{ALLOWED_DOMAIN}** Google account to continue.")
+    
     auth_url = get_google_auth_url()
-    st.link_button("🔑 Login with Google", auth_url, use_container_width=True, type="primary")
+    # Use st.markdown for the login link
+    login_button_html = f"""
+        <a href="{auth_url}" target="_self" style="
+            display: inline-block;
+            padding: 11px 25px;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;">
+            🔑 Login with Google
+        </a>"""
+    st.markdown(login_button_html, unsafe_allow_html=True)
     st.caption("You will be redirected to Google for authentication.")
 else:
     # --- Authenticated User - Display Dashboard ---

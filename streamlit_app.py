@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.7", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.8", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -638,10 +638,10 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        output = pdf.output(dest='S')
-        if isinstance(output, bytearray): # Ensure output is bytes
-            return bytes(output)
-        return output
+        # Use io.BytesIO for robust byte handling
+        pdf_buffer = io.BytesIO()
+        pdf.output(pdf_buffer)
+        return pdf_buffer.getvalue() # This is guaranteed to be bytes
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -723,10 +723,10 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                 pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", 0, 1)
         pdf.ln(2)
         
-        output = pdf.output(dest='S')
-        if isinstance(output, bytearray): # Ensure output is bytes
-            return bytes(output)
-        return output
+        # Use io.BytesIO for robust byte handling
+        pdf_buffer = io.BytesIO()
+        pdf.output(pdf_buffer)
+        return pdf_buffer.getvalue() # This is guaranteed to be bytes
 
     except Exception as e:
         st.error(f"🚨 Single Record PDF Generation Error: {e}")
@@ -941,10 +941,10 @@ if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf
         PST_TIMEZONE
     )
     if pdf_bytes_data: 
-        if isinstance(pdf_bytes_data, bytearray):
+        if isinstance(pdf_bytes_data, bytearray): # This check should ideally not be needed if generate_... returns bytes
             pdf_bytes_data = bytes(pdf_bytes_data)
         elif not isinstance(pdf_bytes_data, bytes):
-            st.sidebar.error("PDF data is not in expected byte format.")
+            st.sidebar.error("PDF data is not in expected byte format after generation.")
             pdf_bytes_data = None 
 
         if pdf_bytes_data: 
@@ -1117,9 +1117,8 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 # --- Single Record PDF Download Button ---
                 record_pdf_filename = f"record_snapshot_{str(selected_row_details.get('storeName', 'UnknownStore')).replace(' ','_')}_{str(selected_row_details.get('onboardingDate', 'UnknownDate')).replace(' ','_').split(':')[0].replace('/','-')}.pdf"
                 
-                # Generate PDF bytes for the selected record
                 single_record_pdf_bytes = generate_single_record_pdf(
-                    selected_row_details, # Pass the Series for the selected row
+                    selected_row_details, 
                     st.session_state.get('last_data_refresh_time'),
                     PST_TIMEZONE
                 )

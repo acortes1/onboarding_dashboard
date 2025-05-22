@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.5
+# streamlit_app.py - v4.6.6
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,7 +13,7 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.5", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.6", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -40,8 +40,8 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)";
         LOGIN_BOX_BG = "var(--background-color)"; LOGIN_BOX_SHADOW = "0 12px 35px rgba(0,0,0,0.07)";
-        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442"; # Kept for potential reuse
-        LOGOUT_BTN_HOVER_BG = "#EBCFCF"; # Kept for potential reuse
+        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442";
+        LOGOUT_BTN_HOVER_BG = "#EBCFCF";
         PRIMARY_BTN_BG = "#6A0DAD"; PRIMARY_BTN_HOVER_BG = "#580A8F";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#6A0DAD"; DOWNLOAD_BTN_BORDER = "#6A0DAD";
         DOWNLOAD_BTN_HOVER_BG = "#6A0DAD"; DOWNLOAD_BTN_HOVER_TEXT = "#FFFFFF";
@@ -61,8 +61,8 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)";
         LOGIN_BOX_BG = "var(--secondary-background-color)"; LOGIN_BOX_SHADOW = "0 10px 35px rgba(0,0,0,0.3)";
-        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD"; # Kept for potential reuse
-        LOGOUT_BTN_HOVER_BG = "#6B3333"; # Kept for potential reuse
+        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD";
+        LOGOUT_BTN_HOVER_BG = "#6B3333";
         PRIMARY_BTN_BG = "#BE90D4"; PRIMARY_BTN_HOVER_BG = "#A77CBF";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#BE90D4"; DOWNLOAD_BTN_BORDER = "#BE90D4";
         DOWNLOAD_BTN_HOVER_BG = "#BE90D4"; DOWNLOAD_BTN_HOVER_TEXT = "#1E1E1E";
@@ -106,7 +106,6 @@ def load_custom_css():
         div[data-testid="stMetric"]:hover, .metric-card:hover {{ transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }}
         div[data-testid="stMetricLabel"] > div {{ font-size: 0.95rem; }}
         div[data-testid="stMetricValue"] > div {{ font-size: 2.5rem !important; }}
-        /* Removed stSidebarUserContent styling */
         div[data-testid="stSidebarNavItems"] {{ padding-top: 1.3em; }}
         div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{
             border: none; padding: 10px 22px; border-radius: 8px; font-weight: 600;
@@ -122,7 +121,6 @@ def load_custom_css():
         div[data-testid="stButton"] > button[kind="primary"]:hover {{
             background-color: var(--primary-btn-hover-bg); color: white;
         }}
-        /* Added general secondary button style (can be tweaked) */
         div[data-testid="stButton"] > button[kind="secondary"] {{
             background-color: var(--secondary-background-color); color: var(--text-color);
             border: 1px solid var(--border-color);
@@ -138,7 +136,6 @@ def load_custom_css():
             background-color: var(--download-btn-hover-bg); color: var(--download-btn-hover-text);
             border: 1px solid var(--download-btn-border);
         }}
-        /* Style for the specific bottom logout button if needed, but using general secondary now */
         .streamlit-expanderHeader {{ font-size: 1.1em; }}
         .streamlit-expander {{ border-radius: 10px; margin-bottom: 1.3em; }}
         div[data-testid="stRadio"] {{ border-bottom: 2px solid var(--primary-color); margin-bottom: 30px; }}
@@ -146,7 +143,7 @@ def load_custom_css():
         .transcript-summary-grid {{ gap: 1.5em; margin-bottom: 2.2em; }}
         .transcript-summary-item {{ padding: 1.2em 1.4em; }}
         .transcript-pane-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 2em; max-height: 400px; padding: 1.5em; background-color: var(--secondary-background-color); }}
-        .transcript-container {{ padding: 0; border-radius: 10px; max-height: 350px; overflow-y: auto; }} /* Adjusted padding and added overflow */
+        .transcript-container {{ padding: 0; border-radius: 10px; max-height: 350px; overflow-y: auto; }}
         .footer {{ padding: 40px 0; margin-top: 70px; }}
         .active-filters-summary {{ padding: 1.1em 1.5em; margin-bottom: 2.5em; }}
         .no-data-message {{ padding: 40px; font-size: 1.25rem; }}
@@ -158,7 +155,7 @@ def load_custom_css():
         .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); text-align: left; border-bottom: 1px solid var(--table-border-color); border-right: 1px solid var(--table-border-color); white-space: nowrap; }}
         .custom-styled-table th:last-child, .custom-styled-table td:last-child {{ border-right: none; }}
         .custom-styled-table thead tr {{ border-bottom: 2px solid var(--primary-color); }}
-        .custom-styled-table th {{ background-color: var(--table-header-bg); color: var(--table-header-text); font-weight: 600; text-transform: capitalize; position: sticky; top: 0; z-index: 1; }}
+        .custom-styled-table th {{ background-color: var(--table-header-bg); color: var(--table-header-text); font-weight: 600; text-transform: capitalize; position: sticky; top: 0; z-index: 2; }} /* Increased z-index */
         .custom-styled-table tbody tr:hover {{ background-color: color-mix(in srgb, var(--secondary-background-color) 75%, var(--primary-color) 8%); }}
         .custom-styled-table td {{ font-weight: 400; }}
         .cell-score-good {{ background-color: var(--score-good-bg); color: var(--score-good-text); }}
@@ -350,17 +347,17 @@ def capitalize_name(name_str):
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
     current_time = datetime.now(UTC_TIMEZONE)
-    st.session_state.last_data_refresh_time = current_time
-    if gc is None: return pd.DataFrame()
+    # Don't set session state here, do it after successful load
+    if gc is None: return pd.DataFrame(), None
     sheet_url_or_name = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME")
     worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
-    if not sheet_url_or_name: st.error("🚨 Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame()
-    if not worksheet_name: st.error("🚨 Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame()
+    if not sheet_url_or_name: st.error("🚨 Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame(), None
+    if not worksheet_name: st.error("🚨 Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame(), None
     try:
         spreadsheet = gc.open_by_url(sheet_url_or_name) if ("docs.google.com" in sheet_url_or_name or "spreadsheets" in sheet_url_or_name) else gc.open(sheet_url_or_name)
         worksheet = spreadsheet.worksheet(worksheet_name)
         data = worksheet.get_all_records(head=1, expected_headers=None)
-        if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame()
+        if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame(), current_time # Return time even if no data
         df = pd.DataFrame(data)
         df.rename(columns={col: "".join(str(col).strip().lower().split()) for col in df.columns}, inplace=True)
         column_name_map_to_code = {"licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "dcc": "licenseNumber", "storename": "storeName", "accountname": "storeName", "repname": "repName", "representative": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "confirmedat": "confirmationTimestamp", "clientsentiment": "clientSentiment", "sentiment": "clientSentiment", "fulltranscript": "fullTranscript", "transcript": "fullTranscript", "score": "score", "onboardingscore": "score", "status": "status", "onboardingstatus": "status", "summary": "summary", "callsummary": "summary", "contactnumber": "contactNumber", "phone": "contactNumber", "confirmednumber": "confirmedNumber", "verifiednumber":"confirmedNumber", "contactname": "contactName", "clientcontact": "contactName"}
@@ -397,11 +394,11 @@ def load_data_from_google_sheet():
         for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS: df[col] = df.get(col, pd.NA)
         cols_to_drop = [col for col in ['deliverydatets', 'onboardingwelcome'] if col in df.columns]
         if cols_to_drop: df = df.drop(columns=cols_to_drop)
-        return df
+        return df, current_time # Return df and time
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e:
-        st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); return pd.DataFrame()
+        st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); return pd.DataFrame(), None
     except Exception as e:
-        st.error(f"🌪️ Error loading data: {e}"); return pd.DataFrame()
+        st.error(f"🌪️ Error loading data: {e}"); return pd.DataFrame(), None
 
 @st.cache_data
 def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).encode('utf-8')
@@ -453,16 +450,23 @@ st.session_state.setdefault('selected_transcript_key_filtered_analysis', None)
 st.session_state.setdefault('show_global_search_dialog', False)
 
 if not st.session_state.data_loaded:
-    df_loaded = load_data_from_google_sheet()
-    if not df_loaded.empty:
-        st.session_state.df_original = df_loaded
-        st.session_state.data_loaded = True
-        min_d, max_d = (pd.to_datetime(df_loaded['onboarding_date_only'], errors='coerce').dt.date.dropna().min(), pd.to_datetime(df_loaded['onboarding_date_only'], errors='coerce').dt.date.dropna().max()) if 'onboarding_date_only' in df_loaded and df_loaded['onboarding_date_only'].notna().any() else (None, None)
-        st.session_state.min_data_date_for_filter = min_d
-        st.session_state.max_data_date_for_filter = max_d
-        st.session_state.date_range = get_default_date_range(df_loaded.get('onboarding_date_only'))
-    else:
+    df_loaded, load_time = load_data_from_google_sheet()
+    if load_time: # If load attempt was made
+        st.session_state.last_data_refresh_time = load_time
+        if not df_loaded.empty:
+            st.session_state.df_original = df_loaded
+            st.session_state.data_loaded = True
+            min_d, max_d = (pd.to_datetime(df_loaded['onboarding_date_only'], errors='coerce').dt.date.dropna().min(), pd.to_datetime(df_loaded['onboarding_date_only'], errors='coerce').dt.date.dropna().max()) if 'onboarding_date_only' in df_loaded and df_loaded['onboarding_date_only'].notna().any() else (None, None)
+            st.session_state.min_data_date_for_filter = min_d
+            st.session_state.max_data_date_for_filter = max_d
+            st.session_state.date_range = get_default_date_range(df_loaded.get('onboarding_date_only'))
+        else:
+            st.session_state.df_original = pd.DataFrame()
+            st.session_state.data_loaded = False # Explicitly set to false if empty
+    else: # If load failed before returning time
         st.session_state.df_original = pd.DataFrame()
+        st.session_state.data_loaded = False
+
 df_original = st.session_state.df_original
 
 # --- Sidebar ---
@@ -516,16 +520,23 @@ def clear_all_filters_and_search_v4_3_1():
     st.session_state.selected_transcript_key_dialog_global_search = None; st.session_state.selected_transcript_key_filtered_analysis = None
     st.session_state.active_tab = TAB_OVERVIEW
 if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_3_1, use_container_width=True, key="clear_filters_button_v4_3_1", type="primary"): st.rerun()
-with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=True): # Set to expanded
+with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=True):
     st.markdown("""Score (0-10 pts):\n- **Primary (4 pts):** Kit Recv'd (2), Train/Promo Sched. (2).\n- **Secondary (3 pts):** Intro (1), Display Help (1), Promo Link (1).\n- **Bonuses (3 pts):** +1 Positive Sentiment, +1 Expectations Set, +1 Full Checklist Completion.""")
 st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management");
 if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3_1", use_container_width=True, type="primary"):
     st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None; st.session_state.df_original = pd.DataFrame()
     clear_all_filters_and_search_v4_3_1(); st.rerun()
-if st.session_state.get('last_data_refresh_time'):
-    refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
-    if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
-else: st.sidebar.caption("⏳ Data not yet loaded.")
+
+# --- Data Loading Status (Fixed Logic) ---
+if st.session_state.get('data_loaded', False) and st.session_state.get('last_data_refresh_time'):
+    refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE)
+    refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST')
+    st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
+elif st.session_state.get('last_data_refresh_time'):
+     st.sidebar.caption("⚠️ No data found in last sync. Check Sheet or Refresh.")
+else:
+    st.sidebar.caption("⏳ Data not yet loaded.")
+
 
 # --- User Info & Logout (Moved to Bottom) ---
 st.sidebar.markdown("---") # Add a separator
@@ -540,7 +551,7 @@ if hasattr(st.user, "email") and st.user.email:
 
 else: st.sidebar.caption("👤 Welcome!")
 st.sidebar.button("Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar_bottom")
-st.sidebar.caption(f"Dashboard v4.6.5")
+st.sidebar.caption(f"Dashboard v4.6.6")
 
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
@@ -810,4 +821,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.5</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.6</div>", unsafe_allow_html=True)

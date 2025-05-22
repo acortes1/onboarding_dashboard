@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.9", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.10", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -638,9 +638,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        pdf_buffer = io.BytesIO()
-        pdf.output(pdf_buffer)
-        return bytes(pdf_buffer.getvalue()) # Explicitly return bytes
+        return pdf.output(dest='B') # Output directly as bytes
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -722,9 +720,7 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                 pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", 0, 1)
         pdf.ln(2)
         
-        pdf_buffer = io.BytesIO()
-        pdf.output(pdf_buffer)
-        return bytes(pdf_buffer.getvalue()) # Explicitly return bytes
+        return pdf.output(dest='B') # Output directly as bytes
 
     except Exception as e:
         st.error(f"🚨 Single Record PDF Generation Error: {e}")
@@ -1114,7 +1110,7 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                     PST_TIMEZONE
                 )
                 
-                if single_record_pdf_bytes:
+                if single_record_pdf_bytes: # generate_single_record_pdf ensures bytes or None
                     st.download_button(
                         label="📄 Download Record Details (PDF)",
                         data=single_record_pdf_bytes,

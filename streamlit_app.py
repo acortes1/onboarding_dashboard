@@ -10,12 +10,12 @@ import time
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
-from fpdf import FPDF, XPos, YPos, Align # Import XPos, YPos, and Align
+from fpdf import FPDF, XPos, YPos # Align enum removed as we'll use string literals
 import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.13", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.14", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -561,23 +561,23 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Helvetica", "B", 16)
 
-        pdf.cell(0, 10, "Executive Snapshot", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.C) 
+        pdf.cell(0, 10, "Executive Snapshot", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C") 
         pdf.ln(5) 
 
         pdf.set_font("Helvetica", "I", 9)
         if last_refresh_dt:
             refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
-            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         else:
-            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
+            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
         pdf.ln(5)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Performance Indicators", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 10, "Key Performance Indicators", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         
         total_mtd_pdf, sr_mtd_pdf, score_mtd_pdf, days_mtd_pdf = mtd_metrics
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, "Month-to-Date (MTD) Performance:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 7, "Month-to-Date (MTD) Performance:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 5, f"  - Total Onboardings MTD: {total_mtd_pdf:.0f}" if pd.notna(total_mtd_pdf) else "  - Total Onboardings MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.cell(0, 5, f"  - Success Rate MTD: {sr_mtd_pdf:.1f}%" if pd.notna(sr_mtd_pdf) else "  - Success Rate MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -587,7 +587,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
 
         total_filt_pdf, sr_filt_pdf, score_filt_pdf, days_filt_pdf = filtered_metrics
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, "Filtered Data Snapshot:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 7, "Filtered Data Snapshot:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", "", 10)
         pdf.cell(0, 5, f"  - Total Onboardings (Filtered): {total_filt_pdf:.0f}" if pd.notna(total_filt_pdf) else "  - Total Onboardings (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.cell(0, 5, f"  - Success Rate (Filtered): {sr_filt_pdf:.1f}%" if pd.notna(sr_filt_pdf) else "  - Success Rate (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
@@ -596,12 +596,12 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
         pdf.ln(7)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Charts (from Filtered Data)", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 10, "Key Charts (from Filtered Data)", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         chart_img_width = 170 
         
         if not df_data.empty and 'status' in df_data.columns and df_data['status'].notna().any():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 7, "1. Onboarding Status Distribution:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+            pdf.cell(0, 7, "1. Onboarding Status Distribution:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
             status_counts_df_pdf = df_data['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index()
             status_counts_df_pdf.columns = ['status', 'count']
             status_fig_pdf = px.bar(status_counts_df_pdf, x='status', y='count', color='status', title="", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
@@ -617,7 +617,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
 
         if not df_data.empty and 'clientSentiment' in df_data.columns and df_data['clientSentiment'].notna().any():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 7, "2. Client Sentiment Breakdown:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+            pdf.cell(0, 7, "2. Client Sentiment Breakdown:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
             sent_counts_df_pdf = df_data['clientSentiment'].value_counts().reset_index()
             sent_counts_df_pdf.columns = ['clientSentiment', 'count']
             current_sentiment_map_plot_pdf = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent_counts_df_pdf['clientSentiment'].unique()}
@@ -636,7 +636,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
 
         if df_data.empty:
             pdf.set_font("Helvetica", "I", 10)
-            pdf.cell(0, 10, "No data available for charts based on current filters.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+            pdf.cell(0, 10, "No data available for charts based on current filters.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
         return pdf.output(dest='B') 
 
@@ -651,19 +651,19 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Onboarding Record Details", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.C)
+        pdf.cell(0, 10, "Onboarding Record Details", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C") # Use string align
         pdf.ln(5)
 
         pdf.set_font("Helvetica", "I", 9)
         if last_refresh_dt:
             refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
-            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") # Use string align
         else:
-            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
+            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") # Use string align
         pdf.ln(7)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Record Information", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 10, "Record Information", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
         pdf.set_font("Helvetica", "", 10)
 
         details_to_include = {
@@ -685,19 +685,19 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
             pdf.set_font("Helvetica", "B", 10)
             pdf.cell(60, 7, f"{label}:", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP) 
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 7, str(value), border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT) 
+            pdf.multi_cell(0, 7, str(value), border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
         pdf.ln(5)
 
         call_summary_text_pdf = record_series.get('summary', '').strip()
         if call_summary_text_pdf and call_summary_text_pdf.lower() not in ['na', 'n/a', '']:
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 10, "Call Summary", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+            pdf.cell(0, 10, "Call Summary", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, call_summary_text_pdf, border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.multi_cell(0, 6, call_summary_text_pdf, border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
             pdf.ln(5)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Requirement Checklist", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
+        pdf.cell(0, 10, "Key Requirement Checklist", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
         
         for item_col_name_req in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
             details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_req)
@@ -716,7 +716,7 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                 pdf.set_font("Helvetica", "B", 9)
                 pdf.cell(5, 6, f"- ", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP)
                 pdf.set_font("Helvetica", "", 9)
-                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
         pdf.ln(2)
         
         return pdf.output(dest='B') # Output directly as bytes

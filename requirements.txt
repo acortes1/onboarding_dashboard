@@ -1,4 +1,5 @@
-streamlit>=1.30.0 # Updated to a more recent version for latest features
+streamlit>=1.42.0
+authlib>=1.3.2
 pandas
 numpy
 plotly
@@ -7,7 +8,7 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 python-dateutil
-matplotlib # Kept if any other part of a larger system might use it, but not directly by this script
+matplotlib
 requests
 requests-oauthlib
 google-auth

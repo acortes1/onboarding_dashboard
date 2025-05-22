@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.12", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.13", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"

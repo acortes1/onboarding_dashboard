@@ -13,7 +13,7 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.0 (SSO)", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.5.0 (SSO)", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -22,7 +22,6 @@ st.set_page_config(
 # --- Custom CSS Injection ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
-    # ... (Keep your existing CSS function exactly as it is) ...
     THEME = st.get_option("theme.base")
 
     if THEME == "light":
@@ -41,6 +40,9 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)"; TABLE_CELL_PADDING = "0.65em 0.8em";
         TABLE_FONT_SIZE = "0.92rem";
+        LOGIN_BOX_BG = "var(--secondary-background-color)"; LOGIN_BOX_SHADOW = "0 10px 30px rgba(0,0,0,0.08)";
+        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442";
+        LOGOUT_BTN_HOVER_BG = "#EBCFCF";
     else: # Dark Theme
         SCORE_GOOD_BG = "#1E4620"; SCORE_GOOD_TEXT = "#A8D5B0";
         SCORE_MEDIUM_BG = "#4A3F22"; SCORE_MEDIUM_TEXT = "#FFE0A2";
@@ -57,6 +59,10 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)"; TABLE_CELL_PADDING = "0.65em 0.8em";
         TABLE_FONT_SIZE = "0.92rem";
+        LOGIN_BOX_BG = "var(--secondary-background-color)"; LOGIN_BOX_SHADOW = "0 10px 35px rgba(0,0,0,0.25)";
+        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD";
+        LOGOUT_BTN_HOVER_BG = "#6B3333";
+
 
     css = f"""
     <style>
@@ -76,32 +82,147 @@ def load_custom_css():
             --table-header-bg: {TABLE_HEADER_BG}; --table-header-text: {TABLE_HEADER_TEXT};
             --table-border-color: {TABLE_BORDER_COLOR}; --table-cell-padding: {TABLE_CELL_PADDING};
             --table-font-size: {TABLE_FONT_SIZE};
+            --login-box-bg: {LOGIN_BOX_BG}; --login-box-shadow: {LOGIN_BOX_SHADOW};
+            --logout-btn-bg: {LOGOUT_BTN_BG}; --logout-btn-text: {LOGOUT_BTN_TEXT};
+            --logout-btn-border: {LOGOUT_BTN_BORDER}; --logout-btn-hover-bg: {LOGOUT_BTN_HOVER_BG};
         }}
-        /* ... (Keep all your existing CSS rules here) ... */
-         .login-container {{
+        body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
+        .stApp {{ padding: 0.5rem 1rem; }}
+
+        /* Headings - Keep As Is */
+        h1, h2, h3, h4, h5, h6 {{ font-weight: 600; color: var(--primary-color); }}
+        h1 {{ text-align: center; padding-top: 0.8em; padding-bottom: 0.8em; font-size: 2.4rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--primary-color); margin-bottom: 1.5em; font-weight: 700; }}
+        h2 {{ font-size: 1.8rem; margin-top: 2.2em; margin-bottom: 1.3em; padding-bottom: 0.5em; border-bottom: 1px solid var(--border-color); font-weight: 600; }}
+        h3 {{ font-size: 1.5rem; margin-top: 2em; margin-bottom: 1.1em; font-weight: 600; color: var(--text-color); opacity: 0.9; }}
+        h5 {{ color: var(--text-color); opacity: 0.95; margin-top: 1.8em; margin-bottom: 0.9em; font-weight: 500; letter-spacing: 0.1px; font-size: 1.1rem; }}
+
+        /* Metrics - Keep As Is */
+        div[data-testid="stMetric"], .metric-card {{ background-color: var(--secondary-background-color); padding: 1.4em 1.7em; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 5px 12px rgba(0,0,0,0.06); transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; margin-bottom: 1.3em; }}
+        div[data-testid="stMetric"]:hover, .metric-card:hover {{ transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }}
+        div[data-testid="stMetricLabel"] > div {{ color: var(--text-color); opacity: 0.85; font-weight: 500; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5em; }}
+        div[data-testid="stMetricValue"] > div {{ color: var(--text-color); font-size: 2.6rem !important; font-weight: 700; line-height: 1.1; }}
+        div[data-testid="stMetricDelta"] > div {{ color: var(--text-color); opacity: 0.8; font-weight: 500; font-size: 0.88rem; }}
+
+        /* Sidebar - Keep As Is, but add Logout Button Style below */
+        div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; background-color: var(--secondary-background-color); }}
+        div[data-testid="stSidebarUserContent"] h2, div[data-testid="stSidebarUserContent"] h3 {{ color: var(--primary-color); border-bottom-color: var(--border-color); }}
+        div[data-testid="stSidebarNavItems"] {{ padding-top: 1.3em; }}
+
+        /* Buttons - Keep As Is, but add Specific Login/Logout below */
+        div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{ border: none; padding: 11px 25px; border-radius: 8px; font-weight: 600; transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.07); }}
+        div[data-testid="stButton"] > button {{ background-color: var(--primary-color); color: white; }}
+        div[data-testid="stButton"] > button:hover {{ background-color: color-mix(in srgb, var(--primary-color) 80%, black); transform: translateY(-2px); box-shadow: 0 4px 7px rgba(0,0,0,0.1); }}
+        div[data-testid="stDownloadButton"] > button {{ background-color: var(--secondary-background-color); color: var(--primary-color); border: 1px solid var(--primary-color); }}
+        div[data-testid="stDownloadButton"] > button:hover {{ background-color: var(--primary-color); color: white; transform: translateY(-2px); box-shadow: 0 4px 7px rgba(0,0,0,0.09); }}
+        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button {{ background-color: var(--secondary-background-color); color: var(--primary-color); border: 1px solid var(--border-color); font-weight: 500; padding: 8px 12px; font-size: 0.85rem; }}
+        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button:hover {{ background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--primary-color) 10%); border-color: var(--primary-color); color: var(--primary-color); }}
+
+        /* NEW: Sidebar Logout Button Specific Style */
+        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"] {{
+            background-color: var(--logout-btn-bg) !important;
+            color: var(--logout-btn-text) !important;
+            border: 1px solid var(--logout-btn-border) !important;
+            font-weight: 600 !important;
+        }}
+         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"]:hover {{
+            background-color: var(--logout-btn-hover-bg) !important;
+            color: var(--logout-btn-text) !important;
+            border: 1px solid var(--logout-btn-border) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 7px rgba(0,0,0,0.1);
+        }}
+
+        /* Expander, Radio - Keep As Is */
+        .streamlit-expanderHeader {{ color: var(--text-color) !important; font-weight: 600; font-size: 1.05em; padding: 1em 0.7em; }}
+        .streamlit-expander {{ border: 1px solid var(--border-color); background-color: var(--background-color); border-radius: 10px; margin-bottom: 1.3em; }}
+        .streamlit-expander > div > div > p {{ color: var(--text-color); }}
+        div[data-testid="stRadio"] label {{ padding: 11px 20px; margin: 0 4px; border-radius: 8px 8px 0 0; border: 1px solid transparent; border-bottom: none; background-color: var(--secondary-background-color); color: var(--text-color); opacity: 0.8; transition: all 0.25s ease; font-weight: 500; font-size: 1rem; }}
+        div[data-testid="stRadio"] input:checked + div label {{ background-color: var(--background-color); color: var(--primary-color); font-weight: 600; opacity: 1.0; border-top: 3px solid var(--primary-color); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); box-shadow: 0 -3px 6px rgba(0,0,0,0.04); }}
+        div[data-testid="stRadio"] {{ padding-bottom: 0px; border-bottom: 2px solid var(--primary-color); margin-bottom: 28px; }}
+        div[data-testid="stRadio"] > label > div:first-child {{ display: none; }}
+
+        /* Transcript & Requirements - Keep As Is */
+        .transcript-details-section {{ margin-left: 20px; padding-left: 20px; border-left: 3px solid var(--primary-color); margin-top: 1.4em; }}
+        .transcript-summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 1.3em; margin-bottom: 2em; color: var(--text-color); }}
+        .transcript-summary-item {{ background-color: var(--secondary-background-color); padding: 1.1em 1.3em; border-radius: 8px; border: 1px solid var(--border-color); }}
+        .transcript-summary-item strong {{ color: var(--primary-color); font-weight: 600; }}
+        .transcript-summary-item-fullwidth {{ grid-column: 1 / -1; margin-top: 1.3em; padding-top: 1.3em; border-top: 1px dashed var(--border-color); }}
+        .requirement-item {{ margin-bottom: 1em; padding: 1em 1.2em; border-left: 4px solid var(--primary-color); background-color: var(--secondary-background-color); border-radius: 6px; color: var(--text-color); font-size: 0.95rem; }}
+        .requirement-item .type {{ font-weight: 500; color: var(--text-color); opacity: 0.75; font-size: 0.8rem; margin-left: 12px; background-color: var(--background-color); padding: 3px 8px; border-radius: 4px; }}
+        .transcript-container {{ background-color: var(--secondary-background-color); color: var(--text-color); padding: 2em; border-radius: 10px; border: 1px solid var(--border-color); max-height: 580px; overflow-y: auto; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 0.9rem; line-height: 1.7; box-shadow: inset 0 2px 6px rgba(0,0,0,0.03); }}
+        .transcript-line strong {{ color: var(--primary-color); font-weight: 600; }}
+
+        /* Misc Layout - Keep As Is */
+        .footer {{ font-size: 0.9rem; color: var(--text-color); opacity: 0.65; text-align: center; padding: 35px 0; border-top: 1px solid var(--border-color); margin-top: 60px; }}
+        .active-filters-summary {{ font-size: 0.92rem; color: var(--text-color); opacity: 0.9; margin-top: 0px; margin-bottom: 2.2em; padding: 1em 1.4em; background-color: var(--secondary-background-color); border-radius: 8px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 3px 7px rgba(0,0,0,0.04); }}
+        .no-data-message {{ text-align: center; padding: 35px; font-size: 1.2rem; color: var(--text-color); opacity: 0.7; background-color: var(--secondary-background-color); border-radius: 8px; border: 1px dashed var(--border-color); margin-top: 1.4em; }}
+
+        /* Inputs & Modals - Keep As Is */
+        div[data-testid="stTextInput"] input, div[data-testid="stDateInput"] input, div[data-testid="stNumberInput"] input, div[data-testid="stSelectbox"] div[role="combobox"], div[data-testid="stMultiSelect"] div[role="combobox"] {{ border-radius: 6px !important; border: 1px solid var(--border-color) !important; padding-top: 0.65em !important; padding-bottom: 0.65em !important; font-size: 0.95rem; }}
+        div[data-testid="stTextInput"] input:focus, div[data-testid="stDateInput"] input:focus, div[data-testid="stNumberInput"] input:focus, div[data-testid="stSelectbox"] div[role="combobox"]:focus-within, div[data-testid="stMultiSelect"] div[role="combobox"]:focus-within {{ border-color: var(--primary-color) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent) !important; }}
+        div[data-testid="stModal"] > div {{ border-radius: 12px !important; box-shadow: 0 12px 30px rgba(0,0,0,0.2) !important; }}
+        div[data-testid="stModalHeader"] {{ font-size: 1.6rem; color: var(--primary-color); padding-bottom: 0.9em; border-bottom: 1px solid var(--border-color); font-weight: 600; }}
+
+        /* Tables - Keep As Is & Ensure Cell Colors are Defined */
+        .custom-table-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 1.8em; max-height: 480px; overflow-y: auto; }}
+        .custom-styled-table {{ width: 100%; border-collapse: collapse; font-size: var(--table-font-size); color: var(--text-color); }}
+        .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); text-align: left; border-bottom: 1px solid var(--table-border-color); border-right: 1px solid var(--table-border-color); white-space: nowrap; }}
+        .custom-styled-table th:last-child, .custom-styled-table td:last-child {{ border-right: none; }}
+        .custom-styled-table thead tr {{ border-bottom: 2px solid var(--primary-color); }}
+        .custom-styled-table th {{ background-color: var(--table-header-bg); color: var(--table-header-text); font-weight: 600; text-transform: capitalize; position: sticky; top: 0; z-index: 1; }}
+        .custom-styled-table tbody tr:hover {{ background-color: color-mix(in srgb, var(--secondary-background-color) 75%, var(--primary-color) 8%); }}
+        .custom-styled-table td {{ font-weight: 400; }}
+        .cell-score-good {{ background-color: var(--score-good-bg); color: var(--score-good-text); }}
+        .cell-score-medium {{ background-color: var(--score-medium-bg); color: var(--score-medium-text); }}
+        .cell-score-bad {{ background-color: var(--score-bad-bg); color: var(--score-bad-text); }}
+        .cell-sentiment-positive {{ background-color: var(--sentiment-positive-bg); color: var(--sentiment-positive-text); }}
+        .cell-sentiment-neutral {{ background-color: var(--sentiment-neutral-bg); color: var(--sentiment-neutral-text); }}
+        .cell-sentiment-negative {{ background-color: var(--sentiment-negative-bg); color: var(--sentiment-negative-text); }}
+        .cell-days-good {{ background-color: var(--days-good-bg); color: var(--days-good-text); }}
+        .cell-days-medium {{ background-color: var(--days-medium-bg); color: var(--days-medium-text); }}
+        .cell-days-bad {{ background-color: var(--days-bad-bg); color: var(--days-bad-text); }}
+        .cell-req-met {{ background-color: var(--req-met-bg); color: var(--req-met-text); }}
+        .cell-req-not-met {{ background-color: var(--req-not-met-bg); color: var(--req-not-met-text); }}
+        .cell-req-na {{ background-color: var(--req-na-bg); color: var(--req-na-text); }}
+        .cell-status {{ font-weight: 500; }}
+
+        /* NEW/ENHANCED: Login Screen Styles */
+        .login-container {{
             display: flex; justify-content: center; align-items: center;
-            height: 80vh; flex-direction: column; text-align: center;
+            min-height: 70vh; flex-direction: column; text-align: center;
+            padding: 2em;
         }}
         .login-box {{
-            background-color: var(--secondary-background-color); padding: 3em 4em;
-            border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color); max-width: 450px;
+            background-color: var(--login-box-bg); padding: 3em 4em;
+            border-radius: 15px; box-shadow: var(--login-box-shadow);
+            border: 1px solid var(--border-color); max-width: 480px;
+            width: 100%;
         }}
         .login-box h2 {{
-             margin-top: 0; margin-bottom: 0.8em; font-size: 1.8rem;
-             color: var(--primary-color); border-bottom: none;
+             margin-top: 0; margin-bottom: 0.5em; font-size: 2rem;
+             color: var(--primary-color); border-bottom: none; font-weight: 700;
         }}
-         .login-box p {{
-            margin-bottom: 2em; color: var(--text-color); opacity: 0.9;
-         }}
-         .google-login-button {{
-            background-color: #4285F4; color: white; border: none;
-            padding: 12px 25px; border-radius: 8px; font-weight: 600;
-            cursor: pointer; transition: background-color 0.2s ease;
-            font-size: 1rem; display: inline-flex; align-items: center; gap: 10px;
+        .login-box p {{
+            margin-bottom: 2.5em; color: var(--text-color); opacity: 0.9;
+            font-size: 1.05rem; line-height: 1.6;
         }}
-        .google-login-button:hover {{ background-color: #357AE8; }}
-        .google-login-button img {{ width: 20px; height: 20px; }}
+        /* NEW: Style the main Google Login Button */
+        .login-container div[data-testid="stButton"] > button {{
+            background-color: #4285F4; color: white !important;
+            font-weight: 600 !important; font-size: 1.1rem !important;
+            padding: 14px 30px !important; border-radius: 8px !important;
+            border: none !important;
+            transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+        }}
+        .login-container div[data-testid="stButton"] > button:hover {{
+            background-color: #357AE8 !important; color: white !important;
+            transform: translateY(-2px); box-shadow: 0 4px 10px rgba(66, 133, 244, 0.4) !important;
+        }}
+        .login-container div[data-testid="stButton"] > button:focus {{
+             box-shadow: 0 0 0 3px color-mix(in srgb, #4285F4 30%, transparent) !important;
+             border: none !important;
+        }}
+
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -117,60 +238,30 @@ def check_login_and_domain():
         st.markdown("""
             <div class='login-container'>
                 <div class='login-box'>
-                    <h2>📈 Welcome!</h2>
-                    <p>Please log in using your Google account to access the Onboarding Dashboard.</p>
+                    <h2>📈 Welcome Back!</h2>
+                    <p>Please log in using your <b>DIME Industries</b> Google account to access the Onboarding Dashboard.</p>
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        # The st.login button will be added below, outside this function,
-        # but the message is shown here. We return False to stop app execution.
-        return False
+        return False # We return False to indicate login is needed
 
     user_email = st.user.email
     if not user_email:
         st.error("Could not retrieve user email. Please try logging in again.")
-        st.button("Log out", on_click=st.logout)
+        st.button("Log out", on_click=st.logout, type="primary") # Use type for potential styling hooks if needed
         return False
 
     if allowed_domain and not user_email.endswith(f"@{allowed_domain}"):
         st.error(f"🚫 Access Denied. Only users from the '{allowed_domain}' domain are allowed.")
         st.info(f"You are logged in as: {user_email}")
-        st.button("Log out", on_click=st.logout)
+        st.button("Log out", on_click=st.logout, type="primary")
         return False
 
-    # If we reach here, user is logged in and domain is correct (or not restricted)
-    return True
+    return True # User is logged in and authorized
 
-# --- Password Protection (REMOVED) ---
-# def check_password(): ... (This function is now removed)
-
-# --- Constants & Configuration ---
-# ... (Keep all your existing constants and configs) ...
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-KEY_REQUIREMENT_DETAILS = {
-    'introSelfAndDIME': {"description": "Warmly introduce yourself and DIME Industries.", "type": "Secondary", "chart_label": "Intro Self & DIME"},
-    'confirmKitReceived': {"description": "Confirm kit and initial order received.", "type": "Primary", "chart_label": "Kit & Order Recv'd"},
-    'offerDisplayHelp': {"description": "Ask about help setting up in-store display.", "type": "Secondary", "chart_label": "Offer Display Help"},
-    'scheduleTrainingAndPromo': {"description": "Schedule budtender training & first promo.", "type": "Primary", "chart_label": "Sched. Training/Promo"},
-    'providePromoCreditLink': {"description": "Provide link for promo-credit requests.", "type": "Secondary", "chart_label": "Promo Credit Link"},
-    'expectationsSet': {"description": "Client expectations were clearly set.", "type": "Bonus Criterion", "chart_label": "Expectations Set"}
-}
-ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
-ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
-PST_TIMEZONE = tz.gettz('America/Los_Angeles'); UTC_TIMEZONE = tz.tzutc()
-
-THEME_PLOTLY = st.get_option("theme.base")
-PLOT_BG_COLOR_PLOTLY = "rgba(0,0,0,0)"
-if THEME_PLOTLY == "light":
-    ACTIVE_PLOTLY_PRIMARY_SEQ = ['#6A0DAD', '#9B59B6', '#BE90D4', '#D2B4DE', '#E8DAEF']; ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel1
-    ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' }; TEXT_COLOR_FOR_PLOTLY = "#262730"; PRIMARY_COLOR_FOR_PLOTLY = "#6A0DAD"
-else:
-    ACTIVE_PLOTLY_PRIMARY_SEQ = ['#BE90D4', '#9B59B6', '#6A0DAD', '#D2B4DE', '#E8DAEF']; ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set3
-    ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
-plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
 
 # --- Data Loading & Processing Functions ---
-# ... (Keep all your existing data functions: authenticate_gspread_cached, robust_to_datetime, etc.) ...
+# ... (Keep all your existing data functions: authenticate_gspread_cached, robust_to_datetime, etc. NO CHANGES NEEDED HERE) ...
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -286,6 +377,7 @@ def load_data_from_google_sheet():
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e: st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
     except Exception as e: st.error(f"🌪️ Error loading data: {e}"); st.session_state.last_data_refresh_time = current_time; return pd.DataFrame()
 
+# ... (Keep convert_df_to_csv, calculate_metrics, get_default_date_range. NO CHANGES NEEDED HERE) ...
 @st.cache_data
 def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).encode('utf-8')
 
@@ -312,28 +404,26 @@ def get_default_date_range(date_series_for_min_max):
             return final_start_default, final_end_default, min_data_date, max_data_date
     return start_of_month_default, end_of_month_default, min_data_date, max_data_date
 
+
 # --- Main App Logic ---
 
-# 1. Check Login & Domain first
 is_logged_in_and_authorized = check_login_and_domain()
 
-# 2. If not logged in, show the login button and stop.
-#    If logged in but not authorized, show error and stop.
-if not st.user.is_logged_in:
-    # Use st.login() to show the button.
-    # We add it in the center column for better placement.
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    _, login_col, _ = st.columns([1, 1, 1])
-    with login_col:
-        st.button("Log in with Google", on_click=st.login, use_container_width=True)
-    st.stop() # Stop further execution until login happens
-
 if not is_logged_in_and_authorized:
-    st.stop() # Stop execution if domain check failed (error already shown)
+    # If not logged in, show the login button. The message is handled by check_login_and_domain.
+    # If logged in but not authorized, error is shown by check_login_and_domain.
+    # We need to display the actual Google login button if not logged in.
+    if not st.user.is_logged_in:
+        _, login_col, _ = st.columns([1, 1.5, 1]) # Centered column for the button
+        with login_col:
+            st.markdown("<br>", unsafe_allow_html=True) # Add some space
+            st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
+    st.stop() # Stop execution until login/authorization is successful
 
 # --- If Logged In & Authorized, Proceed with the Dashboard ---
 
 # Initialize session state (Keep this as is)
+# ... (NO CHANGES NEEDED HERE) ...
 default_s_init, default_e_init, initial_min_data_date, initial_max_data_date = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -355,7 +445,9 @@ if 'selected_transcript_key_dialog_global_search' not in st.session_state: st.se
 if 'selected_transcript_key_filtered_analysis' not in st.session_state: st.session_state.selected_transcript_key_filtered_analysis = None
 if 'show_global_search_dialog' not in st.session_state: st.session_state.show_global_search_dialog = False
 
+
 # Load data (Keep this as is)
+# ... (NO CHANGES NEEDED HERE) ...
 if not st.session_state.data_loaded and st.session_state.last_data_refresh_time is None:
     df_loaded = load_data_from_google_sheet()
     if st.session_state.last_data_refresh_time is None: st.session_state.last_data_refresh_time = datetime.now(UTC_TIMEZONE)
@@ -367,16 +459,12 @@ if not st.session_state.data_loaded and st.session_state.last_data_refresh_time 
 df_original = st.session_state.df_original
 
 # --- Sidebar Controls ---
-st.sidebar.header(f"👤 Welcome, {st.user.name}")
+st.sidebar.header(f"👤 Welcome, {st.user.name.split()[0]}") # Show only first name
 st.sidebar.caption(st.user.email)
-if st.sidebar.button("🔓 Log Out", use_container_width=True):
-    st.logout()
-    st.rerun()
-
+st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar") # Use 'secondary' kind for CSS targeting
 st.sidebar.markdown("---")
-st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 # ... (Keep all your existing sidebar filter controls: Global Search, Filters, Quick Dates, etc.) ...
-# ... (Ensure 'disabled=global_search_active' logic remains) ...
+st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
 global_search_cols = {"licenseNumber": "License Number", "storeName": "Store Name"}
 ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_3_1", help="Enter license number part.")
@@ -439,12 +527,15 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Onboarding Dashboard v4.4.0\n\n© {datetime.now().year} Nexus Workflow")
+st.sidebar.caption(f"Onboarding Dashboard v4.5.0\n\n© {datetime.now().year} Nexus Workflow")
 
 
 # --- Main Content Area ---
 st.title("📈 Onboarding Analytics Dashboard")
 # ... (Keep all your existing dashboard display logic: no data messages, tabs, filtering, metrics, tables, charts, etc.) ...
+# ... (Keep get_cell_style_class and display_html_table_and_details functions - NO CHANGES NEEDED HERE) ...
+# ... (Keep the Global Search Dialog logic - NO CHANGES NEEDED HERE) ...
+# ... (Keep the Tab display logic: Overview, Detailed Analysis, Trends - NO CHANGES NEEDED HERE) ...
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>⏳ Initializing data... If persists, check configurations. ⏳</div>", unsafe_allow_html=True)
@@ -507,7 +598,7 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
         df_prev_mtd_data = df_valid_dates_original[prev_mtd_mask.values if len(prev_mtd_mask) == len(df_valid_dates_original) else prev_mtd_mask[df_valid_dates_original.index]]
 total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = calculate_metrics(df_mtd_data); total_prev_mtd, _, _, _ = calculate_metrics(df_prev_mtd_data)
 delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and pd.notna(total_prev_mtd) else None
-# ... (Keep get_cell_style_class and display_html_table_and_details functions) ...
+
 def get_cell_style_class(column_name, value):
     val_str = str(value).strip().lower()
     if pd.isna(value) or val_str == "" or val_str == "na": return "cell-req-na"
@@ -619,7 +710,6 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
     st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
     st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3_1")
 
-# ... (Keep the Global Search Dialog logic) ...
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
     @st.dialog("🔍 Global Search Results", width="large")
     def show_global_search_dialog_content():
@@ -633,7 +723,6 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             st.rerun()
     show_global_search_dialog_content()
 
-# ... (Keep the Tab display logic: Overview, Detailed Analysis, Trends) ...
 if st.session_state.active_tab == TAB_OVERVIEW:
     st.header("📈 Month-to-Date (MTD) Performance"); cols_mtd_overview = st.columns(4)
     with cols_mtd_overview[0]: st.metric("🗓️ Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0", delta=f"{delta_onboardings_mtd:+.0f} vs Prev. Month" if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else "N/A", help="Total onboardings MTD vs. same period last month.")
@@ -709,4 +798,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.4.0 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Onboarding Analytics Dashboard v4.5.0 © {datetime.now().year} Nexus Workflow. All Rights Reserved.</div>", unsafe_allow_html=True)

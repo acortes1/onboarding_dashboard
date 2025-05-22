@@ -14,7 +14,21 @@ from google.oauth2.service_account import Credentials
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
-# from fpdf import FPDF # Removed as PDF generation is being isolated
+
+# --- Initialize Debug Log in Session State ---
+if "debug_log" not in st.session_state:
+    st.session_state.debug_log = []
+
+def log_debug(message):
+    timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    st.session_state.debug_log.append(f"[{timestamp}] {message}")
+
+# --- Display Debug Log and Query Params at the top ---
+# This will run on every script execution
+st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=False).json(st.session_state.debug_log[-20:]) # Show last 20 messages
+st.sidebar.expander("🔍 CURRENT QUERY PARAMS", expanded=False).json(dict(st.query_params))
+log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}. Query Params: {dict(st.query_params)}")
+
 
 # --- Configuration from secrets.toml (SSO and Google Sheets) ---
 try:
@@ -23,6 +37,7 @@ try:
     GOOGLE_SSO_CLIENT_SECRET = st.secrets["GOOGLE_SSO_CLIENT_SECRET"]
     ALLOWED_DOMAIN = st.secrets["ALLOWED_DOMAIN"]
     REDIRECT_URI = st.secrets["REDIRECT_URI"]
+    log_debug(f"Secrets loaded: Client ID starts with {GOOGLE_SSO_CLIENT_ID[:5]}, Allowed Domain: {ALLOWED_DOMAIN}, Redirect URI: {REDIRECT_URI}")
 
     # Google Sheets (for the dashboard data, accessed via service account)
     GOOGLE_SHEET_URL_OR_NAME = st.secrets["GOOGLE_SHEET_URL_OR_NAME"]
@@ -30,6 +45,7 @@ try:
     GCP_SERVICE_ACCOUNT_INFO = st.secrets["gcp_service_account"]
 
 except KeyError as e:
+    log_debug(f"ERROR: Missing critical configuration in .streamlit/secrets.toml: {e}")
     st.error(f"🚨 Missing critical configuration in .streamlit/secrets.toml: {e}. "
                "Please ensure all SSO (GOOGLE_SSO_CLIENT_ID, GOOGLE_SSO_CLIENT_SECRET, ALLOWED_DOMAIN, REDIRECT_URI) "
                "and Google Sheets (GOOGLE_SHEET_URL_OR_NAME, GOOGLE_WORKSHEET_NAME, gcp_service_account) secrets are set.")
@@ -42,14 +58,17 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 # --- SSO Helper Functions ---
 def get_google_auth_url():
     """Generates the Google Authentication URL."""
+    log_debug("get_google_auth_url called.")
     scope = ["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
     oauth = OAuth2Session(client_id=GOOGLE_SSO_CLIENT_ID, redirect_uri=REDIRECT_URI, scope=scope)
     auth_url, state = oauth.authorization_url(AUTHORIZATION_URL, access_type="offline", prompt="consent", hd=ALLOWED_DOMAIN)
     st.session_state["oauth_state"] = state
+    log_debug(f"Generated auth URL. Stored oauth_state: {state}")
     return auth_url
 
 def exchange_code_for_token(code):
     """Exchanges the authorization code for an access token and ID token."""
+    log_debug(f"exchange_code_for_token called with code: {code[:20]}...") # Log only part of code
     data = {
         "code": code,
         "client_id": GOOGLE_SSO_CLIENT_ID,
@@ -59,8 +78,11 @@ def exchange_code_for_token(code):
     }
     try:
         token_response = requests.post(TOKEN_URL, data=data)
+        log_debug(f"Token endpoint response status: {token_response.status_code}")
         token_response.raise_for_status()
-        return token_response.json()
+        response_json = token_response.json()
+        log_debug(f"Token exchange successful. Token data keys: {list(response_json.keys())}")
+        return response_json
     except requests.exceptions.RequestException as e:
         error_message = f"Error exchanging code for token: {e}"
         if hasattr(e, 'response') and e.response is not None:
@@ -69,35 +91,57 @@ def exchange_code_for_token(code):
                 error_message += f"\nGoogle Error: {error_details.get('error_description', e.response.text)}"
             except ValueError: # If response is not JSON
                 error_message += f"\nResponse content: {e.response.content.decode(errors='ignore')}"
-        st.error(error_message) # This will display the error on the Streamlit page
+        log_debug(f"ERROR in exchange_code_for_token: {error_message}")
+        st.error(error_message)
         return None
 
 def get_user_info_from_id_token(token_data):
     """Verifies the ID token and extracts user information, including domain check."""
+    log_debug("get_user_info_from_id_token called.")
     if "id_token" not in token_data:
+        log_debug("ERROR: id_token not found in token_data.")
         st.error("Login failed: ID token not found in token response from Google.")
         return None
+    
+    log_debug(f"Verifying id_token (first 20 chars): {token_data['id_token'][:20]}...")
     try:
         id_info = id_token.verify_oauth2_token(
             token_data["id_token"], google_requests.Request(), GOOGLE_SSO_CLIENT_ID
         )
-        if 'hd' not in id_info or id_info['hd'].lower() != ALLOWED_DOMAIN.lower():
-            st.error(f"Login failed: User's domain ('{id_info.get('hd', 'N/A')}') "
+        log_debug(f"ID token decoded. Keys: {list(id_info.keys())}")
+
+        # Domain check
+        user_hd = id_info.get('hd')
+        log_debug(f"User HD from token: {user_hd}, Allowed Domain: {ALLOWED_DOMAIN}")
+        if not user_hd or user_hd.lower() != ALLOWED_DOMAIN.lower():
+            log_debug(f"ERROR: Domain mismatch. User HD: {user_hd}, Allowed: {ALLOWED_DOMAIN}")
+            st.error(f"Login failed: User's domain ('{user_hd or 'N/A'}') "
                        f"does not match the allowed domain ('{ALLOWED_DOMAIN}'). Access denied.")
             return None
-        if id_info['aud'] != GOOGLE_SSO_CLIENT_ID:
+        log_debug("Domain check passed.")
+
+        # Audience check
+        token_aud = id_info.get('aud')
+        log_debug(f"Token Audience (aud): {token_aud}, Expected Client ID: {GOOGLE_SSO_CLIENT_ID}")
+        if token_aud != GOOGLE_SSO_CLIENT_ID:
+            log_debug(f"ERROR: Audience mismatch. Token aud: {token_aud}")
             st.error("Login failed: Token audience mismatch. The token was not intended for this application.")
             return None
+        log_debug("Audience check passed.")
+
         st.session_state["user_info"] = {
             "email": id_info.get("email"), "name": id_info.get("name"),
             "picture": id_info.get("picture"), "hd": id_info.get("hd"),
             "sub": id_info.get("sub")
         }
+        log_debug(f"User info extracted and stored in session_state: {st.session_state['user_info'].get('email')}")
         return st.session_state["user_info"]
     except ValueError as e:
-        st.error(f"Login failed: Invalid ID token. ({e})") # e.g., token expired, invalid signature
+        log_debug(f"ERROR: Invalid ID token during verification: {e}")
+        st.error(f"Login failed: Invalid ID token. ({e})")
         return None
     except Exception as e:
+        log_debug(f"ERROR: Unexpected error during token verification: {e}")
         st.error(f"An unexpected error occurred during token verification: {e}")
         return None
 
@@ -106,61 +150,56 @@ if "authenticated" not in st.session_state: st.session_state["authenticated"] = 
 if "user_info" not in st.session_state: st.session_state["user_info"] = None
 if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None
 
-query_params = st.query_params
+# This block processes the OAuth callback from Google
 if not st.session_state.get("authenticated", False) and "code" in query_params:
-    # --- START DEBUGGING BLOCK ---
-    st.info("DEBUG: Entered OAuth callback processing block.")
+    log_debug("OAuth callback detected (not authenticated and 'code' in query_params).")
     auth_code_list = query_params.get_all("code")
     returned_state_list = query_params.get_all("state")
     auth_code = auth_code_list[0] if auth_code_list else None
     returned_state = returned_state_list[0] if returned_state_list else None
+    log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State: {st.session_state.get('oauth_state')}")
 
     if not auth_code:
+        log_debug("ERROR: No auth_code in callback.")
         st.error("Authentication failed: No authorization code received.")
-        st.info("DEBUG: No auth_code found in query_params.")
     elif not returned_state or returned_state != st.session_state.get("oauth_state"):
+        log_debug(f"ERROR: State mismatch. Expected: '{st.session_state.get('oauth_state')}', Got: '{returned_state}'")
         st.error("Login failed: State mismatch (CSRF suspected). Please try logging in again.")
-        st.info(f"DEBUG: State mismatch. Expected: '{st.session_state.get('oauth_state')}', Got: '{returned_state}'")
-        st.session_state["oauth_state"] = None # Clear potentially compromised state
+        st.session_state["oauth_state"] = None 
     else:
-        st.info("DEBUG: State check passed. Proceeding to exchange code for token.")
-        st.session_state["oauth_state"] = None # Clear state as it's a one-time use token
+        log_debug("State check passed. Clearing oauth_state from session.")
+        st.session_state["oauth_state"] = None 
         token_data = exchange_code_for_token(auth_code)
 
         if token_data:
-            st.info(f"DEBUG: Token exchange successful. Token data received (keys): {list(token_data.keys())}")
-            if "id_token" in token_data:
-                 st.info("DEBUG: id_token found in token_data.")
-            else:
-                 st.warning("DEBUG: id_token NOT found in token_data.")
-
             user_details = get_user_info_from_id_token(token_data)
             if user_details:
-                st.info(f"DEBUG: User info verification successful. User: {user_details.get('email')}")
+                log_debug(f"User details successfully verified: {user_details.get('email')}. Setting authenticated = True.")
                 st.session_state["authenticated"] = True
+                log_debug("Clearing query params.")
                 st.query_params.clear()
-                st.info("DEBUG: Authentication successful. Clearing params and rerunning to show dashboard.")
-                st.rerun()
+                log_debug("Authentication successful. Rerunning script to show dashboard...")
+                st.rerun() 
             else:
-                # Errors from get_user_info_from_id_token are displayed by the function itself
-                st.error("DEBUG: User info verification failed (get_user_info_from_id_token returned None). Check errors above.")
+                log_debug("ERROR: get_user_info_from_id_token returned None.")
         else:
-            # Errors from exchange_code_for_token are displayed by the function itself
-            st.error("DEBUG: Token exchange failed (exchange_code_for_token returned None). Check errors above.")
-    # --- END DEBUGGING BLOCK ---
-
-    # Fallback cleanup if authentication didn't complete successfully in this run
+            log_debug("ERROR: exchange_code_for_token returned None.")
+    
+    # If authentication did not complete and set st.session_state.authenticated = True leading to a rerun,
+    # we might be in a loop. Clear params and rerun to reset to login page.
     if not st.session_state.get("authenticated", False) and ("code" in query_params or "state" in query_params):
-        st.info("DEBUG: Fallback cleanup: Authentication did not complete. Clearing params and rerunning to reset login page.")
+        log_debug("Authentication not completed in callback. Clearing params and rerunning to reset.")
         st.query_params.clear()
-        if not st.session_state.get("authenticated", False): # Avoid double rerun if already rerunning
-             st.rerun()
+        # Only rerun if not already authenticated to avoid potential infinite loop if st.rerun() above failed to exit script run
+        if not st.session_state.get("authenticated", False):
+            st.rerun()
 
 
 # --- Main Application UI ---
 if not st.session_state.get("authenticated", False):
     # --- Login Page ---
     st.set_page_config(layout="centered", page_title="Login - Onboarding Dashboard")
+    log_debug("Displaying Login Page.")
     st.title("Welcome to the Onboarding Dashboard 🛡️")
     st.markdown(f"Please log in with your **{ALLOWED_DOMAIN}** Google account to continue.")
     auth_url = get_google_auth_url()
@@ -174,7 +213,8 @@ else:
         layout="wide",
         initial_sidebar_state="expanded"
     )
-    user = st.session_state["user_info"] # User info from SSO
+    log_debug(f"Displaying Authenticated Dashboard for user: {st.session_state.get('user_info', {}).get('email')}")
+    user = st.session_state["user_info"] 
 
     # --- Custom CSS Injection (from original app) ---
     def load_custom_css():
@@ -298,35 +338,50 @@ else:
         except Exception as e: st.error(f"🔑 Google Auth Error (Service Account): {e}. Check credentials/permissions."); return None
 
     def robust_to_datetime(series):
-        dates = pd.to_datetime(series, errors='coerce', infer_datetime_format=True)
-        if not series.empty and dates.isnull().sum() > len(series) * 0.7 and not series.astype(str).str.lower().isin(['','none','nan','nat','null', 'na']).all():
-            common_formats = ['%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y %H:%M:%S', '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %I:%M:%S %p', '%m/%d/%Y %I:%M:%S %p', '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y']
+        # Ensure pandas series is passed
+        if not isinstance(series, pd.Series):
+            try: series = pd.Series(series)
+            except: return series # Return original if cannot convert to Series
+
+        dates = pd.to_datetime(series, errors='coerce') # Removed infer_datetime_format
+        # Fallback parsing if primary fails for a significant portion
+        if not series.empty and dates.isnull().sum() > len(series) * 0.7 and \
+           not series.astype(str).str.lower().isin(['','none','nan','nat','null', 'na', pd.NaT]).all():
+            common_formats = ['%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%m/%d/%Y %H:%M:%S', 
+                              '%d/%m/%Y %H:%M:%S', '%Y-%m-%d %I:%M:%S %p', '%m/%d/%Y %I:%M:%S %p',
+                              '%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y']
             for dayfirst_setting in [False, True]:
                 for fmt in common_formats:
                     try:
-                        use_dayfirst_for_fmt = ('%m' in fmt and '%d' in fmt and dayfirst_setting)
+                        use_dayfirst_for_fmt = ('%d' in fmt and dayfirst_setting) # Simplified dayfirst logic
                         temp_dates = pd.to_datetime(series, format=fmt, errors='coerce', dayfirst=use_dayfirst_for_fmt)
-                        if temp_dates.notnull().sum() > dates.notnull().sum(): dates = temp_dates
-                        if dates.notnull().all(): break
+                        if temp_dates.notnull().sum() > dates.notnull().sum():
+                            dates = temp_dates
+                        if dates.notnull().all(): break 
                     except ValueError: continue
                 if dates.notnull().all(): break
         return dates
 
     def format_datetime_to_pst_str(dt_series):
-        if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all(): return dt_series
+        if not isinstance(dt_series, pd.Series) or not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all(): 
+            return dt_series
         def convert_element_to_pst(element):
             if pd.isna(element): return None
             try:
-                if element.tzinfo is None: aware_element = element.replace(tzinfo=UTC_TIMEZONE)
+                if element.tzinfo is None: aware_element = UTC_TIMEZONE.localize(element) # Assume UTC if naive
                 else: aware_element = element.astimezone(UTC_TIMEZONE)
                 pst_element = aware_element.astimezone(PST_TIMEZONE); return pst_element.strftime('%Y-%m-%d %I:%M %p PST')
-            except Exception: return str(element)
+            except Exception: return str(element) # Fallback
+        
+        # Apply conversion carefully
         try:
-            if dt_series.dt.tz is None: utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
-            else: utc_series = dt_series.dt.tz_convert(UTC_TIMEZONE)
-            pst_series = utc_series.dt.tz_convert(PST_TIMEZONE); return pst_series.apply(lambda x: x.strftime('%Y-%m-%d %I:%M %p PST') if pd.notnull(x) else None)
-        except AttributeError: return dt_series.apply(convert_element_to_pst)
-        except Exception: return dt_series.apply(convert_element_to_pst)
+            # Ensure all elements are timezone-aware (UTC) before converting to PST
+            aware_series = dt_series.apply(lambda x: UTC_TIMEZONE.localize(x) if pd.notnull(x) and x.tzinfo is None else x.astimezone(UTC_TIMEZONE) if pd.notnull(x) else pd.NaT)
+            pst_series = aware_series.dt.tz_convert(PST_TIMEZONE)
+            return pst_series.apply(lambda x: x.strftime('%Y-%m-%d %I:%M %p PST') if pd.notnull(x) else None)
+        except Exception: # Broad exception for safety, fallback to element-wise
+             return dt_series.apply(convert_element_to_pst)
+
 
     def format_phone_number(number_str):
         if pd.isna(number_str) or str(number_str).strip() == "": return ""

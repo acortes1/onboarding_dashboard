@@ -25,9 +25,9 @@ def log_debug(message):
 
 # --- Display Debug Log and Query Params at the top ---
 # This will run on every script execution
+log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}.") # Removed query_params from this initial log
 st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=False).json(st.session_state.debug_log[-20:]) # Show last 20 messages
-st.sidebar.expander("🔍 CURRENT QUERY PARAMS", expanded=False).json(dict(st.query_params))
-log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}. Query Params: {dict(st.query_params)}")
+st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=False).json(dict(st.query_params)) # Displaying here is fine
 
 
 # --- Configuration from secrets.toml (SSO and Google Sheets) ---
@@ -151,12 +151,15 @@ if "user_info" not in st.session_state: st.session_state["user_info"] = None
 if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None
 
 # This block processes the OAuth callback from Google
-if not st.session_state.get("authenticated", False) and "code" in query_params:
-    log_debug("OAuth callback detected (not authenticated and 'code' in query_params).")
-    auth_code_list = query_params.get_all("code")
-    returned_state_list = query_params.get_all("state")
-    auth_code = auth_code_list[0] if auth_code_list else None
-    returned_state = returned_state_list[0] if returned_state_list else None
+current_query_params = dict(st.query_params) # Get query params once for this run
+if not st.session_state.get("authenticated", False) and "code" in current_query_params:
+    log_debug(f"OAuth callback detected (not authenticated and 'code' in query_params). Current Query Params: {current_query_params}")
+    auth_code_list = current_query_params.get("code", []) # Use .get for safety
+    returned_state_list = current_query_params.get("state", [])
+
+    auth_code = auth_code_list[0] if isinstance(auth_code_list, list) and auth_code_list else auth_code_list if isinstance(auth_code_list, str) else None
+    returned_state = returned_state_list[0] if isinstance(returned_state_list, list) and returned_state_list else returned_state_list if isinstance(returned_state_list, str) else None
+    
     log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State: {st.session_state.get('oauth_state')}")
 
     if not auth_code:
@@ -185,12 +188,9 @@ if not st.session_state.get("authenticated", False) and "code" in query_params:
         else:
             log_debug("ERROR: exchange_code_for_token returned None.")
     
-    # If authentication did not complete and set st.session_state.authenticated = True leading to a rerun,
-    # we might be in a loop. Clear params and rerun to reset to login page.
-    if not st.session_state.get("authenticated", False) and ("code" in query_params or "state" in query_params):
+    if not st.session_state.get("authenticated", False) and ("code" in current_query_params or "state" in current_query_params):
         log_debug("Authentication not completed in callback. Clearing params and rerunning to reset.")
         st.query_params.clear()
-        # Only rerun if not already authenticated to avoid potential infinite loop if st.rerun() above failed to exit script run
         if not st.session_state.get("authenticated", False):
             st.rerun()
 

@@ -25,9 +25,16 @@ def log_debug(message):
 
 # --- Display Debug Log and Query Params at the top ---
 # This will run on every script execution
-log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}.") # Removed query_params from this initial log
-st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=False).json(st.session_state.debug_log[-20:]) # Show last 20 messages
-st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=False).json(dict(st.query_params)) # Displaying here is fine
+log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}.")
+st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=True).json(st.session_state.debug_log[-30:]) # Show last 30, expanded by default for debugging
+
+# Early check and display of query_params
+try:
+    live_query_params = dict(st.query_params)
+    st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=True).json(live_query_params)
+except Exception as e_qp_display:
+    st.sidebar.expander("🔍 CURRENT QUERY PARAMS (Live)", expanded=True).error(f"Error displaying query_params: {e_qp_display}")
+    log_debug(f"ERROR early display of query_params: {e_qp_display}")
 
 
 # --- Configuration from secrets.toml (SSO and Google Sheets) ---
@@ -46,9 +53,7 @@ try:
 
 except KeyError as e:
     log_debug(f"ERROR: Missing critical configuration in .streamlit/secrets.toml: {e}")
-    st.error(f"🚨 Missing critical configuration in .streamlit/secrets.toml: {e}. "
-               "Please ensure all SSO (GOOGLE_SSO_CLIENT_ID, GOOGLE_SSO_CLIENT_SECRET, ALLOWED_DOMAIN, REDIRECT_URI) "
-               "and Google Sheets (GOOGLE_SHEET_URL_OR_NAME, GOOGLE_WORKSHEET_NAME, gcp_service_account) secrets are set.")
+    st.error(f"🚨 Missing critical configuration in .streamlit/secrets.toml: {e}. ")
     st.stop()
 
 # --- OAuth Endpoints ---
@@ -98,8 +103,8 @@ def exchange_code_for_token(code):
 def get_user_info_from_id_token(token_data):
     """Verifies the ID token and extracts user information, including domain check."""
     log_debug("get_user_info_from_id_token called.")
-    if "id_token" not in token_data:
-        log_debug("ERROR: id_token not found in token_data.")
+    if not token_data or "id_token" not in token_data: # Added check for token_data itself
+        log_debug("ERROR: token_data is None or id_token not found in token_data.")
         st.error("Login failed: ID token not found in token response from Google.")
         return None
     
@@ -151,11 +156,22 @@ if "user_info" not in st.session_state: st.session_state["user_info"] = None
 if "oauth_state" not in st.session_state: st.session_state["oauth_state"] = None
 
 # This block processes the OAuth callback from Google
-current_query_params = dict(st.query_params) # Get query params once for this run
-if not st.session_state.get("authenticated", False) and "code" in current_query_params:
-    log_debug(f"OAuth callback detected (not authenticated and 'code' in query_params). Current Query Params: {current_query_params}")
-    auth_code_list = current_query_params.get("code", []) # Use .get for safety
-    returned_state_list = current_query_params.get("state", [])
+_current_query_params_dict = {}
+try:
+    # Safely get query parameters. st.query_params should be available.
+    _current_query_params_dict = dict(st.query_params)
+    log_debug(f"Attempting to process callback. Current Query Params: {_current_query_params_dict}")
+except Exception as e:
+    log_debug(f"CRITICAL ERROR accessing st.query_params: {e}")
+    st.error(f"Internal error accessing page parameters: {e}. Please try refreshing.")
+    # If st.query_params itself fails, we might be in a bad state.
+
+if not st.session_state.get("authenticated", False) and "code" in _current_query_params_dict:
+    log_debug(f"OAuth callback detected (not authenticated and 'code' in query_params).")
+    
+    # .get_all() returns a list, handle potential missing keys or non-list values gracefully
+    auth_code_list = _current_query_params_dict.get("code", [])
+    returned_state_list = _current_query_params_dict.get("state", [])
 
     auth_code = auth_code_list[0] if isinstance(auth_code_list, list) and auth_code_list else auth_code_list if isinstance(auth_code_list, str) else None
     returned_state = returned_state_list[0] if isinstance(returned_state_list, list) and returned_state_list else returned_state_list if isinstance(returned_state_list, str) else None
@@ -163,7 +179,7 @@ if not st.session_state.get("authenticated", False) and "code" in current_query_
     log_debug(f"Callback - Auth Code (partial): {auth_code[:20] if auth_code else 'None'}, Returned State: {returned_state}, Expected State: {st.session_state.get('oauth_state')}")
 
     if not auth_code:
-        log_debug("ERROR: No auth_code in callback.")
+        log_debug("ERROR: No auth_code in callback after parsing.")
         st.error("Authentication failed: No authorization code received.")
     elif not returned_state or returned_state != st.session_state.get("oauth_state"):
         log_debug(f"ERROR: State mismatch. Expected: '{st.session_state.get('oauth_state')}', Got: '{returned_state}'")
@@ -179,19 +195,20 @@ if not st.session_state.get("authenticated", False) and "code" in current_query_
             if user_details:
                 log_debug(f"User details successfully verified: {user_details.get('email')}. Setting authenticated = True.")
                 st.session_state["authenticated"] = True
-                log_debug("Clearing query params.")
-                st.query_params.clear()
+                log_debug("Clearing query params from URL.")
+                st.query_params.clear() # Clear sensitive info from URL
                 log_debug("Authentication successful. Rerunning script to show dashboard...")
                 st.rerun() 
             else:
-                log_debug("ERROR: get_user_info_from_id_token returned None.")
+                log_debug("ERROR: get_user_info_from_id_token returned None. User not authenticated.")
         else:
-            log_debug("ERROR: exchange_code_for_token returned None.")
+            log_debug("ERROR: exchange_code_for_token returned None. Token exchange failed.")
     
-    if not st.session_state.get("authenticated", False) and ("code" in current_query_params or "state" in current_query_params):
-        log_debug("Authentication not completed in callback. Clearing params and rerunning to reset.")
+    # If, after all processing, not authenticated, and params were present, clear and rerun to reset.
+    if not st.session_state.get("authenticated", False) and ("code" in _current_query_params_dict or "state" in _current_query_params_dict):
+        log_debug("Authentication not completed in callback processing. Clearing params and rerunning to reset login page.")
         st.query_params.clear()
-        if not st.session_state.get("authenticated", False):
+        if not st.session_state.get("authenticated", False): # Avoid double rerun
             st.rerun()
 
 

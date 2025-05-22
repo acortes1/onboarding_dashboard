@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.6
+# streamlit_app.py - v4.6.7
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,7 +13,7 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.6", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.7", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -45,6 +45,7 @@ def load_custom_css():
         PRIMARY_BTN_BG = "#6A0DAD"; PRIMARY_BTN_HOVER_BG = "#580A8F";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#6A0DAD"; DOWNLOAD_BTN_BORDER = "#6A0DAD";
         DOWNLOAD_BTN_HOVER_BG = "#6A0DAD"; DOWNLOAD_BTN_HOVER_TEXT = "#FFFFFF";
+        GOOGLE_BTN_BG = "#4285F4"; GOOGLE_BTN_HOVER_BG = "#357AE8"; GOOGLE_BTN_SHADOW = "0 6px 12px rgba(66, 133, 244, 0.4)";
     else: # Dark Theme
         SCORE_GOOD_BG = "#1E4620"; SCORE_GOOD_TEXT = "#A8D5B0";
         SCORE_MEDIUM_BG = "#4A3F22"; SCORE_MEDIUM_TEXT = "#FFE0A2";
@@ -66,6 +67,8 @@ def load_custom_css():
         PRIMARY_BTN_BG = "#BE90D4"; PRIMARY_BTN_HOVER_BG = "#A77CBF";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#BE90D4"; DOWNLOAD_BTN_BORDER = "#BE90D4";
         DOWNLOAD_BTN_HOVER_BG = "#BE90D4"; DOWNLOAD_BTN_HOVER_TEXT = "#1E1E1E";
+        GOOGLE_BTN_BG = "#4285F4"; GOOGLE_BTN_HOVER_BG = "#357AE8"; GOOGLE_BTN_SHADOW = "0 6px 12px rgba(66, 133, 244, 0.4)";
+
 
     TABLE_CELL_PADDING = "0.65em 0.8em";
     TABLE_FONT_SIZE = "0.92rem";
@@ -94,6 +97,7 @@ def load_custom_css():
             --download-btn-bg: {DOWNLOAD_BTN_BG}; --download-btn-text: {DOWNLOAD_BTN_TEXT};
             --download-btn-border: {DOWNLOAD_BTN_BORDER}; --download-btn-hover-bg: {DOWNLOAD_BTN_HOVER_BG};
             --download-btn-hover-text: {DOWNLOAD_BTN_HOVER_TEXT};
+            --google-btn-bg: {GOOGLE_BTN_BG}; --google-btn-hover-bg: {GOOGLE_BTN_HOVER_BG}; --google-btn-shadow: {GOOGLE_BTN_SHADOW};
         }}
         body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
         .stApp {{ padding: 0.5rem 1rem; }}
@@ -171,15 +175,19 @@ def load_custom_css():
         .cell-req-not-met {{ background-color: var(--req-not-met-bg); color: var(--req-not-met-text); }}
         .cell-req-na {{ background-color: var(--req-na-bg); color: var(--req-na-text); }}
         .cell-status {{ font-weight: 500; }}
+
+        /* Login Screen Specific Styles */
         .login-container {{
             display: flex; justify-content: center; align-items: center;
-            min-height: 80vh; flex-direction: column; text-align: center; padding: 1em;
+            min-height: 60vh; /* Adjusted height */
+            flex-direction: column; text-align: center; padding: 1em;
         }}
         .login-box {{
             background-color: var(--login-box-bg); padding: 2.5em 3em;
             border-radius: 15px; box-shadow: var(--login-box-shadow);
             border: 1px solid var(--border-color); max-width: 450px;
             width: 100%;
+            margin-bottom: 2em; /* Space between box and button */
         }}
         .login-box .login-icon {{ font-size: 3.5rem; margin-bottom: 0.3em; color: var(--primary-color); }}
         .login-box h2 {{
@@ -187,25 +195,21 @@ def load_custom_css():
              color: var(--primary-color); border-bottom: none; font-weight: 700;
         }}
         .login-box p {{
-            margin-bottom: 2em; color: var(--text-color); opacity: 0.85;
+            margin-bottom: 0.5em;
+            color: var(--text-color); opacity: 0.85;
             font-size: 1rem; line-height: 1.6;
         }}
-        .login-box div[data-testid="stButton"] > button {{
-            background-color: #4285F4 !important; color: white !important;
-            font-weight: 600 !important; font-size: 1.1rem !important;
-            padding: 12px 30px !important; border-radius: 8px !important;
-            border: none !important;
-            transition: all 0.2s ease !important;
-            width: 100%;
+        /* Style the SPECIFIC Login Button using its parent column */
+        /* This assumes the button is within st.columns([1, 1, 1]) */
+        /* We'll apply Google styles to the button *if possible* */
+        /* It's hard to target ONE button, but we can try making it look better */
+        button[kind="primary"]:not(div[data-testid="stSidebarNav"] *):not(div[data-testid="stSidebarUserContent"] *){{
+            /* This targets primary buttons NOT in sidebar */
+            /* If the Google Login is the ONLY such button, this might work */
+            /* Let's try to style the button directly if Streamlit allows it, */
+            /* but for now, we rely on st.button's default + use_container_width. */
         }}
-        .login-box div[data-testid="stButton"] > button:hover {{
-            background-color: #357AE8 !important; color: white !important;
-            transform: translateY(-3px) !important; box-shadow: 0 6px 12px rgba(66, 133, 244, 0.4) !important;
-        }}
-         .login-box div[data-testid="stButton"] > button:focus {{
-             box-shadow: 0 0 0 4px color-mix(in srgb, #4285F4 30%, transparent) !important;
-             border: none !important;
-        }}
+
         /* Responsive CSS */
         @media (max-width: 768px) {{
             h1 {{ font-size: 1.8rem; }}
@@ -253,31 +257,26 @@ plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgco
 
 # --- Google SSO & Domain Check ---
 def check_login_and_domain():
+    """Checks if user is logged in and has the correct domain. Returns status."""
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
+
     if not st.user.is_logged_in:
-        st.markdown("""
-            <div class='login-container'>
-                <div class='login-box'>
-                    <div class='login-icon'>🔑</div>
-                    <h2>Dashboard Access</h2>
-                    <p>Please log in with your <b>authorized</b> Google account to access the dashboard.</p>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-        return False
+        return 'NOT_LOGGED_IN'
 
     user_email = st.user.email
     if not user_email:
         st.error("Could not retrieve user email. Please try logging in again.")
         st.button("Log out", on_click=st.logout, type="secondary")
-        return False
+        return 'ERROR'
 
     if allowed_domain and not user_email.endswith(f"@{allowed_domain}"):
         st.error(f"🚫 Access Denied. Only users from the '{allowed_domain}' domain are allowed.")
         st.info(f"You are attempting to log in as: {user_email}")
         st.button("Log out", on_click=st.logout, type="secondary")
-        return False
-    return True
+        return 'DOMAIN_MISMATCH'
+
+    return 'AUTHORIZED'
+
 
 # --- Data Loading & Processing Functions ---
 @st.cache_data(ttl=600)
@@ -347,7 +346,6 @@ def capitalize_name(name_str):
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
     current_time = datetime.now(UTC_TIMEZONE)
-    # Don't set session state here, do it after successful load
     if gc is None: return pd.DataFrame(), None
     sheet_url_or_name = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME")
     worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
@@ -357,7 +355,7 @@ def load_data_from_google_sheet():
         spreadsheet = gc.open_by_url(sheet_url_or_name) if ("docs.google.com" in sheet_url_or_name or "spreadsheets" in sheet_url_or_name) else gc.open(sheet_url_or_name)
         worksheet = spreadsheet.worksheet(worksheet_name)
         data = worksheet.get_all_records(head=1, expected_headers=None)
-        if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame(), current_time # Return time even if no data
+        if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame(), current_time
         df = pd.DataFrame(data)
         df.rename(columns={col: "".join(str(col).strip().lower().split()) for col in df.columns}, inplace=True)
         column_name_map_to_code = {"licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "dcc": "licenseNumber", "storename": "storeName", "accountname": "storeName", "repname": "repName", "representative": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "confirmedat": "confirmationTimestamp", "clientsentiment": "clientSentiment", "sentiment": "clientSentiment", "fulltranscript": "fullTranscript", "transcript": "fullTranscript", "score": "score", "onboardingscore": "score", "status": "status", "onboardingstatus": "status", "summary": "summary", "callsummary": "summary", "contactnumber": "contactNumber", "phone": "contactNumber", "confirmednumber": "confirmedNumber", "verifiednumber":"confirmedNumber", "contactname": "contactName", "clientcontact": "contactName"}
@@ -394,7 +392,7 @@ def load_data_from_google_sheet():
         for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS: df[col] = df.get(col, pd.NA)
         cols_to_drop = [col for col in ['deliverydatets', 'onboardingwelcome'] if col in df.columns]
         if cols_to_drop: df = df.drop(columns=cols_to_drop)
-        return df, current_time # Return df and time
+        return df, current_time
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e:
         st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); return pd.DataFrame(), None
     except Exception as e:
@@ -421,15 +419,27 @@ def get_default_date_range(date_series):
     return (start, end) if start <= end else ((min_date, max_date) if min_date and max_date else (start_of_month, today))
 
 # --- Main App Logic ---
-is_logged_in_and_authorized = check_login_and_domain()
-if not is_logged_in_and_authorized:
-    if not st.user.is_logged_in:
-        _, login_col, _ = st.columns([1, 1.5, 1])
-        with login_col:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
-    st.stop()
+auth_status = check_login_and_domain()
 
+if auth_status != 'AUTHORIZED':
+    if auth_status == 'NOT_LOGGED_IN':
+        st.markdown("""
+            <div class='login-container'>
+                <div class='login-box'>
+                    <div class='login-icon'>🔑</div>
+                    <h2>Dashboard Access</h2>
+                    <p>Please log in using your <b>authorized</b> Google account to access the dashboard.</p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        # Use columns for centering the button
+        _, login_col, _ = st.columns([1, 1, 1]) # Use 1:1:1 for better centering
+        with login_col:
+            st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn_centered")
+    # Other statuses (ERROR, DOMAIN_MISMATCH) already display messages
+    st.stop() # Stop execution if not authorized
+
+# --- If Authorized, Continue ---
 default_s_init, default_e_init = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -462,8 +472,8 @@ if not st.session_state.data_loaded:
             st.session_state.date_range = get_default_date_range(df_loaded.get('onboarding_date_only'))
         else:
             st.session_state.df_original = pd.DataFrame()
-            st.session_state.data_loaded = False # Explicitly set to false if empty
-    else: # If load failed before returning time
+            st.session_state.data_loaded = False
+    else:
         st.session_state.df_original = pd.DataFrame()
         st.session_state.data_loaded = False
 
@@ -551,7 +561,7 @@ if hasattr(st.user, "email") and st.user.email:
 
 else: st.sidebar.caption("👤 Welcome!")
 st.sidebar.button("Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar_bottom")
-st.sidebar.caption(f"Dashboard v4.6.6")
+st.sidebar.caption(f"Dashboard v4.6.7")
 
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
@@ -762,11 +772,10 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
 
-        st.divider() # FIX: Added divider to separate sections
+        st.divider()
 
         st.header("🎨 Key Visualizations (Filtered Data)")
         if not df_filtered.empty:
-            # Using st.container() for the visualization section for better layout control
             with st.container():
                 chart_cols_1, chart_cols_2 = st.columns(2)
                 with chart_cols_1:
@@ -821,4 +830,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.6</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.7</div>", unsafe_allow_html=True)

@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.3
+# streamlit_app.py - v4.6.5
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,17 +13,16 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.3", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.5", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection (Keep As Is from v4.6.1/4.6.2) ---
+# --- Custom CSS Injection ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
     THEME = st.get_option("theme.base")
-    # ... (CSS definitions from v4.6.1/4.6.2 - Retained for brevity in this diff) ...
     # Define Color Palettes for Light & Dark Themes
     if THEME == "light":
         SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D";
@@ -41,8 +40,8 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)";
         LOGIN_BOX_BG = "var(--background-color)"; LOGIN_BOX_SHADOW = "0 12px 35px rgba(0,0,0,0.07)";
-        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442";
-        LOGOUT_BTN_HOVER_BG = "#EBCFCF";
+        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442"; # Kept for potential reuse
+        LOGOUT_BTN_HOVER_BG = "#EBCFCF"; # Kept for potential reuse
         PRIMARY_BTN_BG = "#6A0DAD"; PRIMARY_BTN_HOVER_BG = "#580A8F";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#6A0DAD"; DOWNLOAD_BTN_BORDER = "#6A0DAD";
         DOWNLOAD_BTN_HOVER_BG = "#6A0DAD"; DOWNLOAD_BTN_HOVER_TEXT = "#FFFFFF";
@@ -62,8 +61,8 @@ def load_custom_css():
         TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
         TABLE_BORDER_COLOR = "var(--border-color)";
         LOGIN_BOX_BG = "var(--secondary-background-color)"; LOGIN_BOX_SHADOW = "0 10px 35px rgba(0,0,0,0.3)";
-        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD";
-        LOGOUT_BTN_HOVER_BG = "#6B3333";
+        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD"; # Kept for potential reuse
+        LOGOUT_BTN_HOVER_BG = "#6B3333"; # Kept for potential reuse
         PRIMARY_BTN_BG = "#BE90D4"; PRIMARY_BTN_HOVER_BG = "#A77CBF";
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#BE90D4"; DOWNLOAD_BTN_BORDER = "#BE90D4";
         DOWNLOAD_BTN_HOVER_BG = "#BE90D4"; DOWNLOAD_BTN_HOVER_TEXT = "#1E1E1E";
@@ -107,7 +106,7 @@ def load_custom_css():
         div[data-testid="stMetric"]:hover, .metric-card:hover {{ transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }}
         div[data-testid="stMetricLabel"] > div {{ font-size: 0.95rem; }}
         div[data-testid="stMetricValue"] > div {{ font-size: 2.5rem !important; }}
-        div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; background-color: var(--secondary-background-color); border-bottom: 1px solid var(--border-color); }}
+        /* Removed stSidebarUserContent styling */
         div[data-testid="stSidebarNavItems"] {{ padding-top: 1.3em; }}
         div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{
             border: none; padding: 10px 22px; border-radius: 8px; font-weight: 600;
@@ -123,6 +122,14 @@ def load_custom_css():
         div[data-testid="stButton"] > button[kind="primary"]:hover {{
             background-color: var(--primary-btn-hover-bg); color: white;
         }}
+        /* Added general secondary button style (can be tweaked) */
+        div[data-testid="stButton"] > button[kind="secondary"] {{
+            background-color: var(--secondary-background-color); color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }}
+        div[data-testid="stButton"] > button[kind="secondary"]:hover {{
+            background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--text-color) 10%);
+        }}
         div[data-testid="stDownloadButton"] > button {{
             background-color: var(--download-btn-bg); color: var(--download-btn-text);
             border: 1px solid var(--download-btn-border);
@@ -131,31 +138,15 @@ def load_custom_css():
             background-color: var(--download-btn-hover-bg); color: var(--download-btn-hover-text);
             border: 1px solid var(--download-btn-border);
         }}
-        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="primary"] {{
-             background-color: var(--secondary-background-color); color: var(--primary-color);
-             border: 1px solid var(--border-color); font-weight: 500;
-             padding: 8px 12px; font-size: 0.9rem;
-        }}
-         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="primary"]:hover {{
-            background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--primary-color) 10%);
-            border-color: var(--primary-color); color: var(--primary-color);
-        }}
-        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"] {{
-            background-color: var(--logout-btn-bg) !important; color: var(--logout-btn-text) !important;
-            border: 1px solid var(--logout-btn-border) !important; font-weight: 600 !important;
-            padding: 8px 12px; font-size: 0.9rem; width: 100%;
-        }}
-         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"]:hover {{
-            background-color: var(--logout-btn-hover-bg) !important; color: var(--logout-btn-text) !important;
-            border: 1px solid var(--logout-btn-border) !important; transform: translateY(-2px);
-        }}
+        /* Style for the specific bottom logout button if needed, but using general secondary now */
         .streamlit-expanderHeader {{ font-size: 1.1em; }}
         .streamlit-expander {{ border-radius: 10px; margin-bottom: 1.3em; }}
         div[data-testid="stRadio"] {{ border-bottom: 2px solid var(--primary-color); margin-bottom: 30px; }}
         .transcript-details-section {{ margin-left: 20px; padding-left: 20px; border-left: 3px solid var(--primary-color); margin-top: 1.5em; }}
         .transcript-summary-grid {{ gap: 1.5em; margin-bottom: 2.2em; }}
         .transcript-summary-item {{ padding: 1.2em 1.4em; }}
-        .transcript-container {{ padding: 2em; border-radius: 10px; max-height: 600px; }} /* Max height for transcript */
+        .transcript-pane-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 2em; max-height: 400px; padding: 1.5em; background-color: var(--secondary-background-color); }}
+        .transcript-container {{ padding: 0; border-radius: 10px; max-height: 350px; overflow-y: auto; }} /* Adjusted padding and added overflow */
         .footer {{ padding: 40px 0; margin-top: 70px; }}
         .active-filters-summary {{ padding: 1.1em 1.5em; margin-bottom: 2.5em; }}
         .no-data-message {{ padding: 40px; font-size: 1.25rem; }}
@@ -185,43 +176,62 @@ def load_custom_css():
         .cell-status {{ font-weight: 500; }}
         .login-container {{
             display: flex; justify-content: center; align-items: center;
-            min-height: 80vh; flex-direction: column; text-align: center; padding: 2em;
+            min-height: 80vh; flex-direction: column; text-align: center; padding: 1em;
         }}
         .login-box {{
-            background-color: var(--login-box-bg); padding: 3.5em 4.5em;
+            background-color: var(--login-box-bg); padding: 2.5em 3em;
             border-radius: 15px; box-shadow: var(--login-box-shadow);
-            border: 1px solid var(--border-color); max-width: 500px; width: 100%;
+            border: 1px solid var(--border-color); max-width: 450px;
+            width: 100%;
         }}
-        .login-box .login-icon {{ font-size: 4rem; margin-bottom: 0.3em; color: var(--primary-color); }}
+        .login-box .login-icon {{ font-size: 3.5rem; margin-bottom: 0.3em; color: var(--primary-color); }}
         .login-box h2 {{
-             margin-top: 0; margin-bottom: 0.5em; font-size: 2.1rem;
+             margin-top: 0; margin-bottom: 0.5em; font-size: 1.8rem;
              color: var(--primary-color); border-bottom: none; font-weight: 700;
         }}
         .login-box p {{
-            margin-bottom: 3em; color: var(--text-color); opacity: 0.85;
-            font-size: 1.1rem; line-height: 1.6;
+            margin-bottom: 2em; color: var(--text-color); opacity: 0.85;
+            font-size: 1rem; line-height: 1.6;
         }}
-        .login-container div[data-testid="stButton"] > button {{
+        .login-box div[data-testid="stButton"] > button {{
             background-color: #4285F4 !important; color: white !important;
-            font-weight: 600 !important; font-size: 1.15rem !important;
-            padding: 15px 35px !important; border-radius: 8px !important;
+            font-weight: 600 !important; font-size: 1.1rem !important;
+            padding: 12px 30px !important; border-radius: 8px !important;
             border: none !important;
             transition: all 0.2s ease !important;
+            width: 100%;
         }}
-        .login-container div[data-testid="stButton"] > button:hover {{
+        .login-box div[data-testid="stButton"] > button:hover {{
             background-color: #357AE8 !important; color: white !important;
             transform: translateY(-3px) !important; box-shadow: 0 6px 12px rgba(66, 133, 244, 0.4) !important;
         }}
-         .login-container div[data-testid="stButton"] > button:focus {{
+         .login-box div[data-testid="stButton"] > button:focus {{
              box-shadow: 0 0 0 4px color-mix(in srgb, #4285F4 30%, transparent) !important;
              border: none !important;
+        }}
+        /* Responsive CSS */
+        @media (max-width: 768px) {{
+            h1 {{ font-size: 1.8rem; }}
+            h2 {{ font-size: 1.5rem; }}
+            h3 {{ font-size: 1.2rem; }}
+            .login-box {{ padding: 2em; }}
+            .custom-styled-table th, .custom-styled-table td {{ white-space: normal; }}
+            div[data-testid="stMetric"] {{ padding: 1em; }}
+            div[data-testid="stMetricValue"] > div {{ font-size: 2rem !important; }}
+        }}
+        @media (max-width: 480px) {{
+            .stApp {{ padding: 0.5rem; }}
+            .login-box {{ padding: 1.5em; }}
+            h1 {{ font-size: 1.5rem; }}
+            div[data-testid="stMetricValue"] > div {{ font-size: 1.8rem !important; }}
+            .custom-styled-table {{ font-size: 0.8rem; }}
         }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 load_custom_css()
 
-# --- Constants & Configuration (Keep As Is from v4.6.2) ---
+# --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and the Company.", "type": "Secondary", "chart_label": "Intro Self & Company"},
@@ -244,7 +254,7 @@ else:
     ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
 plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
 
-# --- Google SSO & Domain Check (Keep As Is from v4.6.2) ---
+# --- Google SSO & Domain Check ---
 def check_login_and_domain():
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
@@ -253,16 +263,18 @@ def check_login_and_domain():
                 <div class='login-box'>
                     <div class='login-icon'>🔑</div>
                     <h2>Dashboard Access</h2>
-                    <p>Please log in using your <b>authorized</b> Google account to access the Onboarding Dashboard.</p>
+                    <p>Please log in with your <b>authorized</b> Google account to access the dashboard.</p>
                 </div>
             </div>
         """, unsafe_allow_html=True)
         return False
+
     user_email = st.user.email
     if not user_email:
         st.error("Could not retrieve user email. Please try logging in again.")
         st.button("Log out", on_click=st.logout, type="secondary")
         return False
+
     if allowed_domain and not user_email.endswith(f"@{allowed_domain}"):
         st.error(f"🚫 Access Denied. Only users from the '{allowed_domain}' domain are allowed.")
         st.info(f"You are attempting to log in as: {user_email}")
@@ -270,7 +282,7 @@ def check_login_and_domain():
         return False
     return True
 
-# --- Data Loading & Processing Functions (Keep As Is from v4.6.2, including timezone fix) ---
+# --- Data Loading & Processing Functions ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -453,18 +465,7 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = pd.DataFrame()
 df_original = st.session_state.df_original
 
-user_display_name = "User"
-if hasattr(st.user, "email") and st.user.email:
-    user_email_prefix = st.user.email.split('@')[0]
-    user_display_name = user_email_prefix
-    if hasattr(st.user, "name") and st.user.name and st.user.name.strip():
-        try: first_name = st.user.name.split()[0]; user_display_name = first_name
-        except IndexError: user_display_name = st.user.name
-    st.sidebar.header(f"👤 Welcome, {user_display_name}")
-    st.sidebar.caption(st.user.email)
-else: st.sidebar.header(f"👤 Welcome!")
-st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
-st.sidebar.markdown("---")
+# --- Sidebar ---
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
 global_search_cols = {"licenseNumber": "License Number", "storeName": "Store Name"}
@@ -515,7 +516,7 @@ def clear_all_filters_and_search_v4_3_1():
     st.session_state.selected_transcript_key_dialog_global_search = None; st.session_state.selected_transcript_key_filtered_analysis = None
     st.session_state.active_tab = TAB_OVERVIEW
 if st.sidebar.button("🧹 Clear Filters", on_click=clear_all_filters_and_search_v4_3_1, use_container_width=True, key="clear_filters_button_v4_3_1", type="primary"): st.rerun()
-with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=False):
+with st.sidebar.expander("ℹ️ Score Breakdown (0-10 pts)", expanded=True): # Set to expanded
     st.markdown("""Score (0-10 pts):\n- **Primary (4 pts):** Kit Recv'd (2), Train/Promo Sched. (2).\n- **Secondary (3 pts):** Intro (1), Display Help (1), Promo Link (1).\n- **Bonuses (3 pts):** +1 Positive Sentiment, +1 Expectations Set, +1 Full Checklist Completion.""")
 st.sidebar.markdown("---"); st.sidebar.header("🔄 Data Management");
 if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3_1", use_container_width=True, type="primary"):
@@ -525,8 +526,21 @@ if st.session_state.get('last_data_refresh_time'):
     refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
-st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v4.6.2")
+
+# --- User Info & Logout (Moved to Bottom) ---
+st.sidebar.markdown("---") # Add a separator
+user_display_name = "User"
+if hasattr(st.user, "email") and st.user.email:
+    user_email_prefix = st.user.email.split('@')[0]
+    user_display_name = user_email_prefix
+    if hasattr(st.user, "name") and st.user.name and st.user.name.strip():
+        try: first_name = st.user.name.split()[0]; user_display_name = first_name
+        except IndexError: user_display_name = st.user.name
+    st.sidebar.caption(f"👤 {user_display_name} ({st.user.email})")
+
+else: st.sidebar.caption("👤 Welcome!")
+st.sidebar.button("Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar_bottom")
+st.sidebar.caption(f"Dashboard v4.6.5")
 
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
@@ -690,13 +704,13 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.markdown("---"); st.markdown("<h5>🎙️ Full Transcript:</h5>", unsafe_allow_html=True); transcript_content = selected_row_details.get('fullTranscript', "").strip()
                 if transcript_content and transcript_content.lower() not in ['na', 'n/a', '']:
-                    html_transcript_parts = ["<div class='transcript-container'>"]; processed_transcript_content = transcript_content.replace('\\n', '\n')
+                    html_transcript_parts = ["<div class='transcript-pane-container'><div class='transcript-container'>"]; processed_transcript_content = transcript_content.replace('\\n', '\n')
                     for line_item in processed_transcript_content.split('\n'):
                         line_item_stripped = line_item.strip();
                         if not line_item_stripped: continue
                         parts_of_line = line_item_stripped.split(":", 1); speaker_html = f"<strong>{parts_of_line[0].strip()}:</strong>" if len(parts_of_line) == 2 else ""
                         message_text = parts_of_line[1].strip() if len(parts_of_line) == 2 else line_item_stripped; html_transcript_parts.append(f"<p class='transcript-line'>{speaker_html} {message_text}</p>")
-                    html_transcript_parts.append("</div>"); st.markdown("".join(html_transcript_parts), unsafe_allow_html=True)
+                    html_transcript_parts.append("</div></div>"); st.markdown("".join(html_transcript_parts), unsafe_allow_html=True)
                 else: st.info("ℹ️ No transcript available or empty for this record.")
         else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No entries in table from {context_name_display} to select details. 📋</div>", unsafe_allow_html=True)
     else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📜 Necessary columns ('fullTranscript'/'summary') missing for details viewer in {context_name_display}. 📜</div>", unsafe_allow_html=True)
@@ -736,7 +750,7 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     if global_search_active: st.info("ℹ️ Global Search active. Results in pop-up. Close/clear search for category/date filters here.")
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
-        
+
         st.divider() # FIX: Added divider to separate sections
 
         st.header("🎨 Key Visualizations (Filtered Data)")
@@ -796,4 +810,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.3</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.5</div>", unsafe_allow_html=True)

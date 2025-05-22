@@ -1,5 +1,5 @@
 # onboarding_dashboard/streamlit_app.py
-# streamlit_app.py - v6.1.0 (Visually Revamped - Embedded CSS)
+# streamlit_app.py - v6.2.0 (Visually Revamped - Embedded CSS & Fixes)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -15,7 +15,7 @@ from pathlib import Path
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Dashboard v6.1.0",
+    page_title="Onboarding Dashboard v6.2.0",
     page_icon="💎", # Changed icon
     layout="wide",
     initial_sidebar_state="expanded"
@@ -622,7 +622,6 @@ if hasattr(st.user, "email") and st.user.email:
 else: st.sidebar.header(f"👤 Welcome!")
 st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
 st.sidebar.markdown("---")
-st.sidebar.markdown("🎨 **Theme**: Use Streamlit's menu (☰ → Settings) to toggle Light/Dark mode.")
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
@@ -810,7 +809,7 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             elif col_id == 'days_to_confirmation' and pd.notna(cell_value):
                 cell_display = f"{cell_value:.0f}"
             else:
-                cell_display = st.markdown._repr_html_(cell_value).strip().replace('<p>', '').replace('</p>', '')
+                cell_display = str(cell_value).strip().replace('<p>', '').replace('</p>', '')
 
             html_table.append(f"<td>{cell_display}</td>")
         html_table.append("</tr>")
@@ -977,7 +976,7 @@ if st.session_state.get('last_data_refresh_time'):
 st.markdown(f"""
 <div class='footer'>
     <div class='footer-content'>
-        <span>Onboarding Dashboard v6.1.0</span>
+        <span>Onboarding Dashboard v6.2.0</span>
         <span> | </span>
         <span>Last Refresh: {footer_time}</span>
     </div>

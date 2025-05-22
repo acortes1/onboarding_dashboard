@@ -10,12 +10,12 @@ import time
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
-from fpdf import FPDF, XPos, YPos # Align enum removed as we'll use string literals
+from fpdf import FPDF, XPos, YPos 
 import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.14", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.15", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -638,7 +638,7 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
-        return pdf.output(dest='B') 
+        return pdf.output(dest='B') # Output directly as bytes
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -651,19 +651,19 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Onboarding Record Details", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C") # Use string align
+        pdf.cell(0, 10, "Onboarding Record Details", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C") 
         pdf.ln(5)
 
         pdf.set_font("Helvetica", "I", 9)
         if last_refresh_dt:
             refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
-            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") # Use string align
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") 
         else:
-            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") # Use string align
+            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R") 
         pdf.ln(7)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Record Information", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
+        pdf.cell(0, 10, "Record Information", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") 
         pdf.set_font("Helvetica", "", 10)
 
         details_to_include = {
@@ -683,21 +683,21 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
 
         for label, value in details_to_include.items():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(60, 7, f"{label}:", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP) 
+            pdf.cell(60, 7, f"{label}:", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align="L") # Explicitly align left
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 7, str(value), border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
+            pdf.multi_cell(0, 7, str(value), border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) 
         pdf.ln(5)
 
         call_summary_text_pdf = record_series.get('summary', '').strip()
         if call_summary_text_pdf and call_summary_text_pdf.lower() not in ['na', 'n/a', '']:
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 10, "Call Summary", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
+            pdf.cell(0, 10, "Call Summary", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") 
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, call_summary_text_pdf, border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
+            pdf.multi_cell(0, 6, call_summary_text_pdf, border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) 
             pdf.ln(5)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Requirement Checklist", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") # Use string align
+        pdf.cell(0, 10, "Key Requirement Checklist", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L") 
         
         for item_col_name_req in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
             details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_req)
@@ -714,9 +714,9 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                     status_text = "Not Met"
                 
                 pdf.set_font("Helvetica", "B", 9)
-                pdf.cell(5, 6, f"- ", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP)
+                pdf.cell(5, 6, f"- ", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP, align="L") # Explicitly align left
                 pdf.set_font("Helvetica", "", 9)
-                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) # Use string align
+                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", border=0, align="L", new_x=XPos.LMARGIN, new_y=YPos.NEXT) 
         pdf.ln(2)
         
         return pdf.output(dest='B') # Output directly as bytes

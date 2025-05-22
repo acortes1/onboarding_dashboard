@@ -15,6 +15,10 @@ import numpy as np
 import re
 from dateutil import tz # For PST conversion
 
+# --- Page Configuration: MUST BE THE FIRST STREAMLIT COMMAND ---
+# Set a default page config. This can be updated later if the user authenticates.
+st.set_page_config(layout="centered", page_title="Login - Onboarding Dashboard")
+
 # --- Initialize Debug Log in Session State ---
 if "debug_log" not in st.session_state:
     st.session_state.debug_log = []
@@ -24,7 +28,7 @@ def log_debug(message):
     st.session_state.debug_log.append(f"[{timestamp}] {message}")
 
 # --- Display Debug Log and Query Params at the top ---
-# This will run on every script execution
+# This will run on every script execution after the initial page config
 log_debug(f"Script run. Authenticated: {st.session_state.get('authenticated', False)}.")
 st.sidebar.expander("📋 SESSION DEBUG LOG", expanded=True).json(st.session_state.debug_log[-30:]) # Show last 30, expanded by default for debugging
 
@@ -215,7 +219,7 @@ if not st.session_state.get("authenticated", False) and "code" in _current_query
 # --- Main Application UI ---
 if not st.session_state.get("authenticated", False):
     # --- Login Page ---
-    st.set_page_config(layout="centered", page_title="Login - Onboarding Dashboard")
+    # st.set_page_config already called at the top for initial login page setup
     log_debug("Displaying Login Page.")
     st.title("Welcome to the Onboarding Dashboard 🛡️")
     st.markdown(f"Please log in with your **{ALLOWED_DOMAIN}** Google account to continue.")
@@ -224,6 +228,7 @@ if not st.session_state.get("authenticated", False):
     st.caption("You will be redirected to Google for authentication.")
 else:
     # --- Authenticated User - Display Dashboard ---
+    # Update page config for the authenticated view
     st.set_page_config(
         page_title="Onboarding Analytics Dashboard v4.3.1",
         page_icon="📈",

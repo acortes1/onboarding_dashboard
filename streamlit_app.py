@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.0
+# streamlit_app.py - v4.6.1
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,13 +13,13 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.0", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.1", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection ---
+# --- Custom CSS Injection (Keep As Is from v4.6.0) ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
     THEME = st.get_option("theme.base")
@@ -98,6 +98,7 @@ def load_custom_css():
             --download-btn-border: {DOWNLOAD_BTN_BORDER}; --download-btn-hover-bg: {DOWNLOAD_BTN_HOVER_BG};
             --download-btn-hover-text: {DOWNLOAD_BTN_HOVER_TEXT};
         }}
+        /* ... (Keep ALL other CSS rules from v4.6.0 here) ... */
         body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
         .stApp {{ padding: 0.5rem 1rem; }}
 
@@ -184,9 +185,14 @@ def load_custom_css():
         div[data-testid="stMultiSelect"] div[role="combobox"] {{ border-radius: 8px !important; }} /* Softer radius */
 
         /* Table Styles - Ensure all cell colors are included */
-        .custom-table-container {{ border-radius: 10px; margin-bottom: 2em; max-height: 500px; }}
-        .custom-styled-table {{ font-size: var(--table-font-size); }}
-        .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); }}
+        .custom-table-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 2em; max-height: 500px; }}
+        .custom-styled-table {{ width: 100%; border-collapse: collapse; font-size: var(--table-font-size); color: var(--text-color); }}
+        .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); text-align: left; border-bottom: 1px solid var(--table-border-color); border-right: 1px solid var(--table-border-color); white-space: nowrap; }}
+        .custom-styled-table th:last-child, .custom-styled-table td:last-child {{ border-right: none; }}
+        .custom-styled-table thead tr {{ border-bottom: 2px solid var(--primary-color); }}
+        .custom-styled-table th {{ background-color: var(--table-header-bg); color: var(--table-header-text); font-weight: 600; text-transform: capitalize; position: sticky; top: 0; z-index: 1; }}
+        .custom-styled-table tbody tr:hover {{ background-color: color-mix(in srgb, var(--secondary-background-color) 75%, var(--primary-color) 8%); }}
+        .custom-styled-table td {{ font-weight: 400; }}
         .cell-score-good {{ background-color: var(--score-good-bg); color: var(--score-good-text); }}
         .cell-score-medium {{ background-color: var(--score-medium-bg); color: var(--score-medium-text); }}
         .cell-score-bad {{ background-color: var(--score-bad-bg); color: var(--score-bad-text); }}
@@ -244,7 +250,6 @@ load_custom_css()
 
 # --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-# REMOVED DIME Industries branding
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and the Company.", "type": "Secondary", "chart_label": "Intro Self & Company"},
     'confirmKitReceived': {"description": "Confirm kit and initial order received.", "type": "Primary", "chart_label": "Kit & Order Recv'd"},
@@ -256,8 +261,6 @@ KEY_REQUIREMENT_DETAILS = {
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 PST_TIMEZONE = tz.gettz('America/Los_Angeles'); UTC_TIMEZONE = tz.tzutc()
-
-# Plotly Theme Setup
 THEME_PLOTLY = st.get_option("theme.base")
 PLOT_BG_COLOR_PLOTLY = "rgba(0,0,0,0)"
 if THEME_PLOTLY == "light":
@@ -267,7 +270,6 @@ else:
     ACTIVE_PLOTLY_PRIMARY_SEQ = ['#BE90D4', '#9B59B6', '#6A0DAD', '#D2B4DE', '#E8DAEF']; ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set3
     ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
 plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
-
 
 # --- Google SSO & Domain Check ---
 def check_login_and_domain():
@@ -292,7 +294,6 @@ def check_login_and_domain():
         st.button("Log out", on_click=st.logout, type="secondary")
         return False
 
-    # Only check domain if ALLOWED_DOMAIN is set in secrets and not empty
     if allowed_domain and not user_email.endswith(f"@{allowed_domain}"):
         st.error(f"🚫 Access Denied. Only users from the '{allowed_domain}' domain are allowed.")
         st.info(f"You are attempting to log in as: {user_email}")
@@ -301,7 +302,7 @@ def check_login_and_domain():
 
     return True # User is logged in and authorized
 
-# --- Data Loading & Processing Functions (Keep As Is) ---
+# --- Data Loading & Processing Functions ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -331,16 +332,31 @@ def robust_to_datetime(series):
             if dates.notnull().all(): break
     return dates
 
+# --- FIX: Robust Timezone Handling ---
 def format_datetime_to_pst_str(dt_series):
-    if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all(): return dt_series
-    def convert_element_to_pst(element):
+    if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all():
+        return dt_series
+
+    def convert_element(element):
         if pd.isna(element): return None
         try:
-            aware_element = element.tz_localize(UTC_TIMEZONE) if element.tzinfo is None else element.astimezone(UTC_TIMEZONE)
-            pst_element = aware_element.astimezone(PST_TIMEZONE)
+            if element.tzinfo is None:
+                utc_element = element.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+            else:
+                utc_element = element.tz_convert(UTC_TIMEZONE)
+            pst_element = utc_element.tz_convert(PST_TIMEZONE)
             return pst_element.strftime('%Y-%m-%d %I:%M %p PST')
         except Exception: return str(element)
-    return dt_series.apply(convert_element_to_pst)
+
+    try:
+        if dt_series.dt.tz is None:
+            utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+        else:
+            utc_series = dt_series.dt.tz_convert(UTC_TIMEZONE)
+        pst_series = utc_series.dt.tz_convert(PST_TIMEZONE)
+        return pst_series.apply(lambda x: x.strftime('%Y-%m-%d %I:%M %p PST') if pd.notnull(x) else None)
+    except Exception:
+        return dt_series.apply(convert_element)
 
 def format_phone_number(number_str):
     if pd.isna(number_str) or not str(number_str).strip(): return ""
@@ -357,7 +373,7 @@ def capitalize_name(name_str):
 def load_data_from_google_sheet():
     gc = authenticate_gspread_cached()
     current_time = datetime.now(UTC_TIMEZONE)
-    st.session_state.last_data_refresh_time = current_time # Set time even if gc fails
+    st.session_state.last_data_refresh_time = current_time
     if gc is None: return pd.DataFrame()
 
     sheet_url_or_name = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME")
@@ -372,43 +388,47 @@ def load_data_from_google_sheet():
         if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame()
 
         df = pd.DataFrame(data)
-        # Standardize, Map, Rename (As before)
         df.rename(columns={col: "".join(str(col).strip().lower().split()) for col in df.columns}, inplace=True)
         column_name_map_to_code = {"licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "dcc": "licenseNumber", "storename": "storeName", "accountname": "storeName", "repname": "repName", "representative": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "confirmedat": "confirmationTimestamp", "clientsentiment": "clientSentiment", "sentiment": "clientSentiment", "fulltranscript": "fullTranscript", "transcript": "fullTranscript", "score": "score", "onboardingscore": "score", "status": "status", "onboardingstatus": "status", "summary": "summary", "callsummary": "summary", "contactnumber": "contactNumber", "phone": "contactNumber", "confirmednumber": "confirmedNumber", "verifiednumber":"confirmedNumber", "contactname": "contactName", "clientcontact": "contactName"}
         for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): column_name_map_to_code[req_key_internal.lower()] = req_key_internal
         cols_to_rename_actual = {std_col: code_col for std_col, code_col in column_name_map_to_code.items() if std_col in df.columns and code_col not in df.columns}
         df.rename(columns=cols_to_rename_actual, inplace=True)
 
-        # Process Dates (As before)
         date_cols_map = {'onboardingDate': 'onboardingDate_dt', 'deliveryDate': 'deliveryDate_dt', 'confirmationTimestamp': 'confirmationTimestamp_dt'}
         for original_col, dt_col in date_cols_map.items():
             if original_col in df.columns:
                 df[original_col] = df[original_col].astype(str).str.replace('\n',' ',regex=False).str.strip()
                 df[dt_col] = robust_to_datetime(df[original_col])
-                df[original_col] = format_datetime_to_pst_str(df[dt_col])
+                df[original_col] = format_datetime_to_pst_str(df[dt_col]) # Use fixed function
             else: df[dt_col] = pd.NaT
         df['onboarding_date_only'] = df['onboardingDate_dt'].dt.date if 'onboardingDate_dt' in df.columns else pd.NaT
 
-        # Process Days to Confirmation (As before)
+        # --- FIX: Robust Days to Confirmation Calc ---
         if 'deliveryDate_dt' in df.columns and 'confirmationTimestamp_dt' in df.columns:
-            delivery_utc = df['deliveryDate_dt'].dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT').fillna(pd.NaT)
-            confirmation_utc = df['confirmationTimestamp_dt'].dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT').fillna(pd.NaT)
+            def ensure_utc_for_calc(series_dt):
+                """Safely converts a series to UTC if not already."""
+                if pd.api.types.is_datetime64_any_dtype(series_dt) and series_dt.notna().any():
+                    if series_dt.dt.tz is None:
+                        return series_dt.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
+                    else:
+                        return series_dt.dt.tz_convert(UTC_TIMEZONE)
+                return series_dt.fillna(pd.NaT)
+
+            delivery_utc = ensure_utc_for_calc(df['deliveryDate_dt'])
+            confirmation_utc = ensure_utc_for_calc(df['confirmationTimestamp_dt'])
             df['days_to_confirmation'] = (confirmation_utc - delivery_utc).dt.days
         else: df['days_to_confirmation'] = pd.NA
 
-        # Process Phones & Names (As before)
         for phone_col in ['contactNumber', 'confirmedNumber']:
             if phone_col in df.columns: df[phone_col] = df[phone_col].apply(format_phone_number)
         for name_col in ['repName', 'contactName']:
             if name_col in df.columns: df[name_col] = df[name_col].apply(capitalize_name)
 
-        # Ensure Columns & Types (As before)
         string_cols = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber', 'onboardingDate', 'deliveryDate', 'confirmationTimestamp']
         for col in string_cols: df[col] = df.get(col, "").astype(str).replace(['nan', 'NaN', 'None', 'NaT', '<NA>'], "", regex=False).fillna("")
         df['score'] = pd.to_numeric(df.get('score'), errors='coerce')
         for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS: df[col] = df.get(col, pd.NA)
 
-        # Drop unused columns
         cols_to_drop = [col for col in ['deliverydatets', 'onboardingwelcome'] if col in df.columns]
         if cols_to_drop: df = df.drop(columns=cols_to_drop)
 
@@ -418,6 +438,8 @@ def load_data_from_google_sheet():
     except Exception as e:
         st.error(f"🌪️ Error loading data: {e}"); return pd.DataFrame()
 
+# ... (Keep the rest of the app logic: Session State, Sidebar, Main Content, Tabs, Tables, Charts) ...
+# ... (Ensure all st.button calls use type="primary" or type="secondary" for styling hooks) ...
 @st.cache_data
 def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).encode('utf-8')
 
@@ -438,22 +460,6 @@ def get_default_date_range(date_series):
     end = min(today, max_date) if max_date else today
     return (start, end) if start <= end else ((min_date, max_date) if min_date and max_date else (start_of_month, today))
 
-# --- Main App Logic ---
-
-is_logged_in_and_authorized = check_login_and_domain()
-
-if not is_logged_in_and_authorized:
-    if not st.user.is_logged_in:
-        _, login_col, _ = st.columns([1, 1.5, 1])
-        with login_col:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
-    st.stop()
-
-# --- If Logged In & Authorized, Proceed ---
-
-# Session State Initialization (Keep As Is)
-# ... (NO CHANGES NEEDED HERE) ...
 default_s_init, default_e_init = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -495,7 +501,6 @@ st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, 
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
-# ... (Keep Global Search Widgets as is) ...
 global_search_cols = {"licenseNumber": "License Number", "storeName": "Store Name"}
 ln_search_val = st.sidebar.text_input(f"Search {global_search_cols['licenseNumber']}:", value=st.session_state.get("licenseNumber_search", ""), key="licenseNumber_global_search_widget_v4_3_1", help="Enter license number part.")
 if ln_search_val != st.session_state["licenseNumber_search"]: st.session_state["licenseNumber_search"] = ln_search_val; st.session_state.show_global_search_dialog = bool(ln_search_val or st.session_state.get("storeName_search", "")); st.rerun()
@@ -509,7 +514,6 @@ if selected_store_val != st.session_state["storeName_search"]: st.session_state[
 st.sidebar.markdown("---"); global_search_active = bool(st.session_state.get("licenseNumber_search", "") or st.session_state.get("storeName_search", ""))
 st.sidebar.subheader("📊 Filters"); st.sidebar.caption("Filters overridden by Global Search." if global_search_active else "Apply filters to dashboard data.")
 st.sidebar.markdown("##### Quick Date Ranges"); s_col1, s_col2, s_col3 = st.sidebar.columns(3); today_for_shortcuts = date.today()
-# ... (Keep Quick Date Buttons as is, using type="primary") ...
 if s_col1.button("MTD", key="mtd_button_v4_3_1", use_container_width=True, disabled=global_search_active, type="primary"):
     if not global_search_active: start_mtd = today_for_shortcuts.replace(day=1); st.session_state.date_range = (start_mtd, today_for_shortcuts); st.session_state.date_filter_is_active = True; st.rerun()
 if s_col2.button("YTD", key="ytd_button_v4_3_1", use_container_width=True, disabled=global_search_active, type="primary"):
@@ -518,7 +522,6 @@ if s_col3.button("ALL", key="all_button_v4_3_1", use_container_width=True, disab
     if not global_search_active:
         all_start = st.session_state.get('min_data_date_for_filter', today_for_shortcuts.replace(year=today_for_shortcuts.year-1)); all_end = st.session_state.get('max_data_date_for_filter', today_for_shortcuts)
         if all_start and all_end: st.session_state.date_range = (all_start, all_end); st.session_state.date_filter_is_active = True; st.rerun()
-# ... (Keep Date Input & Multiselects as is) ...
 current_session_start, current_session_end = st.session_state.date_range; min_dt_for_widget = st.session_state.get('min_data_date_for_filter'); max_dt_for_widget = st.session_state.get('max_data_date_for_filter')
 val_start_widget = current_session_start;
 if min_dt_for_widget and current_session_start < min_dt_for_widget: val_start_widget = min_dt_for_widget
@@ -539,7 +542,6 @@ for col_key, label_text in category_filters_map.items():
     new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_3_1", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.")
     if not global_search_active and new_selection_multiselect != valid_current_selection: st.session_state[f"{col_key}_filter"] = new_selection_multiselect; st.rerun()
     elif global_search_active and st.session_state.get(f"{col_key}_filter") != new_selection_multiselect: st.session_state[f"{col_key}_filter"] = new_selection_multiselect
-# ... (Keep Clear Filters Button as is, using type="primary") ...
 def clear_all_filters_and_search_v4_3_1():
     ds_cleared, de_cleared = get_default_date_range(st.session_state.df_original.get('onboarding_date_only')); st.session_state.date_range = (ds_cleared, de_cleared); st.session_state.date_filter_is_active = False
     st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""; st.session_state.show_global_search_dialog = False
@@ -558,13 +560,10 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v4.6.0") # Removed branding
+st.sidebar.caption(f"Dashboard v4.6.1") # Removed branding
 
 
-# --- Main Content Area ---
 st.title("📈 Onboarding Analytics Dashboard")
-# ... (Keep all existing dashboard logic, tables, charts etc.) ...
-# ... (Ensure get_cell_style_class & display_html_table_and_details are kept) ...
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>⏳ Initializing data... If persists, check configurations. ⏳</div>", unsafe_allow_html=True)
@@ -827,4 +826,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.0.</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.1</div>", unsafe_allow_html=True)

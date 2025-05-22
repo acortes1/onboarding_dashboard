@@ -8,5 +8,7 @@ google-auth-oauthlib
 google-auth-httplib2
 python-dateutil
 matplotlib # Kept if any other part of a larger system might use it, but not directly by this script
-fpdf2 # For PDF generation
-kaleido # For exporting Plotly charts to static images (needed for PDF)
+requests
+requests-oauthlib
+google-auth
+gspread-dataframe

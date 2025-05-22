@@ -1,5 +1,5 @@
 # onboarding_dashboard/streamlit_app.py
-# streamlit_app.py - v6.0.0 (Visually Revamped)
+# streamlit_app.py - v6.1.0 (Visually Revamped - Embedded CSS)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -11,49 +11,358 @@ import time
 import numpy as np
 import re
 from dateutil import tz  # For PST conversion
-import base64
 from pathlib import Path
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Dashboard v6.0.0",
-    page_icon="✨", # Using an emoji as a fallback, icon handling can be added
+    page_title="Onboarding Dashboard v6.1.0",
+    page_icon="💎", # Changed icon
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Asset Loading ---
-def load_css(file_name):
-    """Loads a CSS file and injects it into the Streamlit app."""
-    try:
-        with open(file_name) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        st.error(f"🚨 CSS file not found: {file_name}")
+# --- Embedded CSS ---
+def get_dashboard_css():
+    """Returns the full CSS string for the dashboard."""
+    return """
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display:wght@700&display=swap');
 
-def get_icon(icon_name, folder="assets/icons/feather", ext=".svg"):
-    """Reads an SVG icon file and returns its base64 encoded version."""
-    icon_path = Path(folder) / f"{icon_name}{ext}"
-    try:
-        with open(icon_path, "rb") as f:
-            svg_bytes = f.read()
-            b64_svg = base64.b64encode(svg_bytes).decode("utf-8")
-            return f"data:image/svg+xml;base64,{b64_svg}"
-    except FileNotFoundError:
-        print(f"⚠️ Icon not found: {icon_path}")
-        return "" # Return empty string or a default icon
+    /* --- Base Variables & Font Setup --- */
+    :root {
+        --font-body: 'Inter', sans-serif;
+        --font-display: 'Playfair Display', serif;
 
-def load_feather_icons_js():
-    """Loads Feather Icons JS for rendering."""
-    # This is an alternative if direct SVG isn't sufficient, but sticking to SVG for now.
-    # st.markdown('<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>', unsafe_allow_html=True)
-    # st.markdown('<script>feather.replace()</script>', unsafe_allow_html=True)
-    pass # Using inline SVGs/CSS for now
+        --border-radius-sm: 4px;
+        --border-radius-md: 8px;
+        --border-radius-lg: 16px;
+        --border-radius-xl: 20px;
 
-# --- Load Assets ---
-load_css("assets/theme.css")
-# sun_icon = get_icon("sun") # Example: How to get icons if needed
-# moon_icon = get_icon("moon")
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 16px;
+        --spacing-lg: 24px;
+        --spacing-xl: 32px;
+
+        --transition-speed: 150ms;
+        --box-shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.05);
+        --box-shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    /* --- Light Theme Variables --- */
+    [data-theme="light"] {
+        --color-background: #FFFFFF;
+        --color-surface: #F9FAFB;
+        --color-primary: #0A4B44;
+        --color-secondary: #00A08C;
+        --color-accent: #0A4B44;
+        --color-success: #10B981;
+        --color-warning: #F59E0B;
+        --color-error: #EF4444;
+        --color-text-primary: #1F2937;
+        --color-text-secondary: #6B7280;
+        --color-border: #E5E7EB;
+        --color-table-cell-bg: #FFFFFF;
+        --color-table-cell-text: #1F2937;
+        --color-table-hover-bg: #F3F4F6;
+        --color-scrollbar-thumb: #D1D5DB;
+        --color-scrollbar-track: #F9FAFB;
+        --color-glass-bg: rgba(255, 255, 255, 0.6);
+        --color-kpi-border: rgba(10, 75, 68, 0.4);
+    }
+
+    /* --- Dark Theme Variables --- */
+    [data-theme="dark"] {
+        --color-background: #0D0D0F;
+        --color-surface: #1A1A1C;
+        --color-primary: #00E0B6;
+        --color-secondary: #00A08C;
+        --color-accent: #00E0B6;
+        --color-success: #34D399;
+        --color-warning: #FBBF24;
+        --color-error: #F87171;
+        --color-text-primary: #F9FAFB;
+        --color-text-secondary: #9CA3AF;
+        --color-border: #374151;
+        --color-table-cell-bg: #1A1A1C;
+        --color-table-cell-text: #F9FAFB;
+        --color-table-hover-bg: #2d2d30;
+        --color-scrollbar-thumb: #4B5563;
+        --color-scrollbar-track: #1A1A1C;
+        --color-glass-bg: rgba(26, 26, 28, 0.6);
+        --color-kpi-border: rgba(0, 224, 182, 0.4);
+    }
+
+    /* --- Base Styles --- */
+    body, .stApp {
+        font-family: var(--font-body);
+        background-color: var(--color-background);
+        color: var(--color-text-primary);
+        transition: background-color var(--transition-speed) ease-in-out, color var(--transition-speed) ease-in-out;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        letter-spacing: 0.2px;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: var(--font-display);
+        color: var(--color-primary) !important; /* Use important if needed */
+        font-weight: 700;
+    }
+
+    .main-title {
+        font-family: var(--font-display);
+        color: var(--color-primary);
+        font-size: 2.8rem;
+        text-align: center;
+        border-bottom: 2px solid var(--color-primary);
+        padding-bottom: 0.6em;
+        margin-bottom: 1em !important;
+    }
+
+    h2 {
+        font-size: 1.8rem;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.4em;
+        margin-top: var(--spacing-lg);
+        margin-bottom: var(--spacing-md);
+        color: var(--color-secondary) !important;
+    }
+    h5 { font-family: var(--font-body); font-weight: 600; color: var(--color-primary) !important; }
+    h6 { font-family: var(--font-body); font-weight: 600; color: var(--color-secondary) !important; }
+
+    /* --- Layout --- */
+    .main .block-container {
+        max-width: 1600px;
+        padding: var(--spacing-md) var(--spacing-lg) var(--spacing-xl);
+    }
+
+    /* --- KPI Cards --- */
+    div[data-testid="stMetric"] {
+        background: var(--color-glass-bg);
+        backdrop-filter: blur(10px) saturate(150%);
+        -webkit-backdrop-filter: blur(10px) saturate(150%);
+        border-radius: var(--border-radius-lg);
+        border: 2px solid var(--color-kpi-border);
+        box-shadow: var(--box-shadow-soft);
+        padding: 1.5em 1.8em;
+        transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
+        will-change: transform;
+        margin-bottom: var(--spacing-md);
+    }
+
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: var(--box-shadow-medium);
+    }
+
+    div[data-testid="stMetricLabel"] > div {
+        font-family: var(--font-body);
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        opacity: 0.9;
+        text-transform: uppercase;
+    }
+
+    div[data-testid="stMetricValue"] > div, div[data-testid="stMetricValue"] {
+        font-family: var(--font-display);
+        font-size: 3rem !important;
+        color: var(--color-primary) !important;
+        font-weight: 700 !important;
+    }
+    div[data-testid="stMetricDelta"] > div {
+        color: var(--color-text-secondary) !important;
+        opacity: 0.8;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stMetricDelta"] span[data-testid="metric-delta-indicator-up"] { color: var(--color-success) !important; }
+    div[data-testid="stMetricDelta"] span[data-testid="metric-delta-indicator-down"] { color: var(--color-error) !important; }
+
+
+    /* --- Sidebar --- */
+    div[data-testid="stSidebar"] {
+        background-color: var(--color-surface);
+        border-right: 1px solid var(--color-border);
+        padding: var(--spacing-md);
+    }
+    div[data-testid="stSidebar"] h1,
+    div[data-testid="stSidebar"] h2,
+    div[data-testid="stSidebar"] h3 {
+        color: var(--color-primary) !important;
+    }
+    div[data-testid="stSidebar"] .stButton > button {
+        background-color: var(--color-primary);
+        color: var(--color-background);
+        border: 1px solid var(--color-primary);
+        border-radius: var(--border-radius-md);
+        transition: background-color var(--transition-speed), transform var(--transition-speed);
+    }
+    div[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: var(--color-secondary);
+        border: 1px solid var(--color-secondary);
+        transform: translateY(-2px);
+    }
+
+    /* --- Buttons --- */
+    div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {
+        border-radius: var(--border-radius-md);
+        font-weight: 600;
+        transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out, background-color var(--transition-speed), color var(--transition-speed);
+        border: 2px solid var(--color-primary);
+        background-color: transparent;
+        color: var(--color-primary);
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+    div[data-testid="stButton"] > button:hover, div[data-testid="stDownloadButton"] > button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        background-color: var(--color-primary);
+        color: var(--color-background); /* White or Black depending on theme */
+    }
+    div[data-testid="stButton"] > button[kind="primary"] {
+        background-color: var(--color-primary);
+        color: var(--color-background);
+    }
+    div[data-testid="stButton"] > button[kind="primary"]:hover {
+        background-color: var(--color-secondary);
+        border-color: var(--color-secondary);
+    }
+
+    /* --- Tables --- */
+    .custom-table-container {
+        border-radius: var(--border-radius-lg);
+        box-shadow: var(--box-shadow-soft);
+        border: 1px solid var(--color-border);
+        overflow: hidden;
+        background-color: var(--color-surface);
+        margin-bottom: var(--spacing-lg);
+    }
+    .custom-styled-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        color: var(--color-table-cell-text);
+    }
+    .custom-styled-table th {
+        background-color: var(--color-surface);
+        color: var(--color-primary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--color-primary);
+        padding: var(--spacing-md) var(--spacing-sm);
+        text-align: left;
+    }
+    .custom-styled-table td {
+        border-bottom: 1px solid var(--color-border);
+        padding: var(--spacing-sm) var(--spacing-sm);
+        vertical-align: middle;
+    }
+    .custom-styled-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    .custom-styled-table tbody tr:hover {
+        background-color: var(--color-table-hover-bg);
+    }
+
+    /* --- Status Chips --- */
+    .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: 12px; /* Pill shape */
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .status-chip::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: var(--spacing-sm);
+        display: inline-block;
+    }
+
+    .status-confirmed { background-color: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); }
+    .status-confirmed::before { background-color: var(--color-success); }
+    .status-unconfirmed { background-color: color-mix(in srgb, var(--color-warning) 15%, transparent); color: var(--color-warning); }
+    .status-unconfirmed::before { background-color: var(--color-warning); }
+    .status-error { background-color: color-mix(in srgb, var(--color-error) 15%, transparent); color: var(--color-error); }
+    .status-error::before { background-color: var(--color-error); }
+    .status-unknown { background-color: color-mix(in srgb, var(--color-text-secondary) 15%, transparent); color: var(--color-text-secondary); }
+    .status-unknown::before { background-color: var(--color-text-secondary); }
+
+    /* --- Charts --- */
+    .stPlotlyChart {
+        border-radius: var(--border-radius-lg);
+        padding: 1em;
+        background: var(--color-surface);
+        box-shadow: var(--box-shadow-soft);
+        border: 1px solid var(--color-border);
+    }
+
+    /* --- Filter Summary & Misc --- */
+    .active-filters-summary {
+        padding: 1em 1.5em;
+        margin-bottom: var(--spacing-lg);
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-border);
+        background-color: var(--color-surface);
+        font-size: 0.9rem;
+        color: var(--color-text-secondary);
+    }
+
+    /* --- Login --- */
+    .login-container { text-align: center; margin-top: 5vh; }
+    .login-box {
+        background: var(--color-surface);
+        border-radius: var(--border-radius-xl);
+        box-shadow: var(--box-shadow-medium);
+        border: 1px solid var(--color-border);
+        padding: var(--spacing-xl);
+        max-width: 450px;
+        margin: auto;
+    }
+    .login-container h2 { color: var(--color-primary); margin-bottom: var(--spacing-md); }
+    .login-container p { color: var(--color-text-secondary); margin-bottom: var(--spacing-lg); }
+    .login-container .stButton > button {
+        background-color: var(--color-primary) !important;
+        color: var(--color-background) !important;
+    }
+
+    /* --- Transcript/Details --- */
+    .transcript-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); background-color: var(--color-surface); padding: var(--spacing-md); border-radius: var(--border-radius-md); margin-bottom: var(--spacing-md); }
+    .transcript-summary-item { font-size: 0.95rem; }
+    .transcript-summary-item strong { color: var(--color-primary); }
+    .transcript-details-section { background-color: var(--color-surface); padding: var(--spacing-md); border-radius: var(--border-radius-md); margin-bottom: var(--spacing-md); }
+    .requirement-item { margin-bottom: var(--spacing-xs); font-size: 0.9rem; }
+    .requirement-item .type { font-size: 0.75rem; background-color: var(--color-border); color: var(--color-text-secondary); padding: 2px 6px; border-radius: var(--border-radius-sm); margin-left: var(--spacing-sm); }
+    .transcript-container { background-color: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--border-radius-md); padding: var(--spacing-md); max-height: 400px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6; }
+    .transcript-line { margin-bottom: var(--spacing-sm); }
+    .transcript-line strong { color: var(--color-primary); }
+
+    /* --- Footer --- */
+    .footer { text-align: center; padding: var(--spacing-md) 0; color: var(--color-text-secondary); font-size: 0.8rem; border-top: 1px solid var(--color-border); margin-top: var(--spacing-xl); }
+
+    /* --- Scrollbars --- */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--color-scrollbar-track); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--color-scrollbar-thumb); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-secondary); }
+
+    /* Reduce Motion */
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+    """
+
+def load_and_inject_css():
+    """Loads and injects the custom CSS for the application."""
+    st.markdown(f"<style>{get_dashboard_css()}</style>", unsafe_allow_html=True)
+
+load_and_inject_css()
 
 # --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -70,21 +379,20 @@ ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 PST_TIMEZONE = tz.gettz('America/Los_Angeles'); UTC_TIMEZONE = tz.tzutc()
 
 # Color definitions (Ensure these match theme.css for Plotly)
-GOLD_ACCENT_DARK = "#00E0B6" # Updated accent
-GOLD_ACCENT_LIGHT = "#0A4B44" # Updated accent
+GOLD_ACCENT_DARK = "#00E0B6"
+GOLD_ACCENT_LIGHT = "#0A4B44"
 
 PLOT_BG_COLOR_PLOTLY = "rgba(0,0,0,0)"
-# Using CSS variables is ideal, but Plotly needs explicit colors. We'll use Streamlit's theme detection.
 THEME_PLOTLY = st.get_option("theme.base")
 TEXT_COLOR_FOR_PLOTLY = "#FFFFFF" if THEME_PLOTLY == "dark" else "#0D0D0F"
 GOLD_ACCENT = GOLD_ACCENT_DARK if THEME_PLOTLY == "dark" else GOLD_ACCENT_LIGHT
-ACTIVE_PLOTLY_PRIMARY_SEQ = [GOLD_ACCENT, '#E0C77B', '#A88D2B', '#F5E4A8', '#7A651F'] # Needs update based on new palette
-ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel # Needs update
-ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' } # Needs update
+ACTIVE_PLOTLY_PRIMARY_SEQ = [GOLD_ACCENT, '#00A08C', '#34D399', '#FBBF24', '#F87171'] # Updated Palette
+ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Plotly # Using a standard one
+ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#34D399', 'negative': '#F87171', 'neutral': '#9CA3AF' } # Updated Palette
 
 plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(0, 224, 182, 0.15)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": GOLD_ACCENT, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": GOLD_ACCENT}
 
-# --- Google SSO & Domain Check (Unchanged) ---
+# --- Google SSO & Domain Check ---
 def check_login_and_domain():
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
@@ -109,7 +417,7 @@ def check_login_and_domain():
         return False
     return True
 
-# --- Data Loading & Processing Functions (Largely Unchanged, added status mapping) ---
+# --- Data Loading & Processing Functions ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -267,7 +575,7 @@ if not is_logged_in_and_authorized:
             st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
     st.stop()
 
-# --- Session State Initialization (Unchanged) ---
+# --- Session State Initialization ---
 default_s_init, default_e_init = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -287,7 +595,7 @@ st.session_state.setdefault('selected_transcript_key_dialog_global_search', None
 st.session_state.setdefault('selected_transcript_key_filtered_analysis', None)
 st.session_state.setdefault('show_global_search_dialog', False)
 
-# --- Data Loading Trigger (Unchanged) ---
+# --- Data Loading Trigger ---
 if not st.session_state.data_loaded:
     df_loaded = load_data_from_google_sheet()
     if not df_loaded.empty:
@@ -301,7 +609,7 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = pd.DataFrame()
 df_original = st.session_state.df_original
 
-# --- Sidebar (Add Theme Toggle, Minor Style Updates) ---
+# --- Sidebar ---
 user_display_name = "User"
 if hasattr(st.user, "email") and st.user.email:
     user_email_prefix = st.user.email.split('@')[0]
@@ -314,9 +622,7 @@ if hasattr(st.user, "email") and st.user.email:
 else: st.sidebar.header(f"👤 Welcome!")
 st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
 st.sidebar.markdown("---")
-# Theme Toggle - Rely on Streamlit's built-in one (Settings -> Theme)
-# st.sidebar.toggle("🌙 Dark Mode", key="theme_toggle") # This won't work easily.
-st.sidebar.markdown("🎨 **Theme**: Use Streamlit's menu (top-right) to toggle Light/Dark mode.")
+st.sidebar.markdown("🎨 **Theme**: Use Streamlit's menu (☰ → Settings) to toggle Light/Dark mode.")
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
@@ -380,7 +686,7 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v6.0.0") # Updated Version
+st.sidebar.caption(f"Dashboard v6.1.0")
 
 
 # --- Main Area ---
@@ -418,7 +724,7 @@ final_summary_message = " | ".join(filter(None, summary_parts));
 if not final_summary_message: final_summary_message = "Displaying data (default date range)."
 st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
 
-# --- Data Filtering (Updated status filter) ---
+# --- Data Filtering ---
 df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
 if not df_original.empty:
     if global_search_active:
@@ -433,7 +739,6 @@ if not df_original.empty:
             if valid_dates_mask.any(): date_filter_condition[valid_dates_mask] = (date_objects_for_filter[valid_dates_mask] >= start_dt_filter) & (date_objects_for_filter[valid_dates_mask] <= end_dt_filter)
             df_temp_filters = df_temp_filters[date_filter_condition]
 
-        # Loop through category filters
         for col_key, _ in category_filters_map.items():
             selected_values_cat = st.session_state.get(f"{col_key}_filter", [])
             if selected_values_cat and col_key in df_temp_filters.columns:
@@ -442,7 +747,7 @@ if not df_original.empty:
         df_filtered = df_temp_filters.copy()
 else: df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
 
-# --- MTD Calculation (Unchanged) ---
+# --- MTD Calculation ---
 today_mtd_calc = date.today(); mtd_start_calc = today_mtd_calc.replace(day=1); prev_month_end_calc = mtd_start_calc - timedelta(days=1); prev_month_start_calc = prev_month_end_calc.replace(day=1)
 df_mtd_data, df_prev_mtd_data = pd.DataFrame(), pd.DataFrame()
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
@@ -456,30 +761,6 @@ total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = calculate_metrics(df_mtd_dat
 delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and pd.notna(total_prev_mtd) else None
 
 # --- HTML Table & Details (Updated with Status Chips & New Styling) ---
-def get_cell_style_class(column_name, value):
-    val_str = str(value).strip().lower()
-    if pd.isna(value) or val_str == "" or val_str == "na": return "cell-req-na"
-    if column_name == 'score':
-        try: score_num = float(value)
-        except: return ""
-        if score_num >= 8: return "cell-score-good"
-        elif score_num >= 4: return "cell-score-medium"
-        else: return "cell-score-bad"
-    elif column_name == 'clientSentiment':
-        if val_str == 'positive': return "cell-sentiment-positive"
-        elif val_str == 'neutral': return "cell-sentiment-neutral"
-        elif val_str == 'negative': return "cell-sentiment-negative"
-    elif column_name == 'days_to_confirmation':
-        try: days_num = float(value)
-        except: return ""
-        if days_num <= 7: return "cell-days-good"
-        elif days_num <= 14: return "cell-days-medium"
-        else: return "cell-days-bad"
-    elif column_name in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
-        if val_str in ['true', '1', 'yes', 'x', 'completed', 'done']: return "cell-req-met"
-        elif val_str in ['false', '0', 'no']: return "cell-req-not-met"
-    return ""
-
 def map_status_to_chip_html(status_val):
     """Maps status to a styled HTML chip."""
     status_str = str(status_val).strip().lower()
@@ -491,7 +772,6 @@ def map_status_to_chip_html(status_val):
         return f"<span class='status-chip status-error'>Error</span>"
     return f"<span class='status-chip status-unknown'>{status_val}</span>" if status_val else ""
 
-
 def display_html_table_and_details(df_to_display, context_key_prefix=""):
     if df_to_display is None or df_to_display.empty:
         context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','');
@@ -499,28 +779,20 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         return
     df_display_copy = df_to_display.copy().reset_index(drop=True)
 
-    # Use the new status chip function
     if 'status' in df_display_copy.columns:
         df_display_copy['status_styled'] = df_display_copy['status'].apply(map_status_to_chip_html)
     else: df_display_copy['status_styled'] = ""
 
-    preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
-    # Do NOT add all checklist items to the main table - it's too wide. Keep it concise.
-    # preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
+    preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber']
     cols_present_in_df = df_display_copy.columns.tolist(); final_display_cols = [col for col in preferred_cols_order if col in cols_present_in_df]
-    excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only') # keep _styled
-    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not any(col.endswith(s) for s in excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']]
+    excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only')
+    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not any(col.endswith(s) for s in excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome', 'deliveryDate', 'confirmationTimestamp', 'confirmedNumber'] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS]
     final_display_cols.extend(other_existing_cols_for_display); final_display_cols = list(dict.fromkeys(final_display_cols))
     if not final_display_cols or df_display_copy[final_display_cols].empty:
         context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No columns/data for {context_name_display}. 📋</div>", unsafe_allow_html=True); return
 
-    # Use st.dataframe for interactivity and better styling potential (AgGrid might be even better but requires more setup)
-    # However, to inject custom HTML like chips, we *must* use st.markdown or st.data_editor with HTML rendering enabled (complex).
-    # Let's stick to the HTML table for now to ensure chip display, but acknowledge its lack of interactivity.
-
     html_table = ["<div class='custom-table-container'><table class='custom-styled-table'><thead><tr>"]
-    column_display_names = {'status_styled': 'Status', 'onboardingDate': 'Onboarding Date', 'repName': 'Rep Name', 'storeName': 'Store Name', 'licenseNumber': 'License No.', 'clientSentiment': 'Sentiment', 'days_to_confirmation': 'Days to Confirm', 'contactName': 'Contact Name', 'contactNumber': 'Contact No.', 'confirmedNumber': 'Confirmed No.', 'deliveryDate': 'Delivery Date', 'confirmationTimestamp': 'Confirmation Time', 'score': 'Score'}
-    for req_key, details in KEY_REQUIREMENT_DETAILS.items(): column_display_names[req_key] = details.get("chart_label", req_key)
+    column_display_names = {'status_styled': 'Status', 'onboardingDate': 'Onboarding Date', 'repName': 'Rep Name', 'storeName': 'Store Name', 'licenseNumber': 'License No.', 'clientSentiment': 'Sentiment', 'days_to_confirmation': 'Days to Confirm', 'contactName': 'Contact Name', 'contactNumber': 'Contact No.', 'score': 'Score'}
 
     for col_id in final_display_cols:
         display_name = column_display_names.get(col_id, col_id.replace("_", " ").title());
@@ -531,9 +803,6 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         html_table.append("<tr>")
         for col_id in final_display_cols:
             cell_value = row.get(col_id, "")
-            original_col_for_styling = 'status' if col_id == 'status_styled' else col_id
-            style_class = get_cell_style_class(original_col_for_styling, row.get(original_col_for_styling, cell_value))
-
             if col_id == 'status_styled':
                 cell_display = cell_value # Already HTML
             elif col_id == 'score' and pd.notna(cell_value):
@@ -541,14 +810,14 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             elif col_id == 'days_to_confirmation' and pd.notna(cell_value):
                 cell_display = f"{cell_value:.0f}"
             else:
-                cell_display = st.markdown._repr_html_(cell_value).strip() # Basic HTML escape
+                cell_display = st.markdown._repr_html_(cell_value).strip().replace('<p>', '').replace('</p>', '')
 
-            html_table.append(f"<td class='{style_class}'>{cell_display}</td>")
+            html_table.append(f"<td>{cell_display}</td>")
         html_table.append("</tr>")
     html_table.append("</tbody></table></div>"); st.markdown("".join(html_table), unsafe_allow_html=True)
 
-    # --- Details Section (Unchanged logic, minor style tweaks) ---
-    st.markdown("---"); st.markdown("## 📄 View Full Record Details", unsafe_allow_html=True)
+    # --- Details Section ---
+    st.markdown("---"); st.markdown("<h2>📄 View Full Record Details</h2>", unsafe_allow_html=True)
     transcript_session_key_local = f"selected_transcript_key_{context_key_prefix}";
     if transcript_session_key_local not in st.session_state: st.session_state[transcript_session_key_local] = None
     auto_selected_this_run = False
@@ -569,7 +838,9 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             if st.session_state[transcript_session_key_local]:
                 selected_original_idx = transcript_options_map[st.session_state[transcript_session_key_local]]; selected_row_details = df_display_copy.loc[selected_original_idx]
                 st.markdown("<h5>📋 Onboarding Summary & Checks:</h5>", unsafe_allow_html=True); summary_html_parts_list = ["<div class='transcript-summary-grid'>"]
-                summary_items_to_display = {"Store": selected_row_details.get('storeName', "N/A"), "Rep": selected_row_details.get('repName', "N/A"), "Score": f"{selected_row_details.get('score', 'N/A'):.1f}" if pd.notna(selected_row_details.get('score')) else "N/A", "Status": selected_row_details.get('status_styled', "N/A"), "Sentiment": selected_row_details.get('clientSentiment', "N/A")}
+                # Display status using the chip in details view as well
+                status_chip_detail = map_status_to_chip_html(selected_row_details.get('status'))
+                summary_items_to_display = {"Store": selected_row_details.get('storeName', "N/A"), "Rep": selected_row_details.get('repName', "N/A"), "Score": f"{selected_row_details.get('score', 'N/A'):.1f}" if pd.notna(selected_row_details.get('score')) else "N/A", "Status": status_chip_detail, "Sentiment": selected_row_details.get('clientSentiment', "N/A")}
                 for item_label, item_val in summary_items_to_display.items(): summary_html_parts_list.append(f"<div class='transcript-summary-item'><strong>{item_label}:</strong> {item_val}</div>")
                 call_summary_text = selected_row_details.get('summary', '').strip();
                 if call_summary_text and call_summary_text.lower() not in ['na', 'n/a', '']: summary_html_parts_list.append(f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>📝 Call Summary:</strong> {call_summary_text}</div>")
@@ -594,15 +865,15 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 else: st.info("ℹ️ No transcript available or empty for this record.")
         else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No entries in table from {context_name_display} to select details. 📋</div>", unsafe_allow_html=True)
     else: context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📜 Necessary columns ('fullTranscript'/'summary') missing for details viewer in {context_name_display}. 📜</div>", unsafe_allow_html=True)
-    st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
+    st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_to_display); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
     st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3_1")
 
 
-# --- Global Search Dialog (Unchanged logic) ---
+# --- Global Search Dialog ---
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
     @st.dialog("🔍 Global Search Results", width="large")
     def show_global_search_dialog_content():
-        st.markdown("##### Records matching global search criteria:");
+        st.markdown("<h2>Search Results</h2>", unsafe_allow_html=True);
         if not df_global_search_results_display.empty: display_html_table_and_details(df_global_search_results_display, context_key_prefix="dialog_global_search")
         else: st.info("ℹ️ No results for global search. Try broadening terms.")
         if st.button("Close & Clear Search", key="close_gs_dialog_clear_button_v4_3_1"):
@@ -614,15 +885,14 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
 
 # --- Tab Content ---
 if st.session_state.active_tab == TAB_OVERVIEW:
-    st.markdown("## MTD Performance", unsafe_allow_html=True)
+    st.markdown("<h2>MTD Performance</h2>", unsafe_allow_html=True)
     cols_mtd_overview = st.columns(4)
-    # Using st.metric, styled via CSS
-    with cols_mtd_overview[0]: st.metric("Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0", delta=f"{delta_onboardings_mtd:+.0f} vs Prev. Month" if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else None, help="Total onboardings MTD vs. same period last month.")
+    with cols_mtd_overview[0]: st.metric("Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0", delta=f"{delta_onboardings_mtd:+.0f} vs Prev." if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else None, help="Total onboardings MTD vs. same period last month.")
     with cols_mtd_overview[1]: st.metric("Success Rate MTD", value=f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Confirmed onboardings MTD.")
     with cols_mtd_overview[2]: st.metric("Avg. Score MTD", value=f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average score (0-10) MTD.")
     with cols_mtd_overview[3]: st.metric("Avg. Days to Confirm MTD", value=f"{days_to_confirm_mtd:.1f}" if pd.notna(days_to_confirm_mtd) else "N/A", help="Avg days delivery to confirmation MTD.")
 
-    st.markdown("## Filtered Data Snapshot", unsafe_allow_html=True)
+    st.markdown("<h2>Filtered Data Snapshot</h2>", unsafe_allow_html=True)
     if global_search_active: st.info("ℹ️ Global search active. Close pop-up or clear search for filtered overview.")
     elif not df_filtered.empty:
         total_filtered, sr_filtered, score_filtered, days_filtered = calculate_metrics(df_filtered); cols_filtered_overview = st.columns(4)
@@ -633,17 +903,17 @@ if st.session_state.active_tab == TAB_OVERVIEW:
     else: st.markdown("<div class='no-data-message'>🤷 No data matches filters for Overview. Adjust selections! 🤷</div>", unsafe_allow_html=True)
 
 elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
-    st.markdown(f"## {TAB_DETAILED_ANALYSIS}", unsafe_allow_html=True)
+    st.markdown(f"<h2>{TAB_DETAILED_ANALYSIS}</h2>", unsafe_allow_html=True)
     if global_search_active: st.info("ℹ️ Global Search active. Results in pop-up. Close/clear search for category/date filters here.")
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
 
 elif st.session_state.active_tab == TAB_TRENDS:
-    st.markdown(f"## {TAB_TRENDS}", unsafe_allow_html=True)
+    st.markdown(f"<h2>{TAB_TRENDS}</h2>", unsafe_allow_html=True)
     st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
 
     if not df_filtered.empty:
-        st.markdown("## Key Visualizations", unsafe_allow_html=True)
+        st.markdown("<h3>Key Visualizations</h3>", unsafe_allow_html=True)
         with st.container():
                 chart_cols_1, chart_cols_2 = st.columns(2)
                 with chart_cols_1:
@@ -676,6 +946,7 @@ elif st.session_state.active_tab == TAB_TRENDS:
                         else: st.markdown("<div class='no-data-message'>📊 No valid checklist items for req chart.</div>", unsafe_allow_html=True)
                     else: st.markdown("<div class='no-data-message'>✅ No 'Confirmed' onboardings or relevant columns for req chart.</div>", unsafe_allow_html=True)
 
+        st.markdown("<h3>Trends Over Time</h3>", unsafe_allow_html=True)
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             df_trend_source = df_filtered.copy(); df_trend_source['onboarding_datetime'] = pd.to_datetime(df_trend_source['onboarding_date_only'], errors='coerce'); df_trend_source.dropna(subset=['onboarding_datetime'], inplace=True)
             if not df_trend_source.empty:
@@ -706,7 +977,7 @@ if st.session_state.get('last_data_refresh_time'):
 st.markdown(f"""
 <div class='footer'>
     <div class='footer-content'>
-        <span>Onboarding Dashboard v6.0.0</span>
+        <span>Onboarding Dashboard v6.1.0</span>
         <span> | </span>
         <span>Last Refresh: {footer_time}</span>
     </div>

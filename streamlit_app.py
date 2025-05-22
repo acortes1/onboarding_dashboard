@@ -15,7 +15,7 @@ import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.8", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.9", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -638,10 +638,9 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
             pdf.set_font("Helvetica", "I", 10)
             pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
 
-        # Use io.BytesIO for robust byte handling
         pdf_buffer = io.BytesIO()
         pdf.output(pdf_buffer)
-        return pdf_buffer.getvalue() # This is guaranteed to be bytes
+        return bytes(pdf_buffer.getvalue()) # Explicitly return bytes
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -723,10 +722,9 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                 pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", 0, 1)
         pdf.ln(2)
         
-        # Use io.BytesIO for robust byte handling
         pdf_buffer = io.BytesIO()
         pdf.output(pdf_buffer)
-        return pdf_buffer.getvalue() # This is guaranteed to be bytes
+        return bytes(pdf_buffer.getvalue()) # Explicitly return bytes
 
     except Exception as e:
         st.error(f"🚨 Single Record PDF Generation Error: {e}")
@@ -834,7 +832,7 @@ if not df_original.empty:
             df_temp_filters = df_temp_filters[date_filter_condition]
         
         for col_name_cat, _ in category_filters_map.items():
-            selected_values_cat = st.session_state.get(f"{col_name_cat}_filter", [])
+            selected_values_cat = st.session_state.get(f"{col_key}_filter", [])
             if selected_values_cat and col_name_cat in df_temp_filters.columns:
                 if col_name_cat == 'status':
                     df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().isin(selected_values_cat)]
@@ -940,24 +938,17 @@ if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf
         st.session_state.get('last_data_refresh_time'),
         PST_TIMEZONE
     )
-    if pdf_bytes_data: 
-        if isinstance(pdf_bytes_data, bytearray): # This check should ideally not be needed if generate_... returns bytes
-            pdf_bytes_data = bytes(pdf_bytes_data)
-        elif not isinstance(pdf_bytes_data, bytes):
-            st.sidebar.error("PDF data is not in expected byte format after generation.")
-            pdf_bytes_data = None 
-
-        if pdf_bytes_data: 
-            download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
-            st.sidebar.download_button(
-                label="✅ Click to Download PDF",
-                data=pdf_bytes_data,
-                file_name=f"executive_snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                mime="application/pdf",
-                key=download_key, 
-                use_container_width=True
-            )
-            st.toast("PDF prepared! Click '✅ Click to Download PDF' in the sidebar.", icon="📄")
+    if pdf_bytes_data: # generate_executive_snapshot_pdf now ensures bytes or None
+        download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
+        st.sidebar.download_button(
+            label="✅ Click to Download PDF",
+            data=pdf_bytes_data,
+            file_name=f"executive_snapshot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mime="application/pdf",
+            key=download_key, 
+            use_container_width=True
+        )
+        st.toast("PDF prepared! Click '✅ Click to Download PDF' in the sidebar.", icon="📄")
     else:
         st.sidebar.error("PDF generation failed. See main panel for details.")
 

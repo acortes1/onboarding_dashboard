@@ -1,5 +1,5 @@
 # onboarding_dashboard/streamlit_app.py
-# streamlit_app.py - v5.0.0
+# streamlit_app.py - v6.0.0 (Visually Revamped)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -10,233 +10,50 @@ from google.oauth2.service_account import Credentials
 import time
 import numpy as np
 import re
-from dateutil import tz # For PST conversion
+from dateutil import tz  # For PST conversion
+import base64
+from pathlib import Path
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v5.0.0", # Updated Version
-    page_icon="✨",
+    page_title="Onboarding Dashboard v6.0.0",
+    page_icon="✨", # Using an emoji as a fallback, icon handling can be added
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection ---
-def load_custom_css():
-    """Loads and injects custom CSS for the application."""
-    GOLD_ACCENT = "#D4AF37"
-    CHARCOAL_BASE = "#0A0A0A"
-    WHITE_BASE = "#FFFFFF"
-    GLASS_BG_DARK = "rgba(10, 10, 10, 0.6)"
-    GLASS_BG_LIGHT = "rgba(255, 255, 255, 0.6)"
+# --- Asset Loading ---
+def load_css(file_name):
+    """Loads a CSS file and injects it into the Streamlit app."""
+    try:
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error(f"🚨 CSS file not found: {file_name}")
 
-    css = f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display&display=swap');
+def get_icon(icon_name, folder="assets/icons/feather", ext=".svg"):
+    """Reads an SVG icon file and returns its base64 encoded version."""
+    icon_path = Path(folder) / f"{icon_name}{ext}"
+    try:
+        with open(icon_path, "rb") as f:
+            svg_bytes = f.read()
+            b64_svg = base64.b64encode(svg_bytes).decode("utf-8")
+            return f"data:image/svg+xml;base64,{b64_svg}"
+    except FileNotFoundError:
+        print(f"⚠️ Icon not found: {icon_path}")
+        return "" # Return empty string or a default icon
 
-        :root {{
-            --charcoal-base: {CHARCOAL_BASE};
-            --white-base: {WHITE_BASE};
-            --gold-accent: {GOLD_ACCENT};
-            --font-body: 'Inter', sans-serif;
-            --font-display: 'Playfair Display', serif;
-            --border-radius-xl: 20px;
-            --transition-speed: 150ms;
-        }}
+def load_feather_icons_js():
+    """Loads Feather Icons JS for rendering."""
+    # This is an alternative if direct SVG isn't sufficient, but sticking to SVG for now.
+    # st.markdown('<script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>', unsafe_allow_html=True)
+    # st.markdown('<script>feather.replace()</script>', unsafe_allow_html=True)
+    pass # Using inline SVGs/CSS for now
 
-        /* --- Base & Typography --- */
-        body, .stApp {{
-            font-family: var(--font-body);
-            background-color: var(--background-color); /* Streamlit handles base bg */
-            transition: background-color var(--transition-speed) ease-in-out, color var(--transition-speed) ease-in-out;
-            animation: fadeIn 0.5s ease-in-out;
-        }}
-
-        @keyframes fadeIn {{
-            from {{ opacity: 0; }}
-            to {{ opacity: 1; }}
-        }}
-
-        h1, h2, h3, h4, h5, h6 {{
-            font-family: var(--font-body);
-            font-weight: 600;
-            color: {GOLD_ACCENT};
-        }}
-
-        h1 {{
-            font-size: 2.8rem;
-            text-align: center;
-            border-bottom: 2px solid {GOLD_ACCENT};
-            padding-bottom: 0.6em;
-            margin-bottom: 1.5em;
-        }}
-        h2 {{ border-bottom: 1px solid var(--border-color); padding-bottom: 0.4em; }}
-
-        /* --- Layout & KPI Cards --- */
-        .main .block-container {{
-            max-width: 1400px;
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }}
-
-        div[data-testid="stMetric"] {{
-            background: var(--glass-bg, {GLASS_BG_LIGHT});
-            backdrop-filter: blur(15px) saturate(180%);
-            -webkit-backdrop-filter: blur(15px) saturate(180%);
-            border-radius: var(--border-radius-xl);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-            padding: 2em 2.2em;
-            transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
-            will-change: transform;
-            margin-bottom: 1.5em;
-        }}
-
-        div[data-testid="stMetric"]:hover {{
-            transform: translateY(-8px);
-            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
-        }}
-
-        div[data-testid="stMetricLabel"] > div {{
-            font-family: var(--font-body);
-            font-size: 1.1rem;
-            font-weight: 400;
-            opacity: 0.8;
-        }}
-
-        div[data-testid="stMetricValue"] > div {{
-            font-family: var(--font-display);
-            font-size: 3.5rem !important;
-            color: {GOLD_ACCENT};
-            font-weight: 400; /* Playfair often looks best at 400 */
-        }}
-        div[data-testid="stMetricDelta"] > div {{
-             color: var(--text-color);
-             opacity: 0.7;
-             font-size: 0.9rem;
-        }}
-
-
-        /* --- Sidebar --- */
-        div[data-testid="stSidebar"] {{
-            background-color: var(--secondary-background-color);
-            border-right: 1px solid var(--border-color);
-        }}
-        div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; }}
-        div[data-testid="stSidebarUserContent"] h1,
-        div[data-testid="stSidebarUserContent"] h2,
-        div[data-testid="stSidebarUserContent"] h3 {{ color: {GOLD_ACCENT}; }}
-        div[data-testid="stSidebar"] button[kind="primary"] {{
-            background-color: {GOLD_ACCENT};
-            color: {CHARCOAL_BASE};
-            border: 1px solid {GOLD_ACCENT};
-        }}
-        div[data-testid="stSidebar"] button[kind="primary"]:hover {{
-            background-color: #C0952B; /* Darker Gold */
-            color: {CHARCOAL_BASE};
-            border: 1px solid #C0952B;
-        }}
-
-        /* --- Dark Mode Specifics --- */
-        [data-theme="dark"] body, [data-theme="dark"] .stApp {{ background-color: {CHARCOAL_BASE}; color: {WHITE_BASE}; }}
-        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 {{ color: {GOLD_ACCENT}; }}
-        [data-theme="dark"] div[data-testid="stMetric"] {{ --glass-bg: {GLASS_BG_DARK}; border: 1px solid rgba(10, 10, 10, 0.2); }}
-        [data-theme="dark"] .custom-styled-table th {{ background-color: #1a1a1a; }}
-        [data-theme="dark"] .custom-styled-table tbody tr:hover {{ background-color: #2a2a2a; }}
-        [data-theme="dark"] .active-filters-summary {{ background-color: #1e1e1e; border-color: #333; }}
-
-
-        /* --- Light Mode Specifics --- */
-        [data-theme="light"] body, [data-theme="light"] .stApp {{ background-color: {WHITE_BASE}; color: {CHARCOAL_BASE}; }}
-        [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 {{ color: #B38600; }} /* Slightly darker gold for light mode */
-        [data-theme="light"] div[data-testid="stMetric"] {{ --glass-bg: {GLASS_BG_LIGHT}; border: 1px solid rgba(255, 255, 255, 0.3); }}
-        [data-theme="light"] .custom-styled-table th {{ background-color: #f0f0f0; }}
-        [data-theme="light"] .custom-styled-table tbody tr:hover {{ background-color: #f9f9f9; }}
-        [data-theme="light"] .active-filters-summary {{ background-color: #f5f5f5; border-color: #ddd; }}
-
-        /* --- Buttons --- */
-        div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
-            border: 1px solid {GOLD_ACCENT};
-            background-color: transparent;
-            color: {GOLD_ACCENT};
-        }}
-        div[data-testid="stButton"] > button:hover, div[data-testid="stDownloadButton"] > button:hover {{
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(212, 175, 55, 0.3);
-            background-color: {GOLD_ACCENT};
-            color: {CHARCOAL_BASE};
-        }}
-
-        /* --- Tables --- */
-        .custom-table-container {{
-             border-radius: var(--border-radius-xl);
-             box-shadow: 0 6px 15px rgba(0,0,0,0.05);
-             border: none;
-             overflow: hidden; /* Important for rounded corners on table */
-        }}
-        .custom-styled-table {{
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }}
-        .custom-styled-table th {{
-            background-color: var(--secondary-background-color);
-            color: {GOLD_ACCENT};
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid {GOLD_ACCENT};
-        }}
-        .custom-styled-table td {{
-            border-bottom: 1px solid var(--border-color);
-        }}
-        .custom-styled-table tbody tr:last-child td {{
-            border-bottom: none;
-        }}
-         .custom-styled-table tbody tr:hover {{
-             background-color: color-mix(in srgb, var(--secondary-background-color) 75%, {GOLD_ACCENT} 5%);
-         }}
-
-        /* --- Charts --- */
-        .stPlotlyChart {{
-            border-radius: var(--border-radius-xl);
-            padding: 1em;
-            background: var(--secondary-background-color);
-            box-shadow: 0 6px 15px rgba(0,0,0,0.05);
-        }}
-
-        /* --- Filter Summary --- */
-         .active-filters-summary {{
-            padding: 1.1em 1.5em;
-            margin-bottom: 2.5em;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            font-size: 0.95rem;
-            opacity: 0.9;
-         }}
-
-         /* --- Login --- */
-        .login-container .login-box {{
-            background: var(--secondary-background-color);
-            border-radius: var(--border-radius-xl);
-            box-shadow: 0 10px 35px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color);
-        }}
-         .login-container .login-icon {{ color: {GOLD_ACCENT}; }}
-         .login-container h2 {{ color: {GOLD_ACCENT}; }}
-         .login-container div[data-testid="stButton"] > button {{
-            background-color: {GOLD_ACCENT} !important;
-            color: {CHARCOAL_BASE} !important;
-         }}
-        .login-container div[data-testid="stButton"] > button:hover {{
-            background-color: #C0952B !important;
-            color: {CHARCOAL_BASE} !important;
-        }}
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-load_custom_css()
+# --- Load Assets ---
+load_css("assets/theme.css")
+# sun_icon = get_icon("sun") # Example: How to get icons if needed
+# moon_icon = get_icon("moon")
 
 # --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -251,28 +68,30 @@ KEY_REQUIREMENT_DETAILS = {
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 PST_TIMEZONE = tz.gettz('America/Los_Angeles'); UTC_TIMEZONE = tz.tzutc()
-GOLD_ACCENT = "#D4AF37"
+
+# Color definitions (Ensure these match theme.css for Plotly)
+GOLD_ACCENT_DARK = "#00E0B6" # Updated accent
+GOLD_ACCENT_LIGHT = "#0A4B44" # Updated accent
+
 PLOT_BG_COLOR_PLOTLY = "rgba(0,0,0,0)"
-ACTIVE_PLOTLY_PRIMARY_SEQ = [GOLD_ACCENT, '#E0C77B', '#A88D2B', '#F5E4A8', '#7A651F']
-ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel
-ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' }
-TEXT_COLOR_FOR_PLOTLY_LIGHT = "#0A0A0A"
-TEXT_COLOR_FOR_PLOTLY_DARK = "#FFFFFF"
+# Using CSS variables is ideal, but Plotly needs explicit colors. We'll use Streamlit's theme detection.
 THEME_PLOTLY = st.get_option("theme.base")
-TEXT_COLOR_FOR_PLOTLY = TEXT_COLOR_FOR_PLOTLY_DARK if THEME_PLOTLY == "dark" else TEXT_COLOR_FOR_PLOTLY_LIGHT
+TEXT_COLOR_FOR_PLOTLY = "#FFFFFF" if THEME_PLOTLY == "dark" else "#0D0D0F"
+GOLD_ACCENT = GOLD_ACCENT_DARK if THEME_PLOTLY == "dark" else GOLD_ACCENT_LIGHT
+ACTIVE_PLOTLY_PRIMARY_SEQ = [GOLD_ACCENT, '#E0C77B', '#A88D2B', '#F5E4A8', '#7A651F'] # Needs update based on new palette
+ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel # Needs update
+ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' } # Needs update
 
-plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(212, 175, 55, 0.15)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": GOLD_ACCENT, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": GOLD_ACCENT}
+plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(0, 224, 182, 0.15)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": GOLD_ACCENT, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": GOLD_ACCENT}
 
-
-# --- Google SSO & Domain Check ---
+# --- Google SSO & Domain Check (Unchanged) ---
 def check_login_and_domain():
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
         st.markdown("""
             <div class='login-container'>
                 <div class='login-box'>
-                    <div class='login-icon'>🔑</div>
-                    <h2>Dashboard Access</h2>
+                    <h2>🔑 Dashboard Access</h2>
                     <p>Please log in using your <b>authorized</b> Google account to access the Onboarding Dashboard.</p>
                 </div>
             </div>
@@ -290,7 +109,7 @@ def check_login_and_domain():
         return False
     return True
 
-# --- Data Loading & Processing Functions ---
+# --- Data Loading & Processing Functions (Largely Unchanged, added status mapping) ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -401,6 +220,12 @@ def load_data_from_google_sheet():
             if name_col in df.columns: df[name_col] = df[name_col].apply(capitalize_name)
         string_cols = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber', 'onboardingDate', 'deliveryDate', 'confirmationTimestamp']
         for col in string_cols: df[col] = df.get(col, "").astype(str).replace(['nan', 'NaN', 'None', 'NaT', '<NA>'], "", regex=False).fillna("")
+
+        # Map 'Pending' to 'Unconfirmed' and 'Failed' to 'Error'
+        df['status'] = df['status'].str.lower().replace({'pending': 'unconfirmed', 'failed': 'error'}, regex=False)
+        df['status'] = df['status'].apply(lambda x: x.capitalize() if isinstance(x, str) else x)
+
+
         df['score'] = pd.to_numeric(df.get('score'), errors='coerce')
         for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS: df[col] = df.get(col, pd.NA)
         cols_to_drop = [col for col in ['deliverydatets', 'onboardingwelcome'] if col in df.columns]
@@ -417,7 +242,8 @@ def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).e
 def calculate_metrics(df_input):
     if df_input.empty: return 0, 0.0, pd.NA, pd.NA
     total = len(df_input)
-    confirmed = df_input[df_input['status'].astype(str).str.lower().str.contains('confirmed', na=False)].shape[0]
+    # Using 'Confirmed' for success rate, ensure it's case-insensitive
+    confirmed = df_input[df_input['status'].astype(str).str.lower() == 'confirmed'].shape[0]
     success_rate = (confirmed / total * 100) if total > 0 else 0.0
     avg_score = pd.to_numeric(df_input['score'], errors='coerce').mean()
     avg_days = pd.to_numeric(df_input['days_to_confirmation'], errors='coerce').mean()
@@ -441,6 +267,7 @@ if not is_logged_in_and_authorized:
             st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
     st.stop()
 
+# --- Session State Initialization (Unchanged) ---
 default_s_init, default_e_init = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -460,6 +287,7 @@ st.session_state.setdefault('selected_transcript_key_dialog_global_search', None
 st.session_state.setdefault('selected_transcript_key_filtered_analysis', None)
 st.session_state.setdefault('show_global_search_dialog', False)
 
+# --- Data Loading Trigger (Unchanged) ---
 if not st.session_state.data_loaded:
     df_loaded = load_data_from_google_sheet()
     if not df_loaded.empty:
@@ -473,6 +301,7 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = pd.DataFrame()
 df_original = st.session_state.df_original
 
+# --- Sidebar (Add Theme Toggle, Minor Style Updates) ---
 user_display_name = "User"
 if hasattr(st.user, "email") and st.user.email:
     user_email_prefix = st.user.email.split('@')[0]
@@ -484,6 +313,10 @@ if hasattr(st.user, "email") and st.user.email:
     st.sidebar.caption(st.user.email)
 else: st.sidebar.header(f"👤 Welcome!")
 st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
+st.sidebar.markdown("---")
+# Theme Toggle - Rely on Streamlit's built-in one (Settings -> Theme)
+# st.sidebar.toggle("🌙 Dark Mode", key="theme_toggle") # This won't work easily.
+st.sidebar.markdown("🎨 **Theme**: Use Streamlit's menu (top-right) to toggle Light/Dark mode.")
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
 st.sidebar.subheader("🔍 Global Search"); st.sidebar.caption("Search all data. Overrides filters below.")
@@ -522,12 +355,13 @@ category_filters_map = {'repName':'Representative(s)', 'status':'Status(es)', 'c
 for col_key, label_text in category_filters_map.items():
     options_for_multiselect = [];
     if not df_original.empty and col_key in df_original.columns and df_original[col_key].notna().any():
-        if col_key == 'status': options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().dropna().unique() if str(val).strip()])
-        else: options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).dropna().unique() if str(val).strip()])
+        options_for_multiselect = sorted([val for val in df_original[col_key].astype(str).dropna().unique() if str(val).strip()])
+
     current_selection_for_multiselect = st.session_state.get(f"{col_key}_filter", []); valid_current_selection = [s for s in current_selection_for_multiselect if s in options_for_multiselect]
     new_selection_multiselect = st.sidebar.multiselect(f"Filter by {label_text}:", options=options_for_multiselect, default=valid_current_selection, key=f"{col_key}_category_filter_widget_v4_3_1", disabled=global_search_active or not options_for_multiselect, help=f"Select {label_text}." if options_for_multiselect else f"No {label_text} data.")
     if not global_search_active and new_selection_multiselect != valid_current_selection: st.session_state[f"{col_key}_filter"] = new_selection_multiselect; st.rerun()
     elif global_search_active and st.session_state.get(f"{col_key}_filter") != new_selection_multiselect: st.session_state[f"{col_key}_filter"] = new_selection_multiselect
+
 def clear_all_filters_and_search_v4_3_1():
     ds_cleared, de_cleared = get_default_date_range(st.session_state.df_original.get('onboarding_date_only')); st.session_state.date_range = (ds_cleared, de_cleared); st.session_state.date_filter_is_active = False
     st.session_state.licenseNumber_search = ""; st.session_state.storeName_search = ""; st.session_state.show_global_search_dialog = False
@@ -542,13 +376,16 @@ if st.sidebar.button("Refresh Data from Source", key="refresh_data_button_v4_3_1
     st.cache_data.clear(); st.session_state.data_loaded = False; st.session_state.last_data_refresh_time = None; st.session_state.df_original = pd.DataFrame()
     clear_all_filters_and_search_v4_3_1(); st.rerun()
 if st.session_state.get('last_data_refresh_time'):
-    refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last data sync: {refresh_time_str_display}")
-    if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
+    refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE); refresh_time_str_display = refresh_time_pst.strftime('%b %d, %Y %I:%M %p PST'); st.sidebar.caption(f"☁️ Last sync: {refresh_time_str_display}")
+    if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v5.0.0") # Updated Version
+st.sidebar.caption(f"Dashboard v6.0.0") # Updated Version
 
-st.title("✨ Onboarding Performance Dashboard ✨")
+
+# --- Main Area ---
+st.markdown("<h1 class='main-title'>Onboarding Performance Dashboard</h1>", unsafe_allow_html=True)
+
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>⏳ Initializing data... If persists, check configurations. ⏳</div>", unsafe_allow_html=True)
@@ -580,6 +417,8 @@ else:
 final_summary_message = " | ".join(filter(None, summary_parts));
 if not final_summary_message: final_summary_message = "Displaying data (default date range)."
 st.markdown(f"<div class='active-filters-summary'>ℹ️ {final_summary_message}</div>", unsafe_allow_html=True)
+
+# --- Data Filtering (Updated status filter) ---
 df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
 if not df_original.empty:
     if global_search_active:
@@ -593,13 +432,17 @@ if not df_original.empty:
             date_objects_for_filter = pd.to_datetime(df_temp_filters['onboarding_date_only'], errors='coerce').dt.date; valid_dates_mask = date_objects_for_filter.notna(); date_filter_condition = pd.Series([False] * len(df_temp_filters), index=df_temp_filters.index)
             if valid_dates_mask.any(): date_filter_condition[valid_dates_mask] = (date_objects_for_filter[valid_dates_mask] >= start_dt_filter) & (date_objects_for_filter[valid_dates_mask] <= end_dt_filter)
             df_temp_filters = df_temp_filters[date_filter_condition]
-        for col_name_cat, _ in category_filters_map.items():
+
+        # Loop through category filters
+        for col_key, _ in category_filters_map.items():
             selected_values_cat = st.session_state.get(f"{col_key}_filter", [])
-            if selected_values_cat and col_name_cat in df_temp_filters.columns:
-                if col_name_cat == 'status': df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().isin(selected_values_cat)]
-                else: df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).isin(selected_values_cat)]
+            if selected_values_cat and col_key in df_temp_filters.columns:
+                 df_temp_filters = df_temp_filters[df_temp_filters[col_key].astype(str).isin(selected_values_cat)]
+
         df_filtered = df_temp_filters.copy()
 else: df_filtered = pd.DataFrame(); df_global_search_results_display = pd.DataFrame()
+
+# --- MTD Calculation (Unchanged) ---
 today_mtd_calc = date.today(); mtd_start_calc = today_mtd_calc.replace(day=1); prev_month_end_calc = mtd_start_calc - timedelta(days=1); prev_month_start_calc = prev_month_end_calc.replace(day=1)
 df_mtd_data, df_prev_mtd_data = pd.DataFrame(), pd.DataFrame()
 if not df_original.empty and 'onboarding_date_only' in df_original.columns and df_original['onboarding_date_only'].notna().any():
@@ -612,6 +455,7 @@ if not df_original.empty and 'onboarding_date_only' in df_original.columns and d
 total_mtd, sr_mtd, score_mtd, days_to_confirm_mtd = calculate_metrics(df_mtd_data); total_prev_mtd, _, _, _ = calculate_metrics(df_prev_mtd_data)
 delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and pd.notna(total_prev_mtd) else None
 
+# --- HTML Table & Details (Updated with Status Chips & New Styling) ---
 def get_cell_style_class(column_name, value):
     val_str = str(value).strip().lower()
     if pd.isna(value) or val_str == "" or val_str == "na": return "cell-req-na"
@@ -634,8 +478,19 @@ def get_cell_style_class(column_name, value):
     elif column_name in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
         if val_str in ['true', '1', 'yes', 'x', 'completed', 'done']: return "cell-req-met"
         elif val_str in ['false', '0', 'no']: return "cell-req-not-met"
-    elif column_name == 'status': return "cell-status"
     return ""
+
+def map_status_to_chip_html(status_val):
+    """Maps status to a styled HTML chip."""
+    status_str = str(status_val).strip().lower()
+    if status_str == 'confirmed':
+        return f"<span class='status-chip status-confirmed'>Confirmed</span>"
+    elif status_str == 'unconfirmed': # Includes 'pending'
+        return f"<span class='status-chip status-unconfirmed'>Unconfirmed</span>"
+    elif status_str == 'error': # Includes 'failed'
+        return f"<span class='status-chip status-error'>Error</span>"
+    return f"<span class='status-chip status-unknown'>{status_val}</span>" if status_val else ""
+
 
 def display_html_table_and_details(df_to_display, context_key_prefix=""):
     if df_to_display is None or df_to_display.empty:
@@ -643,38 +498,57 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         if not df_original.empty: st.markdown(f"<div class='no-data-message'>📊 No data for {context_name_display}. Try different filters! 📊</div>", unsafe_allow_html=True)
         return
     df_display_copy = df_to_display.copy().reset_index(drop=True)
-    def map_status_to_emoji_html(status_val):
-        status_str = str(status_val).strip().lower();
-        if status_str == 'confirmed': return "✅ Confirmed";
-        if status_str == 'pending': return "⏳ Pending";
-        if status_str == 'failed': return "❌ Failed";
-        return status_val
-    if 'status' in df_display_copy.columns: df_display_copy['status_styled'] = df_display_copy['status'].apply(map_status_to_emoji_html)
+
+    # Use the new status chip function
+    if 'status' in df_display_copy.columns:
+        df_display_copy['status_styled'] = df_display_copy['status'].apply(map_status_to_chip_html)
     else: df_display_copy['status_styled'] = ""
+
     preferred_cols_order = ['onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled', 'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber', 'confirmedNumber', 'deliveryDate', 'confirmationTimestamp']
-    preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
+    # Do NOT add all checklist items to the main table - it's too wide. Keep it concise.
+    # preferred_cols_order.extend(ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS)
     cols_present_in_df = df_display_copy.columns.tolist(); final_display_cols = [col for col in preferred_cols_order if col in cols_present_in_df]
-    excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only', '_styled')
-    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not col.endswith(excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']] # onboardingWelcome excluded
+    excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only') # keep _styled
+    other_existing_cols_for_display = [col for col in cols_present_in_df if col not in final_display_cols and not any(col.endswith(s) for s in excluded_suffixes) and col not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']]
     final_display_cols.extend(other_existing_cols_for_display); final_display_cols = list(dict.fromkeys(final_display_cols))
     if not final_display_cols or df_display_copy[final_display_cols].empty:
         context_name_display = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog',''); st.markdown(f"<div class='no-data-message'>📋 No columns/data for {context_name_display}. 📋</div>", unsafe_allow_html=True); return
+
+    # Use st.dataframe for interactivity and better styling potential (AgGrid might be even better but requires more setup)
+    # However, to inject custom HTML like chips, we *must* use st.markdown or st.data_editor with HTML rendering enabled (complex).
+    # Let's stick to the HTML table for now to ensure chip display, but acknowledge its lack of interactivity.
+
     html_table = ["<div class='custom-table-container'><table class='custom-styled-table'><thead><tr>"]
-    column_display_names = {'status_styled': 'Status', 'onboardingDate': 'Onboarding Date', 'repName': 'Rep Name', 'storeName': 'Store Name', 'licenseNumber': 'License No.', 'clientSentiment': 'Sentiment', 'days_to_confirmation': 'Days to Confirm', 'contactName': 'Contact Name', 'contactNumber': 'Contact No.', 'confirmedNumber': 'Confirmed No.', 'deliveryDate': 'Delivery Date', 'confirmationTimestamp': 'Confirmation Time'}
+    column_display_names = {'status_styled': 'Status', 'onboardingDate': 'Onboarding Date', 'repName': 'Rep Name', 'storeName': 'Store Name', 'licenseNumber': 'License No.', 'clientSentiment': 'Sentiment', 'days_to_confirmation': 'Days to Confirm', 'contactName': 'Contact Name', 'contactNumber': 'Contact No.', 'confirmedNumber': 'Confirmed No.', 'deliveryDate': 'Delivery Date', 'confirmationTimestamp': 'Confirmation Time', 'score': 'Score'}
     for req_key, details in KEY_REQUIREMENT_DETAILS.items(): column_display_names[req_key] = details.get("chart_label", req_key)
-    for col_id in final_display_cols: display_name = column_display_names.get(col_id, col_id.replace("_", " ").title()); html_table.append(f"<th>{display_name}</th>")
+
+    for col_id in final_display_cols:
+        display_name = column_display_names.get(col_id, col_id.replace("_", " ").title());
+        html_table.append(f"<th>{display_name}</th>")
     html_table.append("</tr></thead><tbody>")
+
     for index, row in df_display_copy.iterrows():
         html_table.append("<tr>")
         for col_id in final_display_cols:
-            original_col_for_styling = 'status' if col_id == 'status_styled' else col_id; cell_value = row.get(col_id, "")
+            cell_value = row.get(col_id, "")
+            original_col_for_styling = 'status' if col_id == 'status_styled' else col_id
             style_class = get_cell_style_class(original_col_for_styling, row.get(original_col_for_styling, cell_value))
-            if col_id == 'score' and pd.notna(cell_value): cell_value = f"{cell_value:.1f}"
-            elif col_id == 'days_to_confirmation' and pd.notna(cell_value): cell_value = f"{cell_value:.0f}"
-            html_table.append(f"<td class='{style_class}'>{cell_value}</td>")
+
+            if col_id == 'status_styled':
+                cell_display = cell_value # Already HTML
+            elif col_id == 'score' and pd.notna(cell_value):
+                cell_display = f"{cell_value:.1f}"
+            elif col_id == 'days_to_confirmation' and pd.notna(cell_value):
+                cell_display = f"{cell_value:.0f}"
+            else:
+                cell_display = st.markdown._repr_html_(cell_value).strip() # Basic HTML escape
+
+            html_table.append(f"<td class='{style_class}'>{cell_display}</td>")
         html_table.append("</tr>")
     html_table.append("</tbody></table></div>"); st.markdown("".join(html_table), unsafe_allow_html=True)
-    st.markdown("---"); st.subheader("📄 View Full Record Details")
+
+    # --- Details Section (Unchanged logic, minor style tweaks) ---
+    st.markdown("---"); st.markdown("## 📄 View Full Record Details", unsafe_allow_html=True)
     transcript_session_key_local = f"selected_transcript_key_{context_key_prefix}";
     if transcript_session_key_local not in st.session_state: st.session_state[transcript_session_key_local] = None
     auto_selected_this_run = False
@@ -723,6 +597,8 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
     st.markdown("---"); csv_data_to_download = convert_df_to_csv(df_display_copy[final_display_cols]); download_label = f"📥 Download These {context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')} Results"
     st.download_button(label=download_label, data=csv_data_to_download, file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv', mime='text/csv', use_container_width=True, key=f"download_csv_{context_key_prefix}_button_v4_3_1")
 
+
+# --- Global Search Dialog (Unchanged logic) ---
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
     @st.dialog("🔍 Global Search Results", width="large")
     def show_global_search_dialog_content():
@@ -736,37 +612,43 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             st.rerun()
     show_global_search_dialog_content()
 
+# --- Tab Content ---
 if st.session_state.active_tab == TAB_OVERVIEW:
-    st.header("📈 Month-to-Date (MTD) Performance"); cols_mtd_overview = st.columns(4)
-    with cols_mtd_overview[0]: st.metric("🗓️ Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0", delta=f"{delta_onboardings_mtd:+.0f} vs Prev. Month" if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else "N/A", help="Total onboardings MTD vs. same period last month.")
-    with cols_mtd_overview[1]: st.metric("✅ Success Rate MTD", value=f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Confirmed onboardings MTD.")
-    with cols_mtd_overview[2]: st.metric("⭐ Avg. Score MTD", value=f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average score (0-10) MTD.")
-    with cols_mtd_overview[3]: st.metric("⏳ Avg. Days to Confirm MTD", value=f"{days_to_confirm_mtd:.1f}" if pd.notna(days_to_confirm_mtd) else "N/A", help="Avg days delivery to confirmation MTD.")
-    st.header("📊 Filtered Data Snapshot")
+    st.markdown("## MTD Performance", unsafe_allow_html=True)
+    cols_mtd_overview = st.columns(4)
+    # Using st.metric, styled via CSS
+    with cols_mtd_overview[0]: st.metric("Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0", delta=f"{delta_onboardings_mtd:+.0f} vs Prev. Month" if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else None, help="Total onboardings MTD vs. same period last month.")
+    with cols_mtd_overview[1]: st.metric("Success Rate MTD", value=f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Confirmed onboardings MTD.")
+    with cols_mtd_overview[2]: st.metric("Avg. Score MTD", value=f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average score (0-10) MTD.")
+    with cols_mtd_overview[3]: st.metric("Avg. Days to Confirm MTD", value=f"{days_to_confirm_mtd:.1f}" if pd.notna(days_to_confirm_mtd) else "N/A", help="Avg days delivery to confirmation MTD.")
+
+    st.markdown("## Filtered Data Snapshot", unsafe_allow_html=True)
     if global_search_active: st.info("ℹ️ Global search active. Close pop-up or clear search for filtered overview.")
     elif not df_filtered.empty:
         total_filtered, sr_filtered, score_filtered, days_filtered = calculate_metrics(df_filtered); cols_filtered_overview = st.columns(4)
-        with cols_filtered_overview[0]: st.metric("📄 Onboardings (Filtered)", f"{total_filtered:.0f}" if pd.notna(total_filtered) else "0")
-        with cols_filtered_overview[1]: st.metric("🎯 Success Rate (Filtered)", f"{sr_filtered:.1f}%" if pd.notna(sr_filtered) else "N/A")
-        with cols_filtered_overview[2]: st.metric("🌟 Avg. Score (Filtered)", f"{score_filtered:.2f}" if pd.notna(score_filtered) else "N/A")
-        with cols_filtered_overview[3]: st.metric("⏱️ Avg. Days Confirm (Filtered)", f"{days_filtered:.1f}" if pd.notna(days_filtered) else "N/A")
+        with cols_filtered_overview[0]: st.metric("Onboardings (Filtered)", f"{total_filtered:.0f}" if pd.notna(total_filtered) else "0")
+        with cols_filtered_overview[1]: st.metric("Success Rate (Filtered)", f"{sr_filtered:.1f}%" if pd.notna(sr_filtered) else "N/A")
+        with cols_filtered_overview[2]: st.metric("Avg. Score (Filtered)", f"{score_filtered:.2f}" if pd.notna(score_filtered) else "N/A")
+        with cols_filtered_overview[3]: st.metric("Avg. Days Confirm (Filtered)", f"{days_filtered:.1f}" if pd.notna(days_filtered) else "N/A")
     else: st.markdown("<div class='no-data-message'>🤷 No data matches filters for Overview. Adjust selections! 🤷</div>", unsafe_allow_html=True)
+
 elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
-    st.header(TAB_DETAILED_ANALYSIS)
+    st.markdown(f"## {TAB_DETAILED_ANALYSIS}", unsafe_allow_html=True)
     if global_search_active: st.info("ℹ️ Global Search active. Results in pop-up. Close/clear search for category/date filters here.")
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
 
-        st.divider() # FIX: Added divider to separate sections
+elif st.session_state.active_tab == TAB_TRENDS:
+    st.markdown(f"## {TAB_TRENDS}", unsafe_allow_html=True)
+    st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
 
-        st.header("🎨 Key Visualizations (Filtered Data)")
-        if not df_filtered.empty:
-            # Using st.container() for the visualization section for better layout control
-            with st.container():
+    if not df_filtered.empty:
+        st.markdown("## Key Visualizations", unsafe_allow_html=True)
+        with st.container():
                 chart_cols_1, chart_cols_2 = st.columns(2)
                 with chart_cols_1:
                     if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
-                        status_counts_df = df_filtered['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index(); status_counts_df.columns = ['status', 'count']
+                        status_counts_df = df_filtered['status'].value_counts().reset_index(); status_counts_df.columns = ['status', 'count']
                         status_fig = px.bar(status_counts_df, x='status', y='count', color='status', title="Onboarding Status Distribution", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ); status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
                     else: st.markdown("<div class='no-data-message'>📉 Status data unavailable.</div>", unsafe_allow_html=True)
                     if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
@@ -793,10 +675,7 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
                             else: st.markdown("<div class='no-data-message'>📊 No data for key req chart (confirmed, post-proc).</div>", unsafe_allow_html=True)
                         else: st.markdown("<div class='no-data-message'>📊 No valid checklist items for req chart.</div>", unsafe_allow_html=True)
                     else: st.markdown("<div class='no-data-message'>✅ No 'Confirmed' onboardings or relevant columns for req chart.</div>", unsafe_allow_html=True)
-        elif not df_original.empty : st.markdown("<div class='no-data-message'>🖼️ No data matches filters for visuals. Change selections. 🖼️</div>", unsafe_allow_html=True)
-elif st.session_state.active_tab == TAB_TRENDS:
-    st.header(TAB_TRENDS); st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
-    if not df_filtered.empty:
+
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             df_trend_source = df_filtered.copy(); df_trend_source['onboarding_datetime'] = pd.to_datetime(df_trend_source['onboarding_date_only'], errors='coerce'); df_trend_source.dropna(subset=['onboarding_datetime'], inplace=True)
             if not df_trend_source.empty:
@@ -816,4 +695,20 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v5.0.0</div>", unsafe_allow_html=True)
+
+# --- Footer ---
+st.markdown("---")
+footer_time = "Not Synced Yet"
+if st.session_state.get('last_data_refresh_time'):
+    refresh_time_pst = st.session_state.last_data_refresh_time.astimezone(PST_TIMEZONE)
+    footer_time = refresh_time_pst.strftime('%Y-%m-%d %I:%M %p PST')
+
+st.markdown(f"""
+<div class='footer'>
+    <div class='footer-content'>
+        <span>Onboarding Dashboard v6.0.0</span>
+        <span> | </span>
+        <span>Last Refresh: {footer_time}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)

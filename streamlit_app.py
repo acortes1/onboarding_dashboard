@@ -1,4 +1,5 @@
-# streamlit_app.py - v4.6.3
+# onboarding_dashboard/streamlit_app.py
+# streamlit_app.py - v5.0.0
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,215 +14,231 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.3", # Updated Version
-    page_icon="📈",
+    page_title="Onboarding Analytics Dashboard v5.0.0", # Updated Version
+    page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection (Keep As Is from v4.6.1/4.6.2) ---
+# --- Custom CSS Injection ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
-    THEME = st.get_option("theme.base")
-    # ... (CSS definitions from v4.6.1/4.6.2 - Retained for brevity in this diff) ...
-    # Define Color Palettes for Light & Dark Themes
-    if THEME == "light":
-        SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D";
-        SCORE_MEDIUM_BG = "#FCF8E3"; SCORE_MEDIUM_TEXT = "#8A6D3B";
-        SCORE_BAD_BG = "#F2DEDE"; SCORE_BAD_TEXT = "#A94442";
-        SENTIMENT_POSITIVE_BG = SCORE_GOOD_BG; SENTIMENT_POSITIVE_TEXT = SCORE_GOOD_TEXT;
-        SENTIMENT_NEUTRAL_BG = "#F0F2F6"; SENTIMENT_NEUTRAL_TEXT = "#4A5568";
-        SENTIMENT_NEGATIVE_BG = SCORE_BAD_BG; SENTIMENT_NEGATIVE_TEXT = SCORE_BAD_TEXT;
-        DAYS_GOOD_BG = SCORE_GOOD_BG; DAYS_GOOD_TEXT = SCORE_GOOD_TEXT;
-        DAYS_MEDIUM_BG = SCORE_MEDIUM_BG; DAYS_MEDIUM_TEXT = SCORE_MEDIUM_TEXT;
-        DAYS_BAD_BG = SCORE_BAD_BG; DAYS_BAD_TEXT = SCORE_BAD_TEXT;
-        REQ_MET_BG = "#E7F3E7"; REQ_MET_TEXT = "#256833";
-        REQ_NOT_MET_BG = "#F8EAEA"; REQ_NOT_MET_TEXT = "#9E3434";
-        REQ_NA_BG = "transparent"; REQ_NA_TEXT = "var(--text-color)";
-        TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
-        TABLE_BORDER_COLOR = "var(--border-color)";
-        LOGIN_BOX_BG = "var(--background-color)"; LOGIN_BOX_SHADOW = "0 12px 35px rgba(0,0,0,0.07)";
-        LOGOUT_BTN_BG = "#F2DEDE"; LOGOUT_BTN_TEXT = "#A94442"; LOGOUT_BTN_BORDER = "#A94442";
-        LOGOUT_BTN_HOVER_BG = "#EBCFCF";
-        PRIMARY_BTN_BG = "#6A0DAD"; PRIMARY_BTN_HOVER_BG = "#580A8F";
-        DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#6A0DAD"; DOWNLOAD_BTN_BORDER = "#6A0DAD";
-        DOWNLOAD_BTN_HOVER_BG = "#6A0DAD"; DOWNLOAD_BTN_HOVER_TEXT = "#FFFFFF";
-    else: # Dark Theme
-        SCORE_GOOD_BG = "#1E4620"; SCORE_GOOD_TEXT = "#A8D5B0";
-        SCORE_MEDIUM_BG = "#4A3F22"; SCORE_MEDIUM_TEXT = "#FFE0A2";
-        SCORE_BAD_BG = "#5A2222"; SCORE_BAD_TEXT = "#FFBDBD";
-        SENTIMENT_POSITIVE_BG = SCORE_GOOD_BG; SENTIMENT_POSITIVE_TEXT = SCORE_GOOD_TEXT;
-        SENTIMENT_NEUTRAL_BG = "#2D3748"; SENTIMENT_NEUTRAL_TEXT = "#A0AEC0";
-        SENTIMENT_NEGATIVE_BG = SCORE_BAD_BG; SENTIMENT_NEGATIVE_TEXT = SCORE_BAD_TEXT;
-        DAYS_GOOD_BG = SCORE_GOOD_BG; DAYS_GOOD_TEXT = SCORE_GOOD_TEXT;
-        DAYS_MEDIUM_BG = SCORE_MEDIUM_BG; DAYS_MEDIUM_TEXT = SCORE_MEDIUM_TEXT;
-        DAYS_BAD_BG = SCORE_BAD_BG; DAYS_BAD_TEXT = SCORE_BAD_TEXT;
-        REQ_MET_BG = "#1A3A21"; REQ_MET_TEXT = "#A7D7AE";
-        REQ_NOT_MET_BG = "#4D1A1A"; REQ_NOT_MET_TEXT = "#FFADAD";
-        REQ_NA_BG = "transparent"; REQ_NA_TEXT = "var(--text-color)";
-        TABLE_HEADER_BG = "var(--secondary-background-color)"; TABLE_HEADER_TEXT = "var(--text-color)";
-        TABLE_BORDER_COLOR = "var(--border-color)";
-        LOGIN_BOX_BG = "var(--secondary-background-color)"; LOGIN_BOX_SHADOW = "0 10px 35px rgba(0,0,0,0.3)";
-        LOGOUT_BTN_BG = "#5A2222"; LOGOUT_BTN_TEXT = "#FFBDBD"; LOGOUT_BTN_BORDER = "#FFBDBD";
-        LOGOUT_BTN_HOVER_BG = "#6B3333";
-        PRIMARY_BTN_BG = "#BE90D4"; PRIMARY_BTN_HOVER_BG = "#A77CBF";
-        DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#BE90D4"; DOWNLOAD_BTN_BORDER = "#BE90D4";
-        DOWNLOAD_BTN_HOVER_BG = "#BE90D4"; DOWNLOAD_BTN_HOVER_TEXT = "#1E1E1E";
+    GOLD_ACCENT = "#D4AF37"
+    CHARCOAL_BASE = "#0A0A0A"
+    WHITE_BASE = "#FFFFFF"
+    GLASS_BG_DARK = "rgba(10, 10, 10, 0.6)"
+    GLASS_BG_LIGHT = "rgba(255, 255, 255, 0.6)"
 
-    TABLE_CELL_PADDING = "0.65em 0.8em";
-    TABLE_FONT_SIZE = "0.92rem";
     css = f"""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display&display=swap');
+
         :root {{
-            --score-good-bg: {SCORE_GOOD_BG}; --score-good-text: {SCORE_GOOD_TEXT};
-            --score-medium-bg: {SCORE_MEDIUM_BG}; --score-medium-text: {SCORE_MEDIUM_TEXT};
-            --score-bad-bg: {SCORE_BAD_BG}; --score-bad-text: {SCORE_BAD_TEXT};
-            --sentiment-positive-bg: {SENTIMENT_POSITIVE_BG}; --sentiment-positive-text: {SENTIMENT_POSITIVE_TEXT};
-            --sentiment-neutral-bg: {SENTIMENT_NEUTRAL_BG}; --sentiment-neutral-text: {SENTIMENT_NEUTRAL_TEXT};
-            --sentiment-negative-bg: {SENTIMENT_NEGATIVE_BG}; --sentiment-negative-text: {SENTIMENT_NEGATIVE_TEXT};
-            --days-good-bg: {DAYS_GOOD_BG}; --days-good-text: {DAYS_GOOD_TEXT};
-            --days-medium-bg: {DAYS_MEDIUM_BG}; --days-medium-text: {DAYS_MEDIUM_TEXT};
-            --days-bad-bg: {DAYS_BAD_BG}; --days-bad-text: {DAYS_BAD_TEXT};
-            --req-met-bg: {REQ_MET_BG}; --req-met-text: {REQ_MET_TEXT};
-            --req-not-met-bg: {REQ_NOT_MET_BG}; --req-not-met-text: {REQ_NOT_MET_TEXT};
-            --req-na-bg: {REQ_NA_BG}; --req-na-text: {REQ_NA_TEXT};
-            --table-header-bg: {TABLE_HEADER_BG}; --table-header-text: {TABLE_HEADER_TEXT};
-            --table-border-color: {TABLE_BORDER_COLOR}; --table-cell-padding: {TABLE_CELL_PADDING};
-            --table-font-size: {TABLE_FONT_SIZE};
-            --login-box-bg: {LOGIN_BOX_BG}; --login-box-shadow: {LOGIN_BOX_SHADOW};
-            --logout-btn-bg: {LOGOUT_BTN_BG}; --logout-btn-text: {LOGOUT_BTN_TEXT};
-            --logout-btn-border: {LOGOUT_BTN_BORDER}; --logout-btn-hover-bg: {LOGOUT_BTN_HOVER_BG};
-            --primary-btn-bg: {PRIMARY_BTN_BG}; --primary-btn-hover-bg: {PRIMARY_BTN_HOVER_BG};
-            --download-btn-bg: {DOWNLOAD_BTN_BG}; --download-btn-text: {DOWNLOAD_BTN_TEXT};
-            --download-btn-border: {DOWNLOAD_BTN_BORDER}; --download-btn-hover-bg: {DOWNLOAD_BTN_HOVER_BG};
-            --download-btn-hover-text: {DOWNLOAD_BTN_HOVER_TEXT};
+            --charcoal-base: {CHARCOAL_BASE};
+            --white-base: {WHITE_BASE};
+            --gold-accent: {GOLD_ACCENT};
+            --font-body: 'Inter', sans-serif;
+            --font-display: 'Playfair Display', serif;
+            --border-radius-xl: 20px;
+            --transition-speed: 150ms;
         }}
-        body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
-        .stApp {{ padding: 0.5rem 1rem; }}
-        h1, h2, h3, h4, h5, h6 {{ font-weight: 600; color: var(--primary-color); }}
-        h1 {{ text-align: center; padding: 0.8em 0.5em; font-size: 2.3rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--primary-color); margin-bottom: 1.5em; font-weight: 700; }}
-        h2 {{ font-size: 1.7rem; margin-top: 2.2em; margin-bottom: 1.3em; padding-bottom: 0.5em; border-bottom: 1px solid var(--border-color); font-weight: 600; }}
-        h3 {{ font-size: 1.4rem; margin-top: 2em; margin-bottom: 1.1em; font-weight: 600; color: var(--text-color); opacity: 0.9; }}
-        h5 {{ color: var(--text-color); opacity: 0.95; margin-top: 1.8em; margin-bottom: 0.9em; font-weight: 500; letter-spacing: 0.1px; font-size: 1.1rem; }}
-        div[data-testid="stMetric"], .metric-card {{ background-color: var(--secondary-background-color); padding: 1.4em 1.7em; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 5px 12px rgba(0,0,0,0.06); transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; margin-bottom: 1.3em; }}
-        div[data-testid="stMetric"]:hover, .metric-card:hover {{ transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }}
-        div[data-testid="stMetricLabel"] > div {{ font-size: 0.95rem; }}
-        div[data-testid="stMetricValue"] > div {{ font-size: 2.5rem !important; }}
-        div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; background-color: var(--secondary-background-color); border-bottom: 1px solid var(--border-color); }}
-        div[data-testid="stSidebarNavItems"] {{ padding-top: 1.3em; }}
+
+        /* --- Base & Typography --- */
+        body, .stApp {{
+            font-family: var(--font-body);
+            background-color: var(--background-color); /* Streamlit handles base bg */
+            transition: background-color var(--transition-speed) ease-in-out, color var(--transition-speed) ease-in-out;
+            animation: fadeIn 0.5s ease-in-out;
+        }}
+
+        @keyframes fadeIn {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
+
+        h1, h2, h3, h4, h5, h6 {{
+            font-family: var(--font-body);
+            font-weight: 600;
+            color: {GOLD_ACCENT};
+        }}
+
+        h1 {{
+            font-size: 2.8rem;
+            text-align: center;
+            border-bottom: 2px solid {GOLD_ACCENT};
+            padding-bottom: 0.6em;
+            margin-bottom: 1.5em;
+        }}
+        h2 {{ border-bottom: 1px solid var(--border-color); padding-bottom: 0.4em; }}
+
+        /* --- Layout & KPI Cards --- */
+        .main .block-container {{
+            max-width: 1400px;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }}
+
+        div[data-testid="stMetric"] {{
+            background: var(--glass-bg, {GLASS_BG_LIGHT});
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            border-radius: var(--border-radius-xl);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            padding: 2em 2.2em;
+            transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
+            will-change: transform;
+            margin-bottom: 1.5em;
+        }}
+
+        div[data-testid="stMetric"]:hover {{
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
+        }}
+
+        div[data-testid="stMetricLabel"] > div {{
+            font-family: var(--font-body);
+            font-size: 1.1rem;
+            font-weight: 400;
+            opacity: 0.8;
+        }}
+
+        div[data-testid="stMetricValue"] > div {{
+            font-family: var(--font-display);
+            font-size: 3.5rem !important;
+            color: {GOLD_ACCENT};
+            font-weight: 400; /* Playfair often looks best at 400 */
+        }}
+        div[data-testid="stMetricDelta"] > div {{
+             color: var(--text-color);
+             opacity: 0.7;
+             font-size: 0.9rem;
+        }}
+
+
+        /* --- Sidebar --- */
+        div[data-testid="stSidebar"] {{
+            background-color: var(--secondary-background-color);
+            border-right: 1px solid var(--border-color);
+        }}
+        div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; }}
+        div[data-testid="stSidebarUserContent"] h1,
+        div[data-testid="stSidebarUserContent"] h2,
+        div[data-testid="stSidebarUserContent"] h3 {{ color: {GOLD_ACCENT}; }}
+        div[data-testid="stSidebar"] button[kind="primary"] {{
+            background-color: {GOLD_ACCENT};
+            color: {CHARCOAL_BASE};
+            border: 1px solid {GOLD_ACCENT};
+        }}
+        div[data-testid="stSidebar"] button[kind="primary"]:hover {{
+            background-color: #C0952B; /* Darker Gold */
+            color: {CHARCOAL_BASE};
+            border: 1px solid #C0952B;
+        }}
+
+        /* --- Dark Mode Specifics --- */
+        [data-theme="dark"] body, [data-theme="dark"] .stApp {{ background-color: {CHARCOAL_BASE}; color: {WHITE_BASE}; }}
+        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 {{ color: {GOLD_ACCENT}; }}
+        [data-theme="dark"] div[data-testid="stMetric"] {{ --glass-bg: {GLASS_BG_DARK}; border: 1px solid rgba(10, 10, 10, 0.2); }}
+        [data-theme="dark"] .custom-styled-table th {{ background-color: #1a1a1a; }}
+        [data-theme="dark"] .custom-styled-table tbody tr:hover {{ background-color: #2a2a2a; }}
+        [data-theme="dark"] .active-filters-summary {{ background-color: #1e1e1e; border-color: #333; }}
+
+
+        /* --- Light Mode Specifics --- */
+        [data-theme="light"] body, [data-theme="light"] .stApp {{ background-color: {WHITE_BASE}; color: {CHARCOAL_BASE}; }}
+        [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 {{ color: #B38600; }} /* Slightly darker gold for light mode */
+        [data-theme="light"] div[data-testid="stMetric"] {{ --glass-bg: {GLASS_BG_LIGHT}; border: 1px solid rgba(255, 255, 255, 0.3); }}
+        [data-theme="light"] .custom-styled-table th {{ background-color: #f0f0f0; }}
+        [data-theme="light"] .custom-styled-table tbody tr:hover {{ background-color: #f9f9f9; }}
+        [data-theme="light"] .active-filters-summary {{ background-color: #f5f5f5; border-color: #ddd; }}
+
+        /* --- Buttons --- */
         div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{
-            border: none; padding: 10px 22px; border-radius: 8px; font-weight: 600;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
+            border: 1px solid {GOLD_ACCENT};
+            background-color: transparent;
+            color: {GOLD_ACCENT};
         }}
         div[data-testid="stButton"] > button:hover, div[data-testid="stDownloadButton"] > button:hover {{
-            transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(212, 175, 55, 0.3);
+            background-color: {GOLD_ACCENT};
+            color: {CHARCOAL_BASE};
         }}
-        div[data-testid="stButton"] > button[kind="primary"] {{
-            background-color: var(--primary-btn-bg); color: white;
+
+        /* --- Tables --- */
+        .custom-table-container {{
+             border-radius: var(--border-radius-xl);
+             box-shadow: 0 6px 15px rgba(0,0,0,0.05);
+             border: none;
+             overflow: hidden; /* Important for rounded corners on table */
         }}
-        div[data-testid="stButton"] > button[kind="primary"]:hover {{
-            background-color: var(--primary-btn-hover-bg); color: white;
+        .custom-styled-table {{
+            border-collapse: collapse;
+            font-size: 0.9rem;
         }}
-        div[data-testid="stDownloadButton"] > button {{
-            background-color: var(--download-btn-bg); color: var(--download-btn-text);
-            border: 1px solid var(--download-btn-border);
+        .custom-styled-table th {{
+            background-color: var(--secondary-background-color);
+            color: {GOLD_ACCENT};
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid {GOLD_ACCENT};
         }}
-        div[data-testid="stDownloadButton"] > button:hover {{
-            background-color: var(--download-btn-hover-bg); color: var(--download-btn-hover-text);
-            border: 1px solid var(--download-btn-border);
+        .custom-styled-table td {{
+            border-bottom: 1px solid var(--border-color);
         }}
-        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="primary"] {{
-             background-color: var(--secondary-background-color); color: var(--primary-color);
-             border: 1px solid var(--border-color); font-weight: 500;
-             padding: 8px 12px; font-size: 0.9rem;
+        .custom-styled-table tbody tr:last-child td {{
+            border-bottom: none;
         }}
-         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="primary"]:hover {{
-            background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--primary-color) 10%);
-            border-color: var(--primary-color); color: var(--primary-color);
+         .custom-styled-table tbody tr:hover {{
+             background-color: color-mix(in srgb, var(--secondary-background-color) 75%, {GOLD_ACCENT} 5%);
+         }}
+
+        /* --- Charts --- */
+        .stPlotlyChart {{
+            border-radius: var(--border-radius-xl);
+            padding: 1em;
+            background: var(--secondary-background-color);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.05);
         }}
-        div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"] {{
-            background-color: var(--logout-btn-bg) !important; color: var(--logout-btn-text) !important;
-            border: 1px solid var(--logout-btn-border) !important; font-weight: 600 !important;
-            padding: 8px 12px; font-size: 0.9rem; width: 100%;
+
+        /* --- Filter Summary --- */
+         .active-filters-summary {{
+            padding: 1.1em 1.5em;
+            margin-bottom: 2.5em;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 0.95rem;
+            opacity: 0.9;
+         }}
+
+         /* --- Login --- */
+        .login-container .login-box {{
+            background: var(--secondary-background-color);
+            border-radius: var(--border-radius-xl);
+            box-shadow: 0 10px 35px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
         }}
-         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"]:hover {{
-            background-color: var(--logout-btn-hover-bg) !important; color: var(--logout-btn-text) !important;
-            border: 1px solid var(--logout-btn-border) !important; transform: translateY(-2px);
-        }}
-        .streamlit-expanderHeader {{ font-size: 1.1em; }}
-        .streamlit-expander {{ border-radius: 10px; margin-bottom: 1.3em; }}
-        div[data-testid="stRadio"] {{ border-bottom: 2px solid var(--primary-color); margin-bottom: 30px; }}
-        .transcript-details-section {{ margin-left: 20px; padding-left: 20px; border-left: 3px solid var(--primary-color); margin-top: 1.5em; }}
-        .transcript-summary-grid {{ gap: 1.5em; margin-bottom: 2.2em; }}
-        .transcript-summary-item {{ padding: 1.2em 1.4em; }}
-        .transcript-container {{ padding: 2em; border-radius: 10px; max-height: 600px; }} /* Max height for transcript */
-        .footer {{ padding: 40px 0; margin-top: 70px; }}
-        .active-filters-summary {{ padding: 1.1em 1.5em; margin-bottom: 2.5em; }}
-        .no-data-message {{ padding: 40px; font-size: 1.25rem; }}
-        div[data-testid="stTextInput"] input, div[data-testid="stDateInput"] input,
-        div[data-testid="stNumberInput"] input, div[data-testid="stSelectbox"] div[role="combobox"],
-        div[data-testid="stMultiSelect"] div[role="combobox"] {{ border-radius: 8px !important; }}
-        .custom-table-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 2em; max-height: 500px; }}
-        .custom-styled-table {{ width: 100%; border-collapse: collapse; font-size: var(--table-font-size); color: var(--text-color); }}
-        .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); text-align: left; border-bottom: 1px solid var(--table-border-color); border-right: 1px solid var(--table-border-color); white-space: nowrap; }}
-        .custom-styled-table th:last-child, .custom-styled-table td:last-child {{ border-right: none; }}
-        .custom-styled-table thead tr {{ border-bottom: 2px solid var(--primary-color); }}
-        .custom-styled-table th {{ background-color: var(--table-header-bg); color: var(--table-header-text); font-weight: 600; text-transform: capitalize; position: sticky; top: 0; z-index: 1; }}
-        .custom-styled-table tbody tr:hover {{ background-color: color-mix(in srgb, var(--secondary-background-color) 75%, var(--primary-color) 8%); }}
-        .custom-styled-table td {{ font-weight: 400; }}
-        .cell-score-good {{ background-color: var(--score-good-bg); color: var(--score-good-text); }}
-        .cell-score-medium {{ background-color: var(--score-medium-bg); color: var(--score-medium-text); }}
-        .cell-score-bad {{ background-color: var(--score-bad-bg); color: var(--score-bad-text); }}
-        .cell-sentiment-positive {{ background-color: var(--sentiment-positive-bg); color: var(--sentiment-positive-text); }}
-        .cell-sentiment-neutral {{ background-color: var(--sentiment-neutral-bg); color: var(--sentiment-neutral-text); }}
-        .cell-sentiment-negative {{ background-color: var(--sentiment-negative-bg); color: var(--sentiment-negative-text); }}
-        .cell-days-good {{ background-color: var(--days-good-bg); color: var(--days-good-text); }}
-        .cell-days-medium {{ background-color: var(--days-medium-bg); color: var(--days-medium-text); }}
-        .cell-days-bad {{ background-color: var(--days-bad-bg); color: var(--days-bad-text); }}
-        .cell-req-met {{ background-color: var(--req-met-bg); color: var(--req-met-text); }}
-        .cell-req-not-met {{ background-color: var(--req-not-met-bg); color: var(--req-not-met-text); }}
-        .cell-req-na {{ background-color: var(--req-na-bg); color: var(--req-na-text); }}
-        .cell-status {{ font-weight: 500; }}
-        .login-container {{
-            display: flex; justify-content: center; align-items: center;
-            min-height: 80vh; flex-direction: column; text-align: center; padding: 2em;
-        }}
-        .login-box {{
-            background-color: var(--login-box-bg); padding: 3.5em 4.5em;
-            border-radius: 15px; box-shadow: var(--login-box-shadow);
-            border: 1px solid var(--border-color); max-width: 500px; width: 100%;
-        }}
-        .login-box .login-icon {{ font-size: 4rem; margin-bottom: 0.3em; color: var(--primary-color); }}
-        .login-box h2 {{
-             margin-top: 0; margin-bottom: 0.5em; font-size: 2.1rem;
-             color: var(--primary-color); border-bottom: none; font-weight: 700;
-        }}
-        .login-box p {{
-            margin-bottom: 3em; color: var(--text-color); opacity: 0.85;
-            font-size: 1.1rem; line-height: 1.6;
-        }}
-        .login-container div[data-testid="stButton"] > button {{
-            background-color: #4285F4 !important; color: white !important;
-            font-weight: 600 !important; font-size: 1.15rem !important;
-            padding: 15px 35px !important; border-radius: 8px !important;
-            border: none !important;
-            transition: all 0.2s ease !important;
-        }}
+         .login-container .login-icon {{ color: {GOLD_ACCENT}; }}
+         .login-container h2 {{ color: {GOLD_ACCENT}; }}
+         .login-container div[data-testid="stButton"] > button {{
+            background-color: {GOLD_ACCENT} !important;
+            color: {CHARCOAL_BASE} !important;
+         }}
         .login-container div[data-testid="stButton"] > button:hover {{
-            background-color: #357AE8 !important; color: white !important;
-            transform: translateY(-3px) !important; box-shadow: 0 6px 12px rgba(66, 133, 244, 0.4) !important;
-        }}
-         .login-container div[data-testid="stButton"] > button:focus {{
-             box-shadow: 0 0 0 4px color-mix(in srgb, #4285F4 30%, transparent) !important;
-             border: none !important;
+            background-color: #C0952B !important;
+            color: {CHARCOAL_BASE} !important;
         }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 load_custom_css()
 
-# --- Constants & Configuration (Keep As Is from v4.6.2) ---
+# --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and the Company.", "type": "Secondary", "chart_label": "Intro Self & Company"},
@@ -234,17 +251,20 @@ KEY_REQUIREMENT_DETAILS = {
 ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS = ['introSelfAndDIME', 'confirmKitReceived', 'offerDisplayHelp', 'scheduleTrainingAndPromo', 'providePromoCreditLink', 'expectationsSet']
 ORDERED_CHART_REQUIREMENTS = ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 PST_TIMEZONE = tz.gettz('America/Los_Angeles'); UTC_TIMEZONE = tz.tzutc()
-THEME_PLOTLY = st.get_option("theme.base")
+GOLD_ACCENT = "#D4AF37"
 PLOT_BG_COLOR_PLOTLY = "rgba(0,0,0,0)"
-if THEME_PLOTLY == "light":
-    ACTIVE_PLOTLY_PRIMARY_SEQ = ['#6A0DAD', '#9B59B6', '#BE90D4', '#D2B4DE', '#E8DAEF']; ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel1
-    ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' }; TEXT_COLOR_FOR_PLOTLY = "#262730"; PRIMARY_COLOR_FOR_PLOTLY = "#6A0DAD"
-else:
-    ACTIVE_PLOTLY_PRIMARY_SEQ = ['#BE90D4', '#9B59B6', '#6A0DAD', '#D2B4DE', '#E8DAEF']; ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Set3
-    ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
-plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
+ACTIVE_PLOTLY_PRIMARY_SEQ = [GOLD_ACCENT, '#E0C77B', '#A88D2B', '#F5E4A8', '#7A651F']
+ACTIVE_PLOTLY_QUALITATIVE_SEQ = px.colors.qualitative.Pastel
+ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#2ECC71', 'negative': '#E74C3C', 'neutral': '#BDC3C7' }
+TEXT_COLOR_FOR_PLOTLY_LIGHT = "#0A0A0A"
+TEXT_COLOR_FOR_PLOTLY_DARK = "#FFFFFF"
+THEME_PLOTLY = st.get_option("theme.base")
+TEXT_COLOR_FOR_PLOTLY = TEXT_COLOR_FOR_PLOTLY_DARK if THEME_PLOTLY == "dark" else TEXT_COLOR_FOR_PLOTLY_LIGHT
 
-# --- Google SSO & Domain Check (Keep As Is from v4.6.2) ---
+plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(212, 175, 55, 0.15)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": GOLD_ACCENT, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": GOLD_ACCENT}
+
+
+# --- Google SSO & Domain Check ---
 def check_login_and_domain():
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
@@ -270,7 +290,7 @@ def check_login_and_domain():
         return False
     return True
 
-# --- Data Loading & Processing Functions (Keep As Is from v4.6.2, including timezone fix) ---
+# --- Data Loading & Processing Functions ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -526,9 +546,9 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v4.6.2")
+st.sidebar.caption(f"Dashboard v5.0.0") # Updated Version
 
-st.title("📈 Onboarding Analytics Dashboard")
+st.title("✨ Onboarding Performance Dashboard ✨")
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
     else: st.markdown("<div class='no-data-message'>⏳ Initializing data... If persists, check configurations. ⏳</div>", unsafe_allow_html=True)
@@ -736,7 +756,7 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     if global_search_active: st.info("ℹ️ Global Search active. Results in pop-up. Close/clear search for category/date filters here.")
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
-        
+
         st.divider() # FIX: Added divider to separate sections
 
         st.header("🎨 Key Visualizations (Filtered Data)")
@@ -769,7 +789,7 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
                                 if total_valid_for_item > 0: checklist_data_for_plotly.append({"Key Requirement": chart_label_bar, "Completion (%)": (true_count_for_item / total_valid_for_item) * 100})
                         if checklist_data_for_plotly:
                             df_checklist_plotly = pd.DataFrame(checklist_data_for_plotly);
-                            if not df_checklist_plotly.empty: checklist_bar_fig = px.bar(df_checklist_plotly.sort_values("Completion (%)", ascending=True), x="Completion (%)", y="Key Requirement", orientation='h', title="Key Req Completion (Confirmed Only)", color_discrete_sequence=[PRIMARY_COLOR_FOR_PLOTLY]); checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}, xaxis_ticksuffix="%"); st.plotly_chart(checklist_bar_fig, use_container_width=True)
+                            if not df_checklist_plotly.empty: checklist_bar_fig = px.bar(df_checklist_plotly.sort_values("Completion (%)", ascending=True), x="Completion (%)", y="Key Requirement", orientation='h', title="Key Req Completion (Confirmed Only)", color_discrete_sequence=[GOLD_ACCENT]); checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}, xaxis_ticksuffix="%"); st.plotly_chart(checklist_bar_fig, use_container_width=True)
                             else: st.markdown("<div class='no-data-message'>📊 No data for key req chart (confirmed, post-proc).</div>", unsafe_allow_html=True)
                         else: st.markdown("<div class='no-data-message'>📊 No valid checklist items for req chart.</div>", unsafe_allow_html=True)
                     else: st.markdown("<div class='no-data-message'>✅ No 'Confirmed' onboardings or relevant columns for req chart.</div>", unsafe_allow_html=True)
@@ -787,7 +807,7 @@ elif st.session_state.active_tab == TAB_TRENDS:
                 if not trend_data_resampled.empty:
                     trend_line_fig = px.line(trend_data_resampled, x='onboarding_datetime', y='count', markers=True, title=f"Onboardings Over Time ({resample_freq} Trend)", color_discrete_sequence=[ACTIVE_PLOTLY_PRIMARY_SEQ[0]]); trend_line_fig.update_layout(plotly_base_layout_settings, xaxis_title="Date", yaxis_title="Number of Onboardings"); st.plotly_chart(trend_line_fig, use_container_width=True)
                 else: st.markdown("<div class='no-data-message'>📈 Not enough data for trend plot.</div>", unsafe_allow_html=True)
-            else: st.markdown("<div class='no-data-message'>📅 No valid date data for trend.</div>", unsafe_allow_html=True)
+            else: st.markdown("<div class'no-data-message'>📅 No valid date data for trend.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>🗓️ 'onboarding_date_only' missing for trend.</div>", unsafe_allow_html=True)
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             days_data_for_hist = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna();
@@ -796,4 +816,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.3</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v5.0.0</div>", unsafe_allow_html=True)

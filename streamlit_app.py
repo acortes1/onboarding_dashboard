@@ -10,12 +10,12 @@ import time
 import numpy as np
 import re
 from dateutil import tz # For PST conversion
-from fpdf import FPDF # For PDF generation
+from fpdf import FPDF, XPos, YPos, Align # Import XPos, YPos, and Align
 import io # For handling bytes data for images in PDF
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.4.10", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.4.12", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -310,9 +310,9 @@ def check_password():
     _, form_col, _ = st.columns([1,1.5,1], gap="large")
     with form_col:
         st.markdown("<div style='text-align: center; font-size: 60px; margin-bottom: 20px;'>🔑</div>", unsafe_allow_html=True)
-        with st.form("password_form_main_app_v4_4_4"): # Key updated
+        with st.form("password_form_main_app_v4_4_4"): 
             st.markdown("<h4 style='text-align: center;'>Enter Access Key</h4>", unsafe_allow_html=True)
-            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_4_4", placeholder="Enter your key", label_visibility="collapsed") # Key updated
+            password_attempt = st.text_input("Access Key:", type="password", help=app_hint, key="pwd_input_main_app_v4_4_4", placeholder="Enter your key", label_visibility="collapsed") 
             st.markdown("")
             submitted = st.form_submit_button("🔓 Unlock Dashboard", use_container_width=True)
             if submitted:
@@ -325,7 +325,7 @@ if not check_password(): st.stop()
 # --- Constants & Configuration ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
-    'introSelfAndDIME': {"description": "Warmly introduce yourself and the company.", "type": "Secondary", "chart_label": "Intro Self & Company"}, # Made generic
+    'introSelfAndDIME': {"description": "Warmly introduce yourself and the company.", "type": "Secondary", "chart_label": "Intro Self & Company"}, 
     'confirmKitReceived': {"description": "Confirm kit and initial order received.", "type": "Primary", "chart_label": "Kit & Order Recv'd"},
     'offerDisplayHelp': {"description": "Ask about help setting up in-store display.", "type": "Secondary", "chart_label": "Offer Display Help"},
     'scheduleTrainingAndPromo': {"description": "Schedule budtender training & first promo.", "type": "Primary", "chart_label": "Sched. Training/Promo"},
@@ -561,47 +561,47 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Helvetica", "B", 16)
 
-        pdf.cell(0, 10, "Executive Snapshot", 0, 1, "C") 
+        pdf.cell(0, 10, "Executive Snapshot", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.C) 
         pdf.ln(5) 
 
         pdf.set_font("Helvetica", "I", 9)
         if last_refresh_dt:
             refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
-            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", 0, 1, "R")
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
         else:
-            pdf.cell(0, 5, "Data refresh time not available.", 0, 1, "R")
+            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
         pdf.ln(5)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Performance Indicators", 0, 1, "L")
+        pdf.cell(0, 10, "Key Performance Indicators", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         
         total_mtd_pdf, sr_mtd_pdf, score_mtd_pdf, days_mtd_pdf = mtd_metrics
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, "Month-to-Date (MTD) Performance:", 0, 1, "L")
+        pdf.cell(0, 7, "Month-to-Date (MTD) Performance:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 5, f"  - Total Onboardings MTD: {total_mtd_pdf:.0f}" if pd.notna(total_mtd_pdf) else "  - Total Onboardings MTD: N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Success Rate MTD: {sr_mtd_pdf:.1f}%" if pd.notna(sr_mtd_pdf) else "  - Success Rate MTD: N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Average Score MTD: {score_mtd_pdf:.2f}" if pd.notna(score_mtd_pdf) else "  - Average Score MTD: N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Avg. Days to Confirmation MTD: {days_mtd_pdf:.1f}" if pd.notna(days_mtd_pdf) else "  - Avg. Days to Confirmation MTD: N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Total Onboardings MTD: {total_mtd_pdf:.0f}" if pd.notna(total_mtd_pdf) else "  - Total Onboardings MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Success Rate MTD: {sr_mtd_pdf:.1f}%" if pd.notna(sr_mtd_pdf) else "  - Success Rate MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Average Score MTD: {score_mtd_pdf:.2f}" if pd.notna(score_mtd_pdf) else "  - Average Score MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Avg. Days to Confirmation MTD: {days_mtd_pdf:.1f}" if pd.notna(days_mtd_pdf) else "  - Avg. Days to Confirmation MTD: N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(3)
 
         total_filt_pdf, sr_filt_pdf, score_filt_pdf, days_filt_pdf = filtered_metrics
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, "Filtered Data Snapshot:", 0, 1, "L")
+        pdf.cell(0, 7, "Filtered Data Snapshot:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 5, f"  - Total Onboardings (Filtered): {total_filt_pdf:.0f}" if pd.notna(total_filt_pdf) else "  - Total Onboardings (Filtered): N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Success Rate (Filtered): {sr_filt_pdf:.1f}%" if pd.notna(sr_filt_pdf) else "  - Success Rate (Filtered): N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Average Score (Filtered): {score_filt_pdf:.2f}" if pd.notna(score_filt_pdf) else "  - Average Score (Filtered): N/A", 0, 1)
-        pdf.cell(0, 5, f"  - Avg. Days to Confirmation (Filtered): {days_filt_pdf:.1f}" if pd.notna(days_filt_pdf) else "  - Avg. Days to Confirmation (Filtered): N/A", 0, 1)
+        pdf.cell(0, 5, f"  - Total Onboardings (Filtered): {total_filt_pdf:.0f}" if pd.notna(total_filt_pdf) else "  - Total Onboardings (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Success Rate (Filtered): {sr_filt_pdf:.1f}%" if pd.notna(sr_filt_pdf) else "  - Success Rate (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Average Score (Filtered): {score_filt_pdf:.2f}" if pd.notna(score_filt_pdf) else "  - Average Score (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        pdf.cell(0, 5, f"  - Avg. Days to Confirmation (Filtered): {days_filt_pdf:.1f}" if pd.notna(days_filt_pdf) else "  - Avg. Days to Confirmation (Filtered): N/A", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(7)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Charts (from Filtered Data)", 0, 1, "L")
+        pdf.cell(0, 10, "Key Charts (from Filtered Data)", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         chart_img_width = 170 
         
         if not df_data.empty and 'status' in df_data.columns and df_data['status'].notna().any():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 7, "1. Onboarding Status Distribution:", 0, 1, "L")
+            pdf.cell(0, 7, "1. Onboarding Status Distribution:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
             status_counts_df_pdf = df_data['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index()
             status_counts_df_pdf.columns = ['status', 'count']
             status_fig_pdf = px.bar(status_counts_df_pdf, x='status', y='count', color='status', title="", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
@@ -612,12 +612,12 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
                 pdf.ln(2) 
             else:
                 pdf.set_font("Helvetica", "", 9)
-                pdf.cell(0,5, "    (Chart could not be generated)", 0, 1)
+                pdf.cell(0,5, "    (Chart could not be generated)", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(5)
 
         if not df_data.empty and 'clientSentiment' in df_data.columns and df_data['clientSentiment'].notna().any():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 7, "2. Client Sentiment Breakdown:", 0, 1, "L")
+            pdf.cell(0, 7, "2. Client Sentiment Breakdown:", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
             sent_counts_df_pdf = df_data['clientSentiment'].value_counts().reset_index()
             sent_counts_df_pdf.columns = ['clientSentiment', 'count']
             current_sentiment_map_plot_pdf = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent_counts_df_pdf['clientSentiment'].unique()}
@@ -631,14 +631,14 @@ def generate_executive_snapshot_pdf(df_data, mtd_metrics, filtered_metrics, last
                 pdf.image(io.BytesIO(img_bytes_sent), x=pdf.get_x() + 10, w=chart_img_width * 0.7, type='PNG')
             else:
                 pdf.set_font("Helvetica", "", 9)
-                pdf.cell(0,5, "    (Chart could not be generated)", 0, 1)
+                pdf.cell(0,5, "    (Chart could not be generated)", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(5)
 
         if df_data.empty:
             pdf.set_font("Helvetica", "I", 10)
-            pdf.cell(0, 10, "No data available for charts based on current filters.", 0, 1, "L")
+            pdf.cell(0, 10, "No data available for charts based on current filters.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
 
-        return pdf.output(dest='B') # Output directly as bytes
+        return pdf.output(dest='B') 
 
     except Exception as e:
         st.error(f"🚨 PDF Generation Error: {e}. Ensure 'fpdf2' and 'kaleido' are correctly installed and operational.")
@@ -651,19 +651,19 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "Onboarding Record Details", 0, 1, "C")
+        pdf.cell(0, 10, "Onboarding Record Details", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.C)
         pdf.ln(5)
 
         pdf.set_font("Helvetica", "I", 9)
         if last_refresh_dt:
             refresh_time_pst_pdf = last_refresh_dt.astimezone(pst_tz)
-            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", 0, 1, "R")
+            pdf.cell(0, 5, f"Data last refreshed: {refresh_time_pst_pdf.strftime('%b %d, %Y %I:%M %p PST')}", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
         else:
-            pdf.cell(0, 5, "Data refresh time not available.", 0, 1, "R")
+            pdf.cell(0, 5, "Data refresh time not available.", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.R)
         pdf.ln(7)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Record Information", 0, 1, "L")
+        pdf.cell(0, 10, "Record Information", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         pdf.set_font("Helvetica", "", 10)
 
         details_to_include = {
@@ -671,7 +671,7 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
             "License Number": record_series.get('licenseNumber', "N/A"),
             "Representative": record_series.get('repName', "N/A"),
             "Onboarding Date": record_series.get('onboardingDate', "N/A"),
-            "Status": record_series.get('status_styled', record_series.get('status', "N/A")).replace("✅","").replace("⏳","").replace("❌","").strip(), # Cleaned status
+            "Status": record_series.get('status_styled', record_series.get('status', "N/A")).replace("✅","").replace("⏳","").replace("❌","").strip(),
             "Score": f"{record_series.get('score', 'N/A'):.1f}" if pd.notna(record_series.get('score')) else "N/A",
             "Client Sentiment": record_series.get('clientSentiment', "N/A"),
             "Days to Confirmation": f"{record_series.get('days_to_confirmation', 'N/A'):.0f}" if pd.notna(record_series.get('days_to_confirmation')) else "N/A",
@@ -683,22 +683,21 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
 
         for label, value in details_to_include.items():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(60, 7, f"{label}:", 0, 0)
+            pdf.cell(60, 7, f"{label}:", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP) 
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 7, str(value), 0, 1) # Use multi_cell for potentially long values
+            pdf.multi_cell(0, 7, str(value), border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT) 
         pdf.ln(5)
 
         call_summary_text_pdf = record_series.get('summary', '').strip()
         if call_summary_text_pdf and call_summary_text_pdf.lower() not in ['na', 'n/a', '']:
             pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 10, "Call Summary", 0, 1, "L")
+            pdf.cell(0, 10, "Call Summary", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 6, call_summary_text_pdf, 0, 1)
+            pdf.multi_cell(0, 6, call_summary_text_pdf, border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.ln(5)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 10, "Key Requirement Checklist", 0, 1, "L")
-        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 10, "Key Requirement Checklist", border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align=Align.L)
         
         for item_col_name_req in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
             details_obj = KEY_REQUIREMENT_DETAILS.get(item_col_name_req)
@@ -711,13 +710,13 @@ def generate_single_record_pdf(record_series, last_refresh_dt, pst_tz):
                 status_text = "N/A"
                 if val_str_lower in ['true', '1', 'yes', 'x', 'completed', 'done']:
                     status_text = "Met"
-                elif pd.notna(val_from_row) and val_str_lower != "": # Handles 'false', '0', 'no'
+                elif pd.notna(val_from_row) and val_str_lower != "": 
                     status_text = "Not Met"
                 
                 pdf.set_font("Helvetica", "B", 9)
-                pdf.cell(5, 6, f"- ", 0, 0)
+                pdf.cell(5, 6, f"- ", border=0, new_x=XPos.RIGHT, new_y=YPos.TOP)
                 pdf.set_font("Helvetica", "", 9)
-                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", 0, 1)
+                pdf.multi_cell(0, 6, f"{desc_text} [{item_type_text}]: {status_text}", border=0, align=Align.L, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(2)
         
         return pdf.output(dest='B') # Output directly as bytes
@@ -934,7 +933,8 @@ if st.sidebar.button("📄 Download Executive Snapshot (PDF)", key="generate_pdf
         st.session_state.get('last_data_refresh_time'),
         PST_TIMEZONE
     )
-    if pdf_bytes_data: # generate_executive_snapshot_pdf now ensures bytes or None
+    if pdf_bytes_data: 
+        # generate_executive_snapshot_pdf now returns bytes or None
         download_key = f"download_exec_snapshot_pdf_final_button_v4_4_4_{int(time.time())}" # Key updated
         st.sidebar.download_button(
             label="✅ Click to Download PDF",

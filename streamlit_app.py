@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.1
+# streamlit_app.py - v4.6.2
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,17 +13,17 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.1", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.2", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection (Keep As Is from v4.6.0) ---
+# --- Custom CSS Injection (Keep As Is from v4.6.1) ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
     THEME = st.get_option("theme.base")
-
+    # ... (CSS definitions from v4.6.1 - Retained for brevity in this diff) ...
     # Define Color Palettes for Light & Dark Themes
     if THEME == "light":
         SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D";
@@ -68,10 +68,8 @@ def load_custom_css():
         DOWNLOAD_BTN_BG = "var(--secondary-background-color)"; DOWNLOAD_BTN_TEXT = "#BE90D4"; DOWNLOAD_BTN_BORDER = "#BE90D4";
         DOWNLOAD_BTN_HOVER_BG = "#BE90D4"; DOWNLOAD_BTN_HOVER_TEXT = "#1E1E1E";
 
-    # Shared CSS Variables
     TABLE_CELL_PADDING = "0.65em 0.8em";
     TABLE_FONT_SIZE = "0.92rem";
-
     css = f"""
     <style>
         :root {{
@@ -98,25 +96,19 @@ def load_custom_css():
             --download-btn-border: {DOWNLOAD_BTN_BORDER}; --download-btn-hover-bg: {DOWNLOAD_BTN_HOVER_BG};
             --download-btn-hover-text: {DOWNLOAD_BTN_HOVER_TEXT};
         }}
-        /* ... (Keep ALL other CSS rules from v4.6.0 here) ... */
         body {{ font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }}
         .stApp {{ padding: 0.5rem 1rem; }}
-
         h1, h2, h3, h4, h5, h6 {{ font-weight: 600; color: var(--primary-color); }}
         h1 {{ text-align: center; padding: 0.8em 0.5em; font-size: 2.3rem; letter-spacing: 0.5px; border-bottom: 2px solid var(--primary-color); margin-bottom: 1.5em; font-weight: 700; }}
         h2 {{ font-size: 1.7rem; margin-top: 2.2em; margin-bottom: 1.3em; padding-bottom: 0.5em; border-bottom: 1px solid var(--border-color); font-weight: 600; }}
         h3 {{ font-size: 1.4rem; margin-top: 2em; margin-bottom: 1.1em; font-weight: 600; color: var(--text-color); opacity: 0.9; }}
         h5 {{ color: var(--text-color); opacity: 0.95; margin-top: 1.8em; margin-bottom: 0.9em; font-weight: 500; letter-spacing: 0.1px; font-size: 1.1rem; }}
-
         div[data-testid="stMetric"], .metric-card {{ background-color: var(--secondary-background-color); padding: 1.4em 1.7em; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 5px 12px rgba(0,0,0,0.06); transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; margin-bottom: 1.3em; }}
         div[data-testid="stMetric"]:hover, .metric-card:hover {{ transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }}
-        div[data-testid="stMetricLabel"] > div {{ font-size: 0.95rem; }} /* Slightly larger label */
-        div[data-testid="stMetricValue"] > div {{ font-size: 2.5rem !important; }} /* Slightly smaller value */
-
+        div[data-testid="stMetricLabel"] > div {{ font-size: 0.95rem; }}
+        div[data-testid="stMetricValue"] > div {{ font-size: 2.5rem !important; }}
         div[data-testid="stSidebarUserContent"] {{ padding: 1.8em 1.4em; background-color: var(--secondary-background-color); border-bottom: 1px solid var(--border-color); }}
         div[data-testid="stSidebarNavItems"] {{ padding-top: 1.3em; }}
-
-        /* General Button Styling */
         div[data-testid="stButton"] > button, div[data-testid="stDownloadButton"] > button {{
             border: none; padding: 10px 22px; border-radius: 8px; font-weight: 600;
             transition: all 0.2s ease;
@@ -125,16 +117,12 @@ def load_custom_css():
         div[data-testid="stButton"] > button:hover, div[data-testid="stDownloadButton"] > button:hover {{
             transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }}
-
-        /* Primary Button (e.g., Refresh, Clear) */
         div[data-testid="stButton"] > button[kind="primary"] {{
             background-color: var(--primary-btn-bg); color: white;
         }}
         div[data-testid="stButton"] > button[kind="primary"]:hover {{
             background-color: var(--primary-btn-hover-bg); color: white;
         }}
-
-        /* Download Button */
         div[data-testid="stDownloadButton"] > button {{
             background-color: var(--download-btn-bg); color: var(--download-btn-text);
             border: 1px solid var(--download-btn-border);
@@ -143,8 +131,6 @@ def load_custom_css():
             background-color: var(--download-btn-hover-bg); color: var(--download-btn-hover-text);
             border: 1px solid var(--download-btn-border);
         }}
-
-        /* Sidebar Buttons (Refresh, Clear) - Use Primary Style */
         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="primary"] {{
              background-color: var(--secondary-background-color); color: var(--primary-color);
              border: 1px solid var(--border-color); font-weight: 500;
@@ -154,8 +140,6 @@ def load_custom_css():
             background-color: color-mix(in srgb, var(--secondary-background-color) 90%, var(--primary-color) 10%);
             border-color: var(--primary-color); color: var(--primary-color);
         }}
-
-        /* Sidebar Logout Button (Secondary) */
         div[data-testid="stSidebarUserContent"] div[data-testid="stButton"] > button[kind="secondary"] {{
             background-color: var(--logout-btn-bg) !important; color: var(--logout-btn-text) !important;
             border: 1px solid var(--logout-btn-border) !important; font-weight: 600 !important;
@@ -165,26 +149,19 @@ def load_custom_css():
             background-color: var(--logout-btn-hover-bg) !important; color: var(--logout-btn-text) !important;
             border: 1px solid var(--logout-btn-border) !important; transform: translateY(-2px);
         }}
-
         .streamlit-expanderHeader {{ font-size: 1.1em; }}
         .streamlit-expander {{ border-radius: 10px; margin-bottom: 1.3em; }}
-
         div[data-testid="stRadio"] {{ border-bottom: 2px solid var(--primary-color); margin-bottom: 30px; }}
-
         .transcript-details-section {{ margin-left: 20px; padding-left: 20px; border-left: 3px solid var(--primary-color); margin-top: 1.5em; }}
         .transcript-summary-grid {{ gap: 1.5em; margin-bottom: 2.2em; }}
         .transcript-summary-item {{ padding: 1.2em 1.4em; }}
         .transcript-container {{ padding: 2em; border-radius: 10px; max-height: 600px; }}
-
         .footer {{ padding: 40px 0; margin-top: 70px; }}
         .active-filters-summary {{ padding: 1.1em 1.5em; margin-bottom: 2.5em; }}
         .no-data-message {{ padding: 40px; font-size: 1.25rem; }}
-
         div[data-testid="stTextInput"] input, div[data-testid="stDateInput"] input,
         div[data-testid="stNumberInput"] input, div[data-testid="stSelectbox"] div[role="combobox"],
-        div[data-testid="stMultiSelect"] div[role="combobox"] {{ border-radius: 8px !important; }} /* Softer radius */
-
-        /* Table Styles - Ensure all cell colors are included */
+        div[data-testid="stMultiSelect"] div[role="combobox"] {{ border-radius: 8px !important; }}
         .custom-table-container {{ overflow-x: auto; border: 1px solid var(--table-border-color); border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); margin-bottom: 2em; max-height: 500px; }}
         .custom-styled-table {{ width: 100%; border-collapse: collapse; font-size: var(--table-font-size); color: var(--text-color); }}
         .custom-styled-table th, .custom-styled-table td {{ padding: var(--table-cell-padding); text-align: left; border-bottom: 1px solid var(--table-border-color); border-right: 1px solid var(--table-border-color); white-space: nowrap; }}
@@ -206,8 +183,6 @@ def load_custom_css():
         .cell-req-not-met {{ background-color: var(--req-not-met-bg); color: var(--req-not-met-text); }}
         .cell-req-na {{ background-color: var(--req-na-bg); color: var(--req-na-text); }}
         .cell-status {{ font-weight: 500; }}
-
-        /* ENHANCED Login Screen Styles */
         .login-container {{
             display: flex; justify-content: center; align-items: center;
             min-height: 80vh; flex-direction: column; text-align: center; padding: 2em;
@@ -226,7 +201,6 @@ def load_custom_css():
             margin-bottom: 3em; color: var(--text-color); opacity: 0.85;
             font-size: 1.1rem; line-height: 1.6;
         }}
-        /* Main Google Login Button */
         .login-container div[data-testid="stButton"] > button {{
             background-color: #4285F4 !important; color: white !important;
             font-weight: 600 !important; font-size: 1.15rem !important;
@@ -248,7 +222,7 @@ def load_custom_css():
 
 load_custom_css()
 
-# --- Constants & Configuration ---
+# --- Constants & Configuration (Keep As Is from v4.6.1) ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and the Company.", "type": "Secondary", "chart_label": "Intro Self & Company"},
@@ -271,11 +245,10 @@ else:
     ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
 plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
 
-# --- Google SSO & Domain Check ---
-def check_login_and_domain():
-    """Checks if user is logged in via Google and belongs to the allowed domain."""
-    allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None) # Get domain, default to None if not set
 
+# --- Google SSO & Domain Check (Keep As Is from v4.6.1) ---
+def check_login_and_domain():
+    allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
         st.markdown("""
             <div class='login-container'>
@@ -286,23 +259,20 @@ def check_login_and_domain():
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        return False # Indicate login is needed
-
+        return False
     user_email = st.user.email
     if not user_email:
         st.error("Could not retrieve user email. Please try logging in again.")
         st.button("Log out", on_click=st.logout, type="secondary")
         return False
-
     if allowed_domain and not user_email.endswith(f"@{allowed_domain}"):
         st.error(f"🚫 Access Denied. Only users from the '{allowed_domain}' domain are allowed.")
         st.info(f"You are attempting to log in as: {user_email}")
         st.button("Log out", on_click=st.logout, type="secondary")
         return False
+    return True
 
-    return True # User is logged in and authorized
-
-# --- Data Loading & Processing Functions ---
+# --- Data Loading & Processing Functions (Keep As Is from v4.6.1, including timezone fix) ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -332,11 +302,9 @@ def robust_to_datetime(series):
             if dates.notnull().all(): break
     return dates
 
-# --- FIX: Robust Timezone Handling ---
 def format_datetime_to_pst_str(dt_series):
     if not pd.api.types.is_datetime64_any_dtype(dt_series) or dt_series.isnull().all():
         return dt_series
-
     def convert_element(element):
         if pd.isna(element): return None
         try:
@@ -347,7 +315,6 @@ def format_datetime_to_pst_str(dt_series):
             pst_element = utc_element.tz_convert(PST_TIMEZONE)
             return pst_element.strftime('%Y-%m-%d %I:%M %p PST')
         except Exception: return str(element)
-
     try:
         if dt_series.dt.tz is None:
             utc_series = dt_series.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
@@ -375,71 +342,57 @@ def load_data_from_google_sheet():
     current_time = datetime.now(UTC_TIMEZONE)
     st.session_state.last_data_refresh_time = current_time
     if gc is None: return pd.DataFrame()
-
     sheet_url_or_name = st.secrets.get("GOOGLE_SHEET_URL_OR_NAME")
     worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME")
     if not sheet_url_or_name: st.error("🚨 Config: GOOGLE_SHEET_URL_OR_NAME missing."); return pd.DataFrame()
     if not worksheet_name: st.error("🚨 Config: GOOGLE_WORKSHEET_NAME missing."); return pd.DataFrame()
-
     try:
         spreadsheet = gc.open_by_url(sheet_url_or_name) if ("docs.google.com" in sheet_url_or_name or "spreadsheets" in sheet_url_or_name) else gc.open(sheet_url_or_name)
         worksheet = spreadsheet.worksheet(worksheet_name)
         data = worksheet.get_all_records(head=1, expected_headers=None)
         if not data: st.warning("⚠️ No data rows in Google Sheet."); return pd.DataFrame()
-
         df = pd.DataFrame(data)
         df.rename(columns={col: "".join(str(col).strip().lower().split()) for col in df.columns}, inplace=True)
         column_name_map_to_code = {"licensenumber": "licenseNumber", "dcclicense": "licenseNumber", "dcc": "licenseNumber", "storename": "storeName", "accountname": "storeName", "repname": "repName", "representative": "repName", "onboardingdate": "onboardingDate", "deliverydate": "deliveryDate", "confirmationtimestamp": "confirmationTimestamp", "confirmedat": "confirmationTimestamp", "clientsentiment": "clientSentiment", "sentiment": "clientSentiment", "fulltranscript": "fullTranscript", "transcript": "fullTranscript", "score": "score", "onboardingscore": "score", "status": "status", "onboardingstatus": "status", "summary": "summary", "callsummary": "summary", "contactnumber": "contactNumber", "phone": "contactNumber", "confirmednumber": "confirmedNumber", "verifiednumber":"confirmedNumber", "contactname": "contactName", "clientcontact": "contactName"}
         for req_key_internal in KEY_REQUIREMENT_DETAILS.keys(): column_name_map_to_code[req_key_internal.lower()] = req_key_internal
         cols_to_rename_actual = {std_col: code_col for std_col, code_col in column_name_map_to_code.items() if std_col in df.columns and code_col not in df.columns}
         df.rename(columns=cols_to_rename_actual, inplace=True)
-
         date_cols_map = {'onboardingDate': 'onboardingDate_dt', 'deliveryDate': 'deliveryDate_dt', 'confirmationTimestamp': 'confirmationTimestamp_dt'}
         for original_col, dt_col in date_cols_map.items():
             if original_col in df.columns:
                 df[original_col] = df[original_col].astype(str).str.replace('\n',' ',regex=False).str.strip()
                 df[dt_col] = robust_to_datetime(df[original_col])
-                df[original_col] = format_datetime_to_pst_str(df[dt_col]) # Use fixed function
+                df[original_col] = format_datetime_to_pst_str(df[dt_col])
             else: df[dt_col] = pd.NaT
         df['onboarding_date_only'] = df['onboardingDate_dt'].dt.date if 'onboardingDate_dt' in df.columns else pd.NaT
-
-        # --- FIX: Robust Days to Confirmation Calc ---
         if 'deliveryDate_dt' in df.columns and 'confirmationTimestamp_dt' in df.columns:
             def ensure_utc_for_calc(series_dt):
-                """Safely converts a series to UTC if not already."""
                 if pd.api.types.is_datetime64_any_dtype(series_dt) and series_dt.notna().any():
                     if series_dt.dt.tz is None:
                         return series_dt.dt.tz_localize(UTC_TIMEZONE, ambiguous='NaT', nonexistent='NaT')
                     else:
                         return series_dt.dt.tz_convert(UTC_TIMEZONE)
                 return series_dt.fillna(pd.NaT)
-
             delivery_utc = ensure_utc_for_calc(df['deliveryDate_dt'])
             confirmation_utc = ensure_utc_for_calc(df['confirmationTimestamp_dt'])
             df['days_to_confirmation'] = (confirmation_utc - delivery_utc).dt.days
         else: df['days_to_confirmation'] = pd.NA
-
         for phone_col in ['contactNumber', 'confirmedNumber']:
             if phone_col in df.columns: df[phone_col] = df[phone_col].apply(format_phone_number)
         for name_col in ['repName', 'contactName']:
             if name_col in df.columns: df[name_col] = df[name_col].apply(capitalize_name)
-
         string_cols = ['status', 'clientSentiment', 'repName', 'storeName', 'licenseNumber', 'fullTranscript', 'summary', 'contactName', 'contactNumber', 'confirmedNumber', 'onboardingDate', 'deliveryDate', 'confirmationTimestamp']
         for col in string_cols: df[col] = df.get(col, "").astype(str).replace(['nan', 'NaN', 'None', 'NaT', '<NA>'], "", regex=False).fillna("")
         df['score'] = pd.to_numeric(df.get('score'), errors='coerce')
         for col in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS: df[col] = df.get(col, pd.NA)
-
         cols_to_drop = [col for col in ['deliverydatets', 'onboardingwelcome'] if col in df.columns]
         if cols_to_drop: df = df.drop(columns=cols_to_drop)
-
         return df
     except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.WorksheetNotFound) as e:
         st.error(f"🚫 GS Error: {e}. Check URL/name & permissions."); return pd.DataFrame()
     except Exception as e:
         st.error(f"🌪️ Error loading data: {e}"); return pd.DataFrame()
 
-# ... (Keep the rest of the app logic: Session State, Sidebar, Main Content, Tabs, Tables, Charts) ...
-# ... (Ensure all st.button calls use type="primary" or type="secondary" for styling hooks) ...
 @st.cache_data
 def convert_df_to_csv(df_to_convert): return df_to_convert.to_csv(index=False).encode('utf-8')
 
@@ -460,6 +413,16 @@ def get_default_date_range(date_series):
     end = min(today, max_date) if max_date else today
     return (start, end) if start <= end else ((min_date, max_date) if min_date and max_date else (start_of_month, today))
 
+# --- Main App Logic ---
+is_logged_in_and_authorized = check_login_and_domain()
+if not is_logged_in_and_authorized:
+    if not st.user.is_logged_in:
+        _, login_col, _ = st.columns([1, 1.5, 1])
+        with login_col:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.button("Log in with Google 🔑", on_click=st.login, use_container_width=True, key="google_login_main_btn")
+    st.stop()
+
 default_s_init, default_e_init = get_default_date_range(None)
 if 'data_loaded' not in st.session_state: st.session_state.data_loaded = False
 if 'df_original' not in st.session_state: st.session_state.df_original = pd.DataFrame()
@@ -479,8 +442,6 @@ st.session_state.setdefault('selected_transcript_key_dialog_global_search', None
 st.session_state.setdefault('selected_transcript_key_filtered_analysis', None)
 st.session_state.setdefault('show_global_search_dialog', False)
 
-
-# Load Data (Improved initial load)
 if not st.session_state.data_loaded:
     df_loaded = load_data_from_google_sheet()
     if not df_loaded.empty:
@@ -495,8 +456,23 @@ if not st.session_state.data_loaded:
 df_original = st.session_state.df_original
 
 # --- Sidebar Controls ---
-st.sidebar.header(f"👤 Welcome, {st.user.name.split()[0]}")
-st.sidebar.caption(st.user.email)
+# FIX for AttributeError: Safely get user display name
+user_display_name = "User" # Default
+if hasattr(st.user, "email") and st.user.email:
+    user_email_prefix = st.user.email.split('@')[0]
+    user_display_name = user_email_prefix # Fallback to email prefix
+
+    if hasattr(st.user, "name") and st.user.name and st.user.name.strip():
+        try:
+            first_name = st.user.name.split()[0]
+            user_display_name = first_name # Prefer first name
+        except IndexError:
+            user_display_name = st.user.name # Use full name if it's a single word or empty after split
+    st.sidebar.header(f"👤 Welcome, {user_display_name}")
+    st.sidebar.caption(st.user.email)
+else:
+    st.sidebar.header(f"👤 Welcome!")
+
 st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
@@ -560,9 +536,10 @@ if st.session_state.get('last_data_refresh_time'):
     if not st.session_state.get('data_loaded', False) and st.session_state.df_original.empty : st.sidebar.caption("⚠️ No data loaded in last sync.")
 else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
-st.sidebar.caption(f"Dashboard v4.6.1") # Removed branding
+st.sidebar.caption(f"Dashboard v4.6.2")
 
-
+# --- Main Content Area (Keep As Is from v4.6.1) ---
+# ... (All tab logic, tables, charts, etc. remain the same) ...
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
@@ -609,7 +586,7 @@ if not df_original.empty:
             if valid_dates_mask.any(): date_filter_condition[valid_dates_mask] = (date_objects_for_filter[valid_dates_mask] >= start_dt_filter) & (date_objects_for_filter[valid_dates_mask] <= end_dt_filter)
             df_temp_filters = df_temp_filters[date_filter_condition]
         for col_name_cat, _ in category_filters_map.items():
-            selected_values_cat = st.session_state.get(f"{col_name_cat}_filter", [])
+            selected_values_cat = st.session_state.get(f"{col_key}_filter", [])
             if selected_values_cat and col_name_cat in df_temp_filters.columns:
                 if col_name_cat == 'status': df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().isin(selected_values_cat)]
                 else: df_temp_filters = df_temp_filters[df_temp_filters[col_name_cat].astype(str).isin(selected_values_cat)]
@@ -826,4 +803,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.1</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.2</div>", unsafe_allow_html=True)

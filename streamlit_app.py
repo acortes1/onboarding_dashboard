@@ -1,4 +1,4 @@
-# streamlit_app.py - v4.6.2
+# streamlit_app.py - v4.6.3
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -13,17 +13,17 @@ from dateutil import tz # For PST conversion
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard v4.6.2", # Updated Version
+    page_title="Onboarding Analytics Dashboard v4.6.3", # Updated Version
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Injection (Keep As Is from v4.6.1) ---
+# --- Custom CSS Injection (Keep As Is from v4.6.1/4.6.2) ---
 def load_custom_css():
     """Loads and injects custom CSS for the application."""
     THEME = st.get_option("theme.base")
-    # ... (CSS definitions from v4.6.1 - Retained for brevity in this diff) ...
+    # ... (CSS definitions from v4.6.1/4.6.2 - Retained for brevity in this diff) ...
     # Define Color Palettes for Light & Dark Themes
     if THEME == "light":
         SCORE_GOOD_BG = "#DFF0D8"; SCORE_GOOD_TEXT = "#3C763D";
@@ -155,7 +155,7 @@ def load_custom_css():
         .transcript-details-section {{ margin-left: 20px; padding-left: 20px; border-left: 3px solid var(--primary-color); margin-top: 1.5em; }}
         .transcript-summary-grid {{ gap: 1.5em; margin-bottom: 2.2em; }}
         .transcript-summary-item {{ padding: 1.2em 1.4em; }}
-        .transcript-container {{ padding: 2em; border-radius: 10px; max-height: 600px; }}
+        .transcript-container {{ padding: 2em; border-radius: 10px; max-height: 600px; }} /* Max height for transcript */
         .footer {{ padding: 40px 0; margin-top: 70px; }}
         .active-filters-summary {{ padding: 1.1em 1.5em; margin-bottom: 2.5em; }}
         .no-data-message {{ padding: 40px; font-size: 1.25rem; }}
@@ -219,10 +219,9 @@ def load_custom_css():
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
-
 load_custom_css()
 
-# --- Constants & Configuration (Keep As Is from v4.6.1) ---
+# --- Constants & Configuration (Keep As Is from v4.6.2) ---
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 KEY_REQUIREMENT_DETAILS = {
     'introSelfAndDIME': {"description": "Warmly introduce yourself and the Company.", "type": "Secondary", "chart_label": "Intro Self & Company"},
@@ -245,8 +244,7 @@ else:
     ACTIVE_PLOTLY_SENTIMENT_MAP = { 'positive': '#27AE60', 'negative': '#C0392B', 'neutral': '#7F8C8D' }; TEXT_COLOR_FOR_PLOTLY = "#FAFAFA"; PRIMARY_COLOR_FOR_PLOTLY = "#BE90D4"
 plotly_base_layout_settings = {"plot_bgcolor": PLOT_BG_COLOR_PLOTLY, "paper_bgcolor": PLOT_BG_COLOR_PLOTLY, "title_x":0.5, "xaxis_showgrid":False, "yaxis_showgrid":True, "yaxis_gridcolor": 'rgba(128,128,128,0.2)', "margin": dict(l=50, r=30, t=70, b=50), "font_color": TEXT_COLOR_FOR_PLOTLY, "title_font_color": PRIMARY_COLOR_FOR_PLOTLY, "title_font_size": 18, "xaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_title_font_color": TEXT_COLOR_FOR_PLOTLY, "xaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "yaxis_tickfont_color": TEXT_COLOR_FOR_PLOTLY, "legend_font_color": TEXT_COLOR_FOR_PLOTLY, "legend_title_font_color": PRIMARY_COLOR_FOR_PLOTLY}
 
-
-# --- Google SSO & Domain Check (Keep As Is from v4.6.1) ---
+# --- Google SSO & Domain Check (Keep As Is from v4.6.2) ---
 def check_login_and_domain():
     allowed_domain = st.secrets.get("ALLOWED_DOMAIN", None)
     if not st.user.is_logged_in:
@@ -272,7 +270,7 @@ def check_login_and_domain():
         return False
     return True
 
-# --- Data Loading & Processing Functions (Keep As Is from v4.6.1, including timezone fix) ---
+# --- Data Loading & Processing Functions (Keep As Is from v4.6.2, including timezone fix) ---
 @st.cache_data(ttl=600)
 def authenticate_gspread_cached():
     gcp_secrets_obj = st.secrets.get("gcp_service_account")
@@ -455,24 +453,16 @@ if not st.session_state.data_loaded:
         st.session_state.df_original = pd.DataFrame()
 df_original = st.session_state.df_original
 
-# --- Sidebar Controls ---
-# FIX for AttributeError: Safely get user display name
-user_display_name = "User" # Default
+user_display_name = "User"
 if hasattr(st.user, "email") and st.user.email:
     user_email_prefix = st.user.email.split('@')[0]
-    user_display_name = user_email_prefix # Fallback to email prefix
-
+    user_display_name = user_email_prefix
     if hasattr(st.user, "name") and st.user.name and st.user.name.strip():
-        try:
-            first_name = st.user.name.split()[0]
-            user_display_name = first_name # Prefer first name
-        except IndexError:
-            user_display_name = st.user.name # Use full name if it's a single word or empty after split
+        try: first_name = st.user.name.split()[0]; user_display_name = first_name
+        except IndexError: user_display_name = st.user.name
     st.sidebar.header(f"👤 Welcome, {user_display_name}")
     st.sidebar.caption(st.user.email)
-else:
-    st.sidebar.header(f"👤 Welcome!")
-
+else: st.sidebar.header(f"👤 Welcome!")
 st.sidebar.button("🔓 Log Out", on_click=st.logout, use_container_width=True, type="secondary", key="logout_button_sidebar")
 st.sidebar.markdown("---")
 st.sidebar.header("⚙️ Dashboard Controls"); st.sidebar.markdown("---")
@@ -538,8 +528,6 @@ else: st.sidebar.caption("⏳ Data not yet loaded.")
 st.sidebar.markdown("---");
 st.sidebar.caption(f"Dashboard v4.6.2")
 
-# --- Main Content Area (Keep As Is from v4.6.1) ---
-# ... (All tab logic, tables, charts, etc. remain the same) ...
 st.title("📈 Onboarding Analytics Dashboard")
 if not st.session_state.data_loaded and df_original.empty:
     if st.session_state.get('last_data_refresh_time'): st.markdown("<div class='no-data-message'>🚧 No data loaded. Check Google Sheet connection/permissions/data. Try manual refresh. 🚧</div>", unsafe_allow_html=True)
@@ -748,38 +736,43 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     if global_search_active: st.info("ℹ️ Global Search active. Results in pop-up. Close/clear search for category/date filters here.")
     else:
         display_html_table_and_details(df_filtered, context_key_prefix="filtered_analysis")
+        
+        st.divider() # FIX: Added divider to separate sections
+
         st.header("🎨 Key Visualizations (Filtered Data)")
         if not df_filtered.empty:
-            chart_cols_1, chart_cols_2 = st.columns(2)
-            with chart_cols_1:
-                if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
-                    status_counts_df = df_filtered['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index(); status_counts_df.columns = ['status', 'count']
-                    status_fig = px.bar(status_counts_df, x='status', y='count', color='status', title="Onboarding Status Distribution", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ); status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
-                else: st.markdown("<div class='no-data-message'>📉 Status data unavailable.</div>", unsafe_allow_html=True)
-                if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
-                    rep_counts_df = df_filtered['repName'].value_counts().reset_index(); rep_counts_df.columns = ['repName', 'count']
-                    rep_fig = px.bar(rep_counts_df, x='repName', y='count', color='repName', title="Onboardings by Representative", color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ); rep_fig.update_layout(plotly_base_layout_settings, xaxis_title="Representative", yaxis_title="Number of Onboardings"); st.plotly_chart(rep_fig, use_container_width=True)
-                else: st.markdown("<div class='no-data-message'>👥 Rep data unavailable.</div>", unsafe_allow_html=True)
-            with chart_cols_2:
-                if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
-                    sent_counts_df = df_filtered['clientSentiment'].value_counts().reset_index(); sent_counts_df.columns = ['clientSentiment', 'count']
-                    current_sentiment_map_plot = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent_counts_df['clientSentiment'].unique()}
-                    sent_fig = px.pie(sent_counts_df, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=current_sentiment_map_plot); sent_fig.update_layout(plotly_base_layout_settings); sent_fig.update_traces(textinfo='percent+label', textfont_size=12); st.plotly_chart(sent_fig, use_container_width=True)
-                else: st.markdown("<div class='no-data-message'>😊 Sentiment data unavailable.</div>", unsafe_allow_html=True)
-                df_confirmed_for_chart = df_filtered[df_filtered['status'].astype(str).str.contains('confirmed', case=False, na=False)].copy(); actual_key_cols_for_checklist_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_confirmed_for_chart.columns]
-                if not df_confirmed_for_chart.empty and actual_key_cols_for_checklist_chart:
-                    checklist_data_for_plotly = [];
-                    for item_col_name_chart in actual_key_cols_for_checklist_chart:
-                        item_details_chart = KEY_REQUIREMENT_DETAILS.get(item_col_name_chart); chart_label_bar = item_details_chart.get("chart_label", item_col_name_chart.replace('_',' ').title()) if item_details_chart else item_col_name_chart.replace('_',' ').title()
-                        if item_col_name_chart in df_confirmed_for_chart.columns:
-                            raw_series = df_confirmed_for_chart[item_col_name_chart].astype(str).str.lower(); bool_series_chart = raw_series.isin(['true', '1', 'yes', 'x', 'completed', 'done']); total_valid_for_item = df_confirmed_for_chart[item_col_name_chart].notna().sum(); true_count_for_item = bool_series_chart.sum()
-                            if total_valid_for_item > 0: checklist_data_for_plotly.append({"Key Requirement": chart_label_bar, "Completion (%)": (true_count_for_item / total_valid_for_item) * 100})
-                    if checklist_data_for_plotly:
-                        df_checklist_plotly = pd.DataFrame(checklist_data_for_plotly);
-                        if not df_checklist_plotly.empty: checklist_bar_fig = px.bar(df_checklist_plotly.sort_values("Completion (%)", ascending=True), x="Completion (%)", y="Key Requirement", orientation='h', title="Key Req Completion (Confirmed Only)", color_discrete_sequence=[PRIMARY_COLOR_FOR_PLOTLY]); checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}, xaxis_ticksuffix="%"); st.plotly_chart(checklist_bar_fig, use_container_width=True)
-                        else: st.markdown("<div class='no-data-message'>📊 No data for key req chart (confirmed, post-proc).</div>", unsafe_allow_html=True)
-                    else: st.markdown("<div class='no-data-message'>📊 No valid checklist items for req chart.</div>", unsafe_allow_html=True)
-                else: st.markdown("<div class='no-data-message'>✅ No 'Confirmed' onboardings or relevant columns for req chart.</div>", unsafe_allow_html=True)
+            # Using st.container() for the visualization section for better layout control
+            with st.container():
+                chart_cols_1, chart_cols_2 = st.columns(2)
+                with chart_cols_1:
+                    if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
+                        status_counts_df = df_filtered['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index(); status_counts_df.columns = ['status', 'count']
+                        status_fig = px.bar(status_counts_df, x='status', y='count', color='status', title="Onboarding Status Distribution", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ); status_fig.update_layout(plotly_base_layout_settings); st.plotly_chart(status_fig, use_container_width=True)
+                    else: st.markdown("<div class='no-data-message'>📉 Status data unavailable.</div>", unsafe_allow_html=True)
+                    if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
+                        rep_counts_df = df_filtered['repName'].value_counts().reset_index(); rep_counts_df.columns = ['repName', 'count']
+                        rep_fig = px.bar(rep_counts_df, x='repName', y='count', color='repName', title="Onboardings by Representative", color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ); rep_fig.update_layout(plotly_base_layout_settings, xaxis_title="Representative", yaxis_title="Number of Onboardings"); st.plotly_chart(rep_fig, use_container_width=True)
+                    else: st.markdown("<div class='no-data-message'>👥 Rep data unavailable.</div>", unsafe_allow_html=True)
+                with chart_cols_2:
+                    if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
+                        sent_counts_df = df_filtered['clientSentiment'].value_counts().reset_index(); sent_counts_df.columns = ['clientSentiment', 'count']
+                        current_sentiment_map_plot = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent_counts_df['clientSentiment'].unique()}
+                        sent_fig = px.pie(sent_counts_df, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=current_sentiment_map_plot); sent_fig.update_layout(plotly_base_layout_settings); sent_fig.update_traces(textinfo='percent+label', textfont_size=12); st.plotly_chart(sent_fig, use_container_width=True)
+                    else: st.markdown("<div class='no-data-message'>😊 Sentiment data unavailable.</div>", unsafe_allow_html=True)
+                    df_confirmed_for_chart = df_filtered[df_filtered['status'].astype(str).str.contains('confirmed', case=False, na=False)].copy(); actual_key_cols_for_checklist_chart = [col for col in ORDERED_CHART_REQUIREMENTS if col in df_confirmed_for_chart.columns]
+                    if not df_confirmed_for_chart.empty and actual_key_cols_for_checklist_chart:
+                        checklist_data_for_plotly = [];
+                        for item_col_name_chart in actual_key_cols_for_checklist_chart:
+                            item_details_chart = KEY_REQUIREMENT_DETAILS.get(item_col_name_chart); chart_label_bar = item_details_chart.get("chart_label", item_col_name_chart.replace('_',' ').title()) if item_details_chart else item_col_name_chart.replace('_',' ').title()
+                            if item_col_name_chart in df_confirmed_for_chart.columns:
+                                raw_series = df_confirmed_for_chart[item_col_name_chart].astype(str).str.lower(); bool_series_chart = raw_series.isin(['true', '1', 'yes', 'x', 'completed', 'done']); total_valid_for_item = df_confirmed_for_chart[item_col_name_chart].notna().sum(); true_count_for_item = bool_series_chart.sum()
+                                if total_valid_for_item > 0: checklist_data_for_plotly.append({"Key Requirement": chart_label_bar, "Completion (%)": (true_count_for_item / total_valid_for_item) * 100})
+                        if checklist_data_for_plotly:
+                            df_checklist_plotly = pd.DataFrame(checklist_data_for_plotly);
+                            if not df_checklist_plotly.empty: checklist_bar_fig = px.bar(df_checklist_plotly.sort_values("Completion (%)", ascending=True), x="Completion (%)", y="Key Requirement", orientation='h', title="Key Req Completion (Confirmed Only)", color_discrete_sequence=[PRIMARY_COLOR_FOR_PLOTLY]); checklist_bar_fig.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}, xaxis_ticksuffix="%"); st.plotly_chart(checklist_bar_fig, use_container_width=True)
+                            else: st.markdown("<div class='no-data-message'>📊 No data for key req chart (confirmed, post-proc).</div>", unsafe_allow_html=True)
+                        else: st.markdown("<div class='no-data-message'>📊 No valid checklist items for req chart.</div>", unsafe_allow_html=True)
+                    else: st.markdown("<div class='no-data-message'>✅ No 'Confirmed' onboardings or relevant columns for req chart.</div>", unsafe_allow_html=True)
         elif not df_original.empty : st.markdown("<div class='no-data-message'>🖼️ No data matches filters for visuals. Change selections. 🖼️</div>", unsafe_allow_html=True)
 elif st.session_state.active_tab == TAB_TRENDS:
     st.header(TAB_TRENDS); st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
@@ -803,4 +796,4 @@ elif st.session_state.active_tab == TAB_TRENDS:
             else: st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
         else: st.markdown("<div class='no-data-message'>⏱️ 'Days to Confirmation' missing.</div>", unsafe_allow_html=True)
     elif not df_original.empty : st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
-st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.2</div>", unsafe_allow_html=True)
+st.markdown("---"); st.markdown(f"<div class='footer'>Dashboard v4.6.3</div>", unsafe_allow_html=True)

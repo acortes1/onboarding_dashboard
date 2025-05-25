@@ -23,7 +23,7 @@ st.set_page_config(
 
 # --- Custom CSS Injection ---
 # This function defines and injects custom CSS to style the app's appearance.
-def load_custom_css():
+# def load_custom_css():
     """Loads and injects custom CSS for a polished look and feel."""
     # Get the currently active theme (light or dark) from Streamlit.
     THEME = st.get_option("theme.base")

@@ -1,29 +1,40 @@
 # streamlit_app.py
-# Import necessary libraries. These are the tools we need.
-import streamlit as st  # For creating the web app interface.
-import pandas as pd  # For handling and manipulating data in tables (DataFrames).
-import plotly.express as px  # For creating easy interactive charts.
-import plotly.graph_objects as go # For creating more complex interactive charts.
-from datetime import datetime, date, timedelta  # For working with dates and times.
-import gspread  # To connect and interact with Google Sheets.
-from google.oauth2.service_account import Credentials  # For secure Google API authentication.
-import time  # Provides time-related functions (though not heavily used here).
-import numpy as np  # For numerical operations, often used with pandas.
-import re  # For regular expressions, used here for text pattern matching (like phone numbers).
-from dateutil import tz  # For handling different time zones, specifically PST and UTC.
+# Import necessary libraries
+import streamlit as st
+import streamlit_shadcn_ui as ssui
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, date, timedelta
+import gspread
+from google.oauth2.service_account import Credentials
+import time
+import numpy as np
+import re
+from dateutil import tz
 
 # --- Page Configuration ---
-# Set up the basic properties of your Streamlit page (browser tab title, icon, etc.).
+# Set up the basic properties of your Streamlit page
 st.set_page_config(
-    page_title="Onboarding Analytics Dashboard", # Title shown in the browser tab.
-    page_icon="📈",  # Icon shown in the browser tab (favicon).
-    layout="wide",  # Use the full width of the screen for the layout.
-    initial_sidebar_state="expanded" # Ensure the sidebar is open when the app first loads.
+    page_title="Onboarding Analytics Dashboard",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Initialize shadcn-ui theme
+ssui.init_theme(
+    theme="system",
+    dark_mode="dark",
+    light_mode="light",
+    enable_system_theme=True,
+    enable_dark_mode=True,
+    enable_light_mode=True,
 )
 
 # --- Custom CSS Injection ---
 # This function defines and injects custom CSS to style the app's appearance.
-# def load_custom_css():
+def load_custom_css():
     """Loads and injects custom CSS for a polished look and feel."""
     # Get the currently active theme (light or dark) from Streamlit.
     THEME = st.get_option("theme.base")

@@ -1,0 +1,13 @@
+streamlit>=1.42.0
+authlib>=1.3.2
+pandas
+numpy
+plotly
+gspread==5.12.4
+google-auth-oauthlib
+google-auth-httplib2
+python-dateutil
+matplotlib
+requests
+requests-oauthlib
+gspread-dataframe

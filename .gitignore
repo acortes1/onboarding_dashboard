@@ -1,0 +1,32 @@
+# .gitignore
+
+# Service account keys - CRITICAL
+google_credentials.json
+*.json # Be careful with this wildcard if you have other JSON files you WANT to track. 
+       # If so, be more specific, e.g., service_account_*.json or just google_credentials.json
+
+# Data files (especially if large or sensitive, like your original CSV if not meant to be public)
+*.csv 
+*.xlsx
+
+# Python specific
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+*.log
+
+# Virtual environment folder (if you create one in your project directory)
+venv/
+.venv/
+env/
+.env # For environment variable files which often contain secrets
+
+# IDE / OS specific files
+.DS_Store
+.vscode/
+.idea/
+*.swp

@@ -1,7 +1,5 @@
 # streamlit_app.py
 
-SHOW_SANITY_LOG = False
-
 # --- Imports ---
 import streamlit as st
 import pandas as pd
@@ -53,7 +51,7 @@ def load_custom_css():
         SCORE_BAD_BG = "#5A2222"; SCORE_BAD_TEXT = "#FFBDBD"
         SENTIMENT_POSITIVE_BG = SCORE_GOOD_BG; SENTIMENT_POSITIVE_TEXT = SCORE_GOOD_TEXT
         SENTIMENT_NEUTRAL_BG = "#2D3748"; SENTIMENT_NEUTRAL_TEXT = "#A0AEC0"
-        SENTIMENT_NEGATIVE_BG = SCORE_BAD_BG; SENTIMENT_NEGATIVE_TEXT = SCORE_BAD_TEXT
+        SENTIMENT_NEGATIVE_BG = SCORE_BAD_BG; SENTIMENT_NEGATIVE_TEXT = "#FFBDBD"
         DAYS_GOOD_BG = SCORE_GOOD_BG; DAYS_GOOD_TEXT = SCORE_GOOD_TEXT
         DAYS_MEDIUM_BG = SCORE_MEDIUM_BG; DAYS_MEDIUM_TEXT = SCORE_MEDIUM_TEXT
         DAYS_BAD_BG = SCORE_BAD_BG; DAYS_BAD_TEXT = SCORE_BAD_TEXT
@@ -346,7 +344,6 @@ def load_data_from_google_sheet():
             diff = confirm_utc - delivery_utc
             df["days_to_confirmation"] = (diff.dt.total_seconds() / 86400.0).round(0)
         except Exception as e:
-            # If anything slips through, set NaN and show a small diagnostic
             st.warning(f"Days-to-confirmation calculation fallback: {e}")
             df["days_to_confirmation"] = np.nan
 
@@ -653,19 +650,6 @@ elif df_original.empty:
     st.markdown("<div class='no-data-message'>✅ Data source connected, but empty. Add data to Google Sheet. ✅</div>", unsafe_allow_html=True)
     st.stop()
 
-# ---------------- Sanity Log (compact) ----------------
-with st.expander("🧪 Sanity Log (dates & dtypes)"):
-    cols = ["onboardingDate_dt","deliveryDate_dt","confirmationTimestamp_dt","onboardingDate","deliveryDate","confirmationTimestamp","days_to_confirmation"]
-    present = [c for c in cols if c in df_original.columns]
-    st.write("Columns present:", present)
-    for c in present:
-        st.write(f"**{c} dtype**:", str(df_original[c].dtype))
-        st.write(df_original[[c]].head(5))
-    # Quick tz checks
-    for c in ["onboardingDate_dt","deliveryDate_dt","confirmationTimestamp_dt"]:
-        if c in df_original.columns:
-            st.write(f"{c} tz-aware:", getattr(df_original[c].dt, 'tz', None) is not None)
-
 # ---------------- Active Filters Summary ----------------
 if st.session_state.active_tab not in ALL_TABS: st.session_state.active_tab = TAB_OVERVIEW
 try:
@@ -754,48 +738,73 @@ delta_onboardings_mtd = (total_mtd - total_prev_mtd) if pd.notna(total_mtd) and 
 # ---------------- Table helpers ----------------
 def get_cell_style_class(column_name, value):
     val_str = str(value).strip().lower()
-    if pd.isna(value) or val_str == "" or val_str == "na": return "cell-req-na"
+    if pd.isna(value) or val_str == "" or val_str == "na":
+        return "cell-req-na"
+
     if column_name == 'score':
         try:
             score_num = float(value)
         except:
             return ""
-        if score_num >= 8: return "cell-score-good"
-        elif score_num >= 4: return "cell-score-medium"
-        else: return "cell-score-bad"
+        if score_num >= 8:
+            return "cell-score-good"
+        elif score_num >= 4:
+            return "cell-score-medium"
+        else:
+            return "cell-score-bad"
+
     elif column_name == 'clientSentiment':
-        if val_str == 'positive': return "cell-sentiment-positive"
-        elif val_str == 'neutral': return "cell-sentiment-neutral"
-        elif val_str == 'negative': return "cell-sentiment-negative"
+        if val_str == 'positive':
+            return "cell-sentiment-positive"
+        elif val_str == 'neutral':
+            return "cell-sentiment-neutral"
+        elif val_str == 'negative':
+            return "cell-sentiment-negative"
+
     elif column_name == 'days_to_confirmation':
         try:
             days_num = float(value)
         except:
             return ""
-        if days_num <= 7: return "cell-days-good"
-        elif days_num <= 14: return "cell-days-medium"
-        else: return "cell-days-bad"
+        if days_num <= 7:
+            return "cell-days-good"
+        elif days_num <= 14:
+            return "cell-days-medium"
+        else:
+            return "cell-days-bad"
+
     elif column_name in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
-        if val_str in ['true', '1', 'yes', 'x', 'completed', 'done']: return "cell-req-met"
-        elif val_str in ['false', '0', 'no']: return "cell-req-not-met"
+        if val_str in ['true', '1', 'yes', 'x', 'completed', 'done']:
+            return "cell-req-met"
+        elif val_str in ['false', '0', 'no']:
+            return "cell-req-not-met"
+
     elif column_name == 'status':
         return "cell-status"
+
     return ""
+
 
 def display_html_table_and_details(df_to_display, context_key_prefix=""):
     if df_to_display is None or df_to_display.empty:
-        label = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
+        label = context_key_prefix.replace('_', ' ').title().replace('Tab', '').replace('Dialog', '')
         if not df_original.empty:
-            st.markdown(f"<div class='no-data-message'>📊 No data for {label}. Try different filters! 📊</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div class='no-data-message'>📊 No data for {label}. Try different filters! 📊</div>",
+                unsafe_allow_html=True
+            )
         return
 
     dfv = df_to_display.copy().reset_index(drop=True)
 
     def map_status(status_val):
         s = str(status_val).strip().lower()
-        if s == 'confirmed': return "✅ Confirmed"
-        if s == 'pending': return "⏳ Pending"
-        if s == 'failed': return "❌ Failed"
+        if s == 'confirmed':
+            return "✅ Confirmed"
+        if s == 'pending':
+            return "⏳ Pending"
+        if s == 'failed':
+            return "❌ Failed"
         return status_val
 
     if 'status' in dfv.columns:
@@ -804,34 +813,50 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         dfv['status_styled'] = ""
 
     preferred_cols = [
-        'onboardingDate','repName','storeName','licenseNumber','status_styled',
-        'score','clientSentiment','days_to_confirmation','contactName','contactNumber',
-        'confirmedNumber','deliveryDate','confirmationTimestamp'
+        'onboardingDate', 'repName', 'storeName', 'licenseNumber', 'status_styled',
+        'score', 'clientSentiment', 'days_to_confirmation', 'contactName', 'contactNumber',
+        'confirmedNumber', 'deliveryDate', 'confirmationTimestamp'
     ] + ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS
 
     cols_present = dfv.columns.tolist()
     final_cols = [c for c in preferred_cols if c in cols_present]
-    excluded_suffixes = ('_dt','_utc','_str_original','_date_only','_styled')
-    others = [c for c in cols_present if c not in final_cols and not c.endswith(excluded_suffixes) and c not in ['fullTranscript','summary','status','onboardingWelcome']]
-    final_cols.extend(others); final_cols = list(dict.fromkeys(final_cols))
+    excluded_suffixes = ('_dt', '_utc', '_str_original', '_date_only', '_styled')
+    others = [
+        c for c in cols_present
+        if c not in final_cols and not c.endswith(excluded_suffixes)
+        and c not in ['fullTranscript', 'summary', 'status', 'onboardingWelcome']
+    ]
+    final_cols.extend(others)
+    final_cols = list(dict.fromkeys(final_cols))
 
     if not final_cols or dfv[final_cols].empty:
-        label = context_key_prefix.replace('_', ' ').title().replace('Tab','').replace('Dialog','')
-        st.markdown(f"<div class='no-data-message'>📋 No columns/data for {label}. 📋</div>", unsafe_allow_html=True)
+        label = context_key_prefix.replace('_', ' ').title().replace('Tab', '').replace('Dialog', '')
+        st.markdown(
+            f"<div class='no-data-message'>📋 No columns/data for {label}. 📋</div>",
+            unsafe_allow_html=True
+        )
         return
 
     header_map = {
-        'status_styled':'Status','onboardingDate':'Onboarding Date','repName':'Rep Name','storeName':'Store Name',
-        'licenseNumber':'License No.','clientSentiment':'Sentiment','days_to_confirmation':'Days to Confirm',
-        'contactName':'Contact Name','contactNumber':'Contact No.','confirmedNumber':'Confirmed No.',
-        'deliveryDate':'Delivery Date','confirmationTimestamp':'Confirmation Time'
+        'status_styled': 'Status',
+        'onboardingDate': 'Onboarding Date',
+        'repName': 'Rep Name',
+        'storeName': 'Store Name',
+        'licenseNumber': 'License No.',
+        'clientSentiment': 'Sentiment',
+        'days_to_confirmation': 'Days to Confirm',
+        'contactName': 'Contact Name',
+        'contactNumber': 'Contact No.',
+        'confirmedNumber': 'Confirmed No.',
+        'deliveryDate': 'Delivery Date',
+        'confirmationTimestamp': 'Confirmation Time'
     }
     for req_key, details in KEY_REQUIREMENT_DETAILS.items():
         header_map[req_key] = details.get("chart_label", req_key)
 
     html = ["<div class='custom-table-container'><table class='custom-styled-table'><thead><tr>"]
     for c in final_cols:
-        html.append(f"<th>{header_map.get(c, c.replace('_',' ').title())}</th>")
+        html.append(f"<th>{header_map.get(c, c.replace('_', ' ').title())}</th>")
     html.append("</tr></thead><tbody>")
 
     for _, row in dfv.iterrows():
@@ -841,19 +866,26 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
             val = row.get(c, "")
             cls = get_cell_style_class(base_col, row.get(base_col, val))
             if c == 'score' and pd.notna(val):
-                try: val = f"{float(val):.1f}"
-                except: pass
+                try:
+                    val = f"{float(val):.1f}"
+                except:
+                    pass
             elif c == 'days_to_confirmation' and pd.notna(val):
-                try: val = f"{float(val):.0f}"
-                except: pass
+                try:
+                    val = f"{float(val):.0f}"
+                except:
+                    pass
             html.append(f"<td class='{cls}'>{val}</td>")
         html.append("</tr>")
     html.append("</tbody></table></div>")
     st.markdown("".join(html), unsafe_allow_html=True)
 
-    st.markdown("---"); st.subheader("📄 View Full Record Details")
+    st.markdown("---")
+    st.subheader("📄 View Full Record Details")
     key_sel = f"selected_transcript_key_{context_key_prefix}"
-    if key_sel not in st.session_state: st.session_state[key_sel] = None
+    if key_sel not in st.session_state:
+        st.session_state[key_sel] = None
+
     auto_selected_this_run = False
     if len(dfv) == 1:
         r = dfv.iloc[0]
@@ -861,23 +893,35 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
         if st.session_state[key_sel] != auto_key:
             st.session_state[key_sel] = auto_key
             auto_selected_this_run = True
+
     auto_once_key = f"{context_key_prefix}_auto_selected_once"
     if auto_selected_this_run and not st.session_state.get(auto_once_key, False):
-        st.session_state[auto_once_key] = True; st.rerun()
+        st.session_state[auto_once_key] = True
+        st.rerun()
     elif len(dfv) != 1:
         st.session_state[auto_once_key] = False
 
     if 'fullTranscript' in dfv.columns or 'summary' in dfv.columns:
-        opts = {f"Idx {idx}: {row.get('storeName','N/A')} ({row.get('onboardingDate','N/A')})": idx for idx, row in dfv.iterrows()}
+        opts = {
+            f"Idx {idx}: {row.get('storeName','N/A')} ({row.get('onboardingDate','N/A')})": idx
+            for idx, row in dfv.iterrows()
+        }
         if opts:
             opt_list = [None] + list(opts.keys())
             cur = st.session_state[key_sel]
-            try: cur_idx = opt_list.index(cur)
+            try:
+                cur_idx = opt_list.index(cur)
             except ValueError:
-                cur_idx = 0; st.session_state[key_sel] = None
-            sel = st.selectbox("Select record to view details:", options=opt_list, index=cur_idx,
-                               format_func=lambda x: "📄 Choose an entry..." if x is None else x,
-                               key=f"transcript_selector_{context_key_prefix}")
+                cur_idx = 0
+                st.session_state[key_sel] = None
+
+            sel = st.selectbox(
+                "Select record to view details:",
+                options=opt_list,
+                index=cur_idx,
+                format_func=lambda x: "📄 Choose an entry..." if x is None else x,
+                key=f"transcript_selector_{context_key_prefix}"
+            )
             if sel != st.session_state[key_sel]:
                 st.session_state[key_sel] = sel
                 st.session_state[auto_once_key] = False
@@ -888,17 +932,20 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 row = dfv.loc[idx]
                 st.markdown("<h5>📋 Onboarding Summary & Checks:</h5>", unsafe_allow_html=True)
                 items = {
-                    "Store": row.get('storeName',"N/A"),
-                    "Rep": row.get('repName',"N/A"),
+                    "Store": row.get('storeName', "N/A"),
+                    "Rep": row.get('repName', "N/A"),
                     "Score": (f"{float(row.get('score')):.1f}" if pd.notna(row.get('score')) else "N/A"),
-                    "Status": row.get('status_styled',"N/A"),
-                    "Sentiment": row.get('clientSentiment',"N/A")
+                    "Status": row.get('status_styled', "N/A"),
+                    "Sentiment": row.get('clientSentiment', "N/A")
                 }
                 chunks = ["<div class='transcript-summary-grid'>"]
-                for k,v in items.items(): chunks.append(f"<div class='transcript-summary-item'><strong>{k}:</strong> {v}</div>")
-                call_sum = str(row.get('summary','')).strip()
-                if call_sum and call_sum.lower() not in ['na','n/a','']:
-                    chunks.append(f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>📝 Call Summary:</strong> {call_sum}</div>")
+                for k, v in items.items():
+                    chunks.append(f"<div class='transcript-summary-item'><strong>{k}:</strong> {v}</div>")
+                call_sum = str(row.get('summary', '')).strip()
+                if call_sum and call_sum.lower() not in ['na', 'n/a', '']:
+                    chunks.append(
+                        f"<div class='transcript-summary-item transcript-summary-item-fullwidth'><strong>📝 Call Summary:</strong> {call_sum}</div>"
+                    )
                 chunks.append("</div>")
                 st.markdown("".join(chunks), unsafe_allow_html=True)
 
@@ -906,11 +953,11 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 st.markdown("<h6>Key Requirement Checks:</h6>", unsafe_allow_html=True)
                 for c in ORDERED_TRANSCRIPT_VIEW_REQUIREMENTS:
                     det = KEY_REQUIREMENT_DETAILS.get(c, {})
-                    desc = det.get("description", c.replace('_',' ').title())
-                    typ = det.get("type","")
+                    desc = det.get("description", c.replace('_', ' ').title())
+                    typ = det.get("type", "")
                     raw = row.get(c, pd.NA)
                     s = str(raw).strip().lower()
-                    is_met = s in ['true','1','yes','x','completed','done']
+                    is_met = s in ['true', '1', 'yes', 'x', 'completed', 'done']
                     emoji = "✅" if is_met else ("❌" if pd.notna(raw) and s != "" else "➖")
                     tag = f"<span class='type'>[{typ}]</span>" if typ else ""
                     st.markdown(f"<div class='requirement-item'>{emoji} {desc} {tag}</div>", unsafe_allow_html=True)
@@ -919,15 +966,16 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
                 st.markdown("---")
                 st.markdown("<h5>🎙️ Full Transcript:</h5>", unsafe_allow_html=True)
                 transcript = str(row.get('fullTranscript', '')).strip()
-                if transcript and transcript.lower() not in ['na','n/a','']:
+                if transcript and transcript.lower() not in ['na', 'n/a', '']:
                     parts = ["<div class='transcript-pane-container'><div class='transcript-container'>"]
-                    processed = transcript.replace('\\n','\n')
+                    processed = transcript.replace('\\n', '\n')
                     for line in processed.split('\n'):
                         t = line.strip()
-                        if not t: continue
-                        seg = t.split(":",1)
-                        speaker = f"<strong>{seg[0].strip()}:</strong>" if len(seg)==2 else ""
-                        msg = seg[1].strip() if len(seg)==2 else t
+                        if not t:
+                            continue
+                        seg = t.split(":", 1)
+                        speaker = f"<strong>{seg[0].strip()}:</strong>" if len(seg) == 2 else ""
+                        msg = seg[1].strip() if len(seg) == 2 else t
                         parts.append(f"<p class='transcript-line'>{speaker} {msg}</p>")
                     parts.append("</div></div>")
                     st.markdown("".join(parts), unsafe_allow_html=True)
@@ -941,9 +989,14 @@ def display_html_table_and_details(df_to_display, context_key_prefix=""):
     st.markdown("---")
     csv_bytes = convert_df_to_csv(dfv[final_cols])
     label = f"📥 Download These {context_key_prefix.replace('_',' ').title().replace('Tab','').replace('Dialog','')} Results"
-    st.download_button(label=label, data=csv_bytes,
-                       file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
-                       mime='text/csv', use_container_width=True)
+    st.download_button(
+        label=label,
+        data=csv_bytes,
+        file_name=f'{context_key_prefix}_results_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
+        mime='text/csv',
+        use_container_width=True
+    )
+
 
 # ---------------- Global Search Dialog ----------------
 if st.session_state.get('show_global_search_dialog', False) and global_search_active:
@@ -951,7 +1004,10 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
     def show_global_search_dialog_content():
         st.markdown("##### Records matching global search criteria:")
         if not df_global_search_results_display.empty:
-            display_html_table_and_details(df_global_search_results_display, context_key_prefix="dialog_global_search")
+            display_html_table_and_details(
+                df_global_search_results_display,
+                context_key_prefix="dialog_global_search"
+            )
         else:
             st.info("ℹ️ No results for global search. Try broadening terms.")
         if st.button("Close & Clear Search"):
@@ -963,20 +1019,28 @@ if st.session_state.get('show_global_search_dialog', False) and global_search_ac
             if "dialog_global_search_auto_selected_once" in st.session_state:
                 st.session_state.dialog_global_search_auto_selected_once = False
             st.rerun()
+
     show_global_search_dialog_content()
+
 
 # ---------------- Tabs ----------------
 if st.session_state.active_tab == TAB_OVERVIEW:
     st.header("📈 Month-to-Date (MTD) Performance")
     c = st.columns(4)
     with c[0]:
-        st.metric("🗓️ Onboardings MTD", value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0",
-                  delta=f"{delta_onboardings_mtd:+.0f} vs Prev. Month" if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else "N/A",
-                  help="Total onboardings MTD vs. same period last month.")
+        st.metric(
+            "🗓️ Onboardings MTD",
+            value=f"{total_mtd:.0f}" if pd.notna(total_mtd) else "0",
+            delta=(f"{delta_onboardings_mtd:+.0f} vs Prev. Month"
+                   if delta_onboardings_mtd is not None and pd.notna(delta_onboardings_mtd) else "N/A"),
+            help="Total onboardings MTD vs. same period last month."
+        )
     with c[1]:
-        st.metric("✅ Success Rate MTD", value=f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A", help="Confirmed onboardings MTD.")
+        st.metric("✅ Success Rate MTD", value=f"{sr_mtd:.1f}%" if pd.notna(sr_mtd) else "N/A",
+                  help="Confirmed onboardings MTD.")
     with c[2]:
-        st.metric("⭐ Avg. Score MTD", value=f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A", help="Average score (0-10) MTD.")
+        st.metric("⭐ Avg. Score MTD", value=f"{score_mtd:.2f}" if pd.notna(score_mtd) else "N/A",
+                  help="Average score (0-10) MTD.")
     with c[3]:
         st.metric("⏳ Avg. Days to Confirm MTD", value=f"{days_to_confirm_mtd:.1f}" if pd.notna(days_to_confirm_mtd) else "N/A",
                   help="Avg days delivery to confirmation MTD.")
@@ -987,12 +1051,19 @@ if st.session_state.active_tab == TAB_OVERVIEW:
     elif not df_filtered.empty:
         total_f, sr_f, score_f, days_f = calculate_metrics(df_filtered)
         c2 = st.columns(4)
-        with c2[0]: st.metric("📄 Onboardings (Filtered)", f"{total_f:.0f}" if pd.notna(total_f) else "0")
-        with c2[1]: st.metric("🎯 Success Rate (Filtered)", f"{sr_f:.1f}%" if pd.notna(sr_f) else "N/A")
-        with c2[2]: st.metric("🌟 Avg. Score (Filtered)", f"{score_f:.2f}" if pd.notna(score_f) else "N/A")
-        with c2[3]: st.metric("⏱️ Avg. Days Confirm (Filtered)", f"{days_f:.1f}" if pd.notna(days_f) else "N/A")
+        with c2[0]:
+            st.metric("📄 Onboardings (Filtered)", f"{total_f:.0f}" if pd.notna(total_f) else "0")
+        with c2[1]:
+            st.metric("🎯 Success Rate (Filtered)", f"{sr_f:.1f}%" if pd.notna(sr_f) else "N/A")
+        with c2[2]:
+            st.metric("🌟 Avg. Score (Filtered)", f"{score_f:.2f}" if pd.notna(score_f) else "N/A")
+        with c2[3]:
+            st.metric("⏱️ Avg. Days Confirm (Filtered)", f"{days_f:.1f}" if pd.notna(days_f) else "N/A")
     else:
-        st.markdown("<div class='no-data-message'>🤷 No data matches filters for Overview. Adjust selections! 🤷</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='no-data-message'>🤷 No data matches filters for Overview. Adjust selections! 🤷</div>",
+            unsafe_allow_html=True
+        )
 
 elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
     st.header(TAB_DETAILED_ANALYSIS)
@@ -1006,54 +1077,88 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
             with st.container():
                 colA, colB = st.columns(2)
                 with colA:
+                    # Status Distribution
                     if 'status' in df_filtered.columns and df_filtered['status'].notna().any():
-                        s_counts = df_filtered['status'].astype(str).str.replace(r"✅|⏳|❌", "", regex=True).str.strip().value_counts().reset_index()
-                        s_counts.columns = ['status','count']
-                        fig = px.bar(s_counts, x='status', y='count', color='status', title="Onboarding Status Distribution", color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ)
+                        s_counts = (
+                            df_filtered['status']
+                            .astype(str)
+                            .str.replace(r"✅|⏳|❌", "", regex=True)
+                            .str.strip()
+                            .value_counts()
+                            .reset_index()
+                        )
+                        s_counts.columns = ['status', 'count']
+                        fig = px.bar(
+                            s_counts, x='status', y='count', color='status',
+                            title="Onboarding Status Distribution",
+                            color_discrete_sequence=ACTIVE_PLOTLY_PRIMARY_SEQ
+                        )
                         fig.update_layout(plotly_base_layout_settings)
                         st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.markdown("<div class='no-data-message'>📉 Status data unavailable.</div>", unsafe_allow_html=True)
+                    # Rep counts
                     if 'repName' in df_filtered.columns and df_filtered['repName'].notna().any():
                         r_counts = df_filtered['repName'].value_counts().reset_index()
-                        r_counts.columns = ['repName','count']
-                        fig2 = px.bar(r_counts, x='repName', y='count', color='repName', title="Onboardings by Representative", color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ)
-                        fig2.update_layout(plotly_base_layout_settings, xaxis_title="Representative", yaxis_title="Number of Onboardings")
+                        r_counts.columns = ['repName', 'count']
+                        fig2 = px.bar(
+                            r_counts, x='repName', y='count', color='repName',
+                            title="Onboardings by Representative",
+                            color_discrete_sequence=ACTIVE_PLOTLY_QUALITATIVE_SEQ
+                        )
+                        fig2.update_layout(
+                            plotly_base_layout_settings,
+                            xaxis_title="Representative", yaxis_title="Number of Onboardings"
+                        )
                         st.plotly_chart(fig2, use_container_width=True)
                     else:
                         st.markdown("<div class='no-data-message'>👥 Rep data unavailable.</div>", unsafe_allow_html=True)
+
                 with colB:
+                    # Sentiment
                     if 'clientSentiment' in df_filtered.columns and df_filtered['clientSentiment'].notna().any():
                         sent = df_filtered['clientSentiment'].value_counts().reset_index()
-                        sent.columns = ['clientSentiment','count']
-                        cmap = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080') for s in sent['clientSentiment'].unique()}
-                        pie = px.pie(sent, names='clientSentiment', values='count', hole=0.4, title="Client Sentiment Breakdown", color='clientSentiment', color_discrete_map=cmap)
+                        sent.columns = ['clientSentiment', 'count']
+                        cmap = {s.lower(): ACTIVE_PLOTLY_SENTIMENT_MAP.get(s.lower(), '#808080')
+                                for s in sent['clientSentiment'].unique()}
+                        pie = px.pie(
+                            sent, names='clientSentiment', values='count', hole=0.4,
+                            title="Client Sentiment Breakdown",
+                            color='clientSentiment', color_discrete_map=cmap
+                        )
                         pie.update_layout(plotly_base_layout_settings)
                         pie.update_traces(textinfo='percent+label', textfont_size=12)
                         st.plotly_chart(pie, use_container_width=True)
                     else:
                         st.markdown("<div class='no-data-message'>😊 Sentiment data unavailable.</div>", unsafe_allow_html=True)
 
+                    # Key requirements (confirmed only)
                     df_conf = df_filtered[df_filtered['status'].astype(str).str.contains('confirmed', case=False, na=False)].copy()
                     key_cols = [c for c in ORDERED_CHART_REQUIREMENTS if c in df_conf.columns]
                     if not df_conf.empty and key_cols:
                         rows = []
                         for c in key_cols:
                             det = KEY_REQUIREMENT_DETAILS.get(c, {})
-                            label = det.get("chart_label", c.replace('_',' ').title())
+                            label = det.get("chart_label", c.replace('_', ' ').title())
                             raw = df_conf[c].astype(str).str.lower()
-                            val = raw.isin(['true','1','yes','x','completed','done'])
+                            val = raw.isin(['true', '1', 'yes', 'x', 'completed', 'done'])
                             total = df_conf[c].notna().sum()
                             trues = val.sum()
                             if total > 0:
-                                rows.append({"Key Requirement": label, "Completion (%)": (trues/total)*100})
+                                rows.append({"Key Requirement": label, "Completion (%)": (trues / total) * 100})
                         if rows:
                             dplot = pd.DataFrame(rows)
-                            bar = px.bar(dplot.sort_values("Completion (%)", ascending=True),
-                                         x="Completion (%)", y="Key Requirement", orientation='h',
-                                         title="Key Req Completion (Confirmed Only)",
-                                         color_discrete_sequence=[PRIMARY_COLOR_FOR_PLOTLY])
-                            bar.update_layout(plotly_base_layout_settings, yaxis={'categoryorder':'total ascending'}, xaxis_ticksuffix="%")
+                            bar = px.bar(
+                                dplot.sort_values("Completion (%)", ascending=True),
+                                x="Completion (%)", y="Key Requirement", orientation='h',
+                                title="Key Req Completion (Confirmed Only)",
+                                color_discrete_sequence=[PRIMARY_COLOR_FOR_PLOTLY]
+                            )
+                            bar.update_layout(
+                                plotly_base_layout_settings,
+                                yaxis={'categoryorder': 'total ascending'},
+                                xaxis_ticksuffix="%"
+                            )
                             st.plotly_chart(bar, use_container_width=True)
                         else:
                             st.markdown("<div class='no-data-message'>📊 No data for key req chart.</div>", unsafe_allow_html=True)
@@ -1063,8 +1168,10 @@ elif st.session_state.active_tab == TAB_DETAILED_ANALYSIS:
             st.markdown("<div class='no-data-message'>🖼️ No data matches filters for visuals. 🖼️</div>", unsafe_allow_html=True)
 
 elif st.session_state.active_tab == TAB_TRENDS:
-    st.header(TAB_TRENDS); st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
+    st.header(TAB_TRENDS)
+    st.markdown(f"*(Visuals based on {'Global Search (Pop-Up)' if global_search_active else 'Filtered Data'})*")
     if not df_filtered.empty:
+        # Trend over time
         if 'onboarding_date_only' in df_filtered.columns and df_filtered['onboarding_date_only'].notna().any():
             src = df_filtered.copy()
             src['onboarding_datetime'] = pd.to_datetime(src['onboarding_date_only'], errors='coerce')
@@ -1072,14 +1179,21 @@ elif st.session_state.active_tab == TAB_TRENDS:
             if not src.empty:
                 span = (src['onboarding_datetime'].max() - src['onboarding_datetime'].min()).days
                 freq = 'D'
-                if span > 90: freq = 'W-MON'
-                if span > 730: freq = 'ME'
+                if span > 90:
+                    freq = 'W-MON'
+                if span > 730:
+                    freq = 'ME'
                 trend = src.set_index('onboarding_datetime').resample(freq).size().reset_index(name='count')
                 if not trend.empty:
-                    line = px.line(trend, x='onboarding_datetime', y='count', markers=True,
-                                   title=f"Onboardings Over Time ({freq} Trend)",
-                                   color_discrete_sequence=[ACTIVE_PLOTLY_PRIMARY_SEQ[0]])
-                    line.update_layout(plotly_base_layout_settings, xaxis_title="Date", yaxis_title="Number of Onboardings")
+                    line = px.line(
+                        trend, x='onboarding_datetime', y='count', markers=True,
+                        title=f"Onboardings Over Time ({freq} Trend)",
+                        color_discrete_sequence=[ACTIVE_PLOTLY_PRIMARY_SEQ[0]]
+                    )
+                    line.update_layout(
+                        plotly_base_layout_settings,
+                        xaxis_title="Date", yaxis_title="Number of Onboardings"
+                    )
                     st.plotly_chart(line, use_container_width=True)
                 else:
                     st.markdown("<div class='no-data-message'>📈 Not enough data for trend plot.</div>", unsafe_allow_html=True)
@@ -1087,13 +1201,20 @@ elif st.session_state.active_tab == TAB_TRENDS:
                 st.markdown("<div class='no-data-message'>📅 No valid date data for trend.</div>", unsafe_allow_html=True)
         else:
             st.markdown("<div class='no-data-message'>🗓️ 'onboarding_date_only' missing for trend.</div>", unsafe_allow_html=True)
+
+        # Days to confirmation histogram
         if 'days_to_confirmation' in df_filtered.columns and df_filtered['days_to_confirmation'].notna().any():
             vals = pd.to_numeric(df_filtered['days_to_confirmation'], errors='coerce').dropna()
             if not vals.empty:
-                nb = max(10, min(30, int(len(vals)/5))) if len(vals) > 20 else (len(vals.unique()) or 10)
-                hist = px.histogram(vals, nbins=nb, title="Distribution of Days to Confirmation",
-                                    color_discrete_sequence=[ACTIVE_PLOTLY_PRIMARY_SEQ[1]])
-                hist.update_layout(plotly_base_layout_settings, xaxis_title="Days to Confirmation", yaxis_title="Frequency")
+                nb = max(10, min(30, int(len(vals) / 5))) if len(vals) > 20 else (len(vals.unique()) or 10)
+                hist = px.histogram(
+                    vals, nbins=nb, title="Distribution of Days to Confirmation",
+                    color_discrete_sequence=[ACTIVE_PLOTLY_PRIMARY_SEQ[1]]
+                )
+                hist.update_layout(
+                    plotly_base_layout_settings,
+                    xaxis_title="Days to Confirmation", yaxis_title="Frequency"
+                )
                 st.plotly_chart(hist, use_container_width=True)
             else:
                 st.markdown("<div class='no-data-message'>⏳ No 'Days to Confirmation' data.</div>", unsafe_allow_html=True)
@@ -1102,4 +1223,7 @@ elif st.session_state.active_tab == TAB_TRENDS:
     elif not df_original.empty:
         st.markdown("<div class='no-data-message'>📉 No data for Trends. Adjust filters. 📉</div>", unsafe_allow_html=True)
 
-st.markdown("---"); st.markdown("<div class='footer'>Dashboard v4.6.7</div>", unsafe_allow_html=True)
+# ---------------- Footer ----------------
+st.markdown("---")
+st.markdown("<div class='footer'>Dashboard v4.6.7</div>", unsafe_allow_html=True)
+

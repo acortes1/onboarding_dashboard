@@ -1,5 +1,7 @@
 # streamlit_app.py
 
+SHOW_SANITY_LOG = False
+
 # --- Imports ---
 import streamlit as st
 import pandas as pd
